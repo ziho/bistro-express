@@ -1,0 +1,54 @@
+:root {
+  /* Palette: cream paper, tomato/coral, butter yellow, warm dark ink. */
+  --cream: #fff8ee;
+  --cream-2: #fcefd9;
+  --paper: #fffdf8;
+  --tomato: #c9422b; /* white text on this passes WCAG AA */
+  --tomato-dark: #a83521;
+  --coral: #ff7a5c;
+  --coral-soft: #ffd9cc;
+  --butter: #ffd66b;
+  --butter-strong: #f2b632;
+  --butter-soft: #fff0bf;
+  --leaf: #5e9c6b;
+  --leaf-soft: #dcefdc;
+  --sky: #3d6fa8;
+  --sky-soft: #dde9f7;
+  --ink: #2b2420;
+  --ink-2: #5e534c;
+  --muted: #776a61;
+  --line: #eadfcf;
+  --danger: #b3321c;
+  --ok: #2f7a43;
+
+  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei',
+    'Segoe UI', system-ui, sans-serif;
+  --font-display: ui-rounded, 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', 'PingFang SC', 'Noto Sans SC',
+    'Microsoft YaHei', var(--font);
+
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 0 rgba(43, 36, 32, 0.06), 0 2px 6px rgba(43, 36, 32, 0.05);
+  --shadow: 0 2px 0 rgba(43, 36, 32, 0.06), 0 10px 24px -12px rgba(120, 60, 30, 0.22);
+  --shadow-lg: 0 24px 60px -20px rgba(80, 40, 20, 0.35);
+
+  --tap: 44px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur: 220ms;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}

@@ -1,0 +1,47 @@
+import { FilePen, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router';
+import { formatDateLabel } from '../../../shared/time';
+import { deleteDraft, draftHasContent, listDrafts } from '../lib/drafts';
+
+/** Unfinished drafts stored on this device only. */
+export function DraftList() {
+  const [drafts, setDrafts] = useState(() => listDrafts().filter(draftHasContent));
+  if (drafts.length === 0) return null;
+  return (
+    <section className="draft-list" aria-labelledby="drafts-title">
+      <h2 id="drafts-title" className="section-title">
+        <FilePen aria-hidden="true" />
+        本机草稿
+      </h2>
+      <p className="muted small">草稿只保存在这台设备上，提交后才会同步。</p>
+      <ul>
+        {drafts.map((d) => {
+          const count = d.mode === 'home' ? d.dishIds.length : d.candidateIds.length;
+          const href = d.planId ? `/plans/${d.planId}/edit` : `/plans/new?draft=${encodeURIComponent(d.key)}`;
+          return (
+            <li key={d.key} className="draft-item">
+              <Link to={href} className="draft-link">
+                <strong>{d.mealLabel || '未命名的一餐'}</strong>
+                <span className="muted small">
+                  {formatDateLabel(d.date)} · {d.planId ? '修改中' : '新计划'} · {count} 项
+                </span>
+              </Link>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`删除草稿 ${d.mealLabel || '未命名的一餐'}`}
+                onClick={() => {
+                  deleteDraft(d.key);
+                  setDrafts((prev) => prev.filter((x) => x.key !== d.key));
+                }}
+              >
+                <Trash2 aria-hidden="true" />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

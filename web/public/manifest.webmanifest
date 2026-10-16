@@ -1,0 +1,18 @@
+{
+  "name": "Bistro Express",
+  "short_name": "Bistro",
+  "description": "两个人的私人点餐小馆",
+  "lang": "zh-CN",
+  "id": "/bistro/",
+  "start_url": "/bistro/",
+  "scope": "/bistro/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FFF8EE",
+  "theme_color": "#FFF8EE",
+  "icons": [
+    { "src": "/bistro/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/bistro/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/bistro/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

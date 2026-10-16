@@ -1,0 +1,50 @@
+name: bistro-express
+
+services:
+  bistro-express:
+    build: .
+    image: bistro-express:latest
+    container_name: bistro-express
+    restart: unless-stopped
+    # Matches the owner of ./data (written to .env by `npm run setup`).
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      NODE_ENV: production
+      PUBLIC_PORT: "3000"
+      ADMIN_PORT: "3001"
+      HOST: 0.0.0.0
+      DATA_DIR: /app/data
+    # Public listener (3000) is only reachable inside 1panel-network (reverse proxy).
+    # Internal listener (3001) is published on loopback only, for the private admin entry point.
+    ports:
+      - "127.0.0.1:8787:3001"
+    volumes:
+      - ./data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - 1panel-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/bistro/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+networks:
+  1panel-network:
+    external: true
