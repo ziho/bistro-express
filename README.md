@@ -98,3 +98,5 @@ npm run build && node --env-file=.env dist/server/server/index.js
 - NPM 的现有 `share.zihoh.com` HTTPS 站点包含 `/data/nginx/custom/bistro-express.locations.conf`，内容来自 `ops/nginx-location.conf`。更新片段后先执行 `nginx -t`，通过后再平滑重载。
 - Tailscale 私有代理：`tailscale serve --bg --https=8788 http://127.0.0.1:8787`，保留其他 Serve 端口。
 - 正式数据在 `data/`，初始管理密码在 `secrets/admin-password.txt`；两者均排除出 Git 和镜像构建上下文。
+
+容器同时连接 NPM 的共享网络和项目专用的 bistro-express-outbound 网桥。默认外连走专用网桥，供 Google Maps 短链接解析及 Bark 推送使用；公开入口仍通过 NPM，后台端口仍只绑定本机回环。Compose 需要支持 gw_priority（2.33.1 或更新版本）。
