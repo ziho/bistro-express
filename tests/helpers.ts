@@ -7,7 +7,8 @@ import { createAppContext, type AppContext } from '../server/context.js';
 import { createHttpApp } from '../server/http/app.js';
 import type { HonoEnv } from '../server/http/types.js';
 import { entryDateSecret, hashScrypt } from '../server/lib/crypto.js';
-import { ProviderError, type NotificationProvider, type PushMessage } from '../server/notify/types.js';
+import type { FetchLike } from '../server/notify/bark.js';
+import { ProviderError, type NotificationProvider, type PushMessage, type Recipient } from '../server/notify/types.js';
 
 /** Fictional gate answer used only in tests. */
 export const TEST_ENTRY_DATE = '2001-02-03';
@@ -15,22 +16,47 @@ export const TEST_ADMIN_PASSWORD = 'test-admin-password-123';
 export const PUBLIC_ORIGIN = 'https://public.test';
 export const ADMIN_ORIGIN = 'https://admin.test:8788';
 
+export interface FakeDevice {
+  id: string;
+  label: string;
+  enabled: boolean;
+  /** Per-device failures before it starts accepting. */
+  failures: number;
+}
+
+/** In-memory provider. One device by default; `failuresRemaining` fails any send (legacy knob). */
 export class FakeProvider implements NotificationProvider {
   readonly name = 'fake';
   configured = true;
   failuresRemaining = 0;
+  devices: FakeDevice[] = [{ id: 'fake-device', label: '测试设备', enabled: true, failures: 0 }];
   readonly sent: PushMessage[] = [];
+  readonly sentTo: { device: string; message: PushMessage }[] = [];
 
-  isConfigured(): boolean {
-    return this.configured;
+  listRecipients(): Recipient[] {
+    if (!this.configured) return [];
+    return this.devices.filter((d) => d.enabled).map((d) => ({ id: d.id, label: d.label }));
   }
 
-  async send(message: PushMessage): Promise<void> {
+  unavailableReason(id: string): string | null {
+    if (!this.configured) return '推送已关闭';
+    const device = this.devices.find((d) => d.id === id);
+    if (!device) return '设备已删除';
+    return device.enabled ? null : '设备已停用';
+  }
+
+  async send(id: string, message: PushMessage): Promise<void> {
+    const device = this.devices.find((d) => d.id === id);
     if (this.failuresRemaining > 0) {
       this.failuresRemaining -= 1;
       throw new ProviderError('fake provider down');
     }
+    if (device && device.failures > 0) {
+      device.failures -= 1;
+      throw new ProviderError(`fake ${id} down`);
+    }
     this.sent.push(message);
+    this.sentTo.push({ device: id, message });
   }
 }
 
@@ -109,7 +135,23 @@ export interface TestEnv {
 
 let cachedHashes: { entry: string; admin: string } | null = null;
 
-export async function createTestEnv(start = '2030-01-15T12:00:00Z'): Promise<TestEnv> {
+/** Fails loudly if code under test tries to reach the network without an injected fake. */
+export const noNetwork: FetchLike = async (url) => {
+  throw new Error(`unexpected network request in test: ${url}`);
+};
+
+export interface TestEnvOptions {
+  /**
+   * Use the real Bark provider (DB-backed devices) with this fake fetch instead of FakeProvider.
+   * `env.provider` is still created but unused by the worker in that mode.
+   */
+  realBark?: boolean;
+  fetch?: FetchLike;
+  /** Runs before the app opens (and migrates) its database — used to seed an older schema. */
+  beforeOpen?: (dataDir: string) => void;
+}
+
+export async function createTestEnv(start = '2030-01-15T12:00:00Z', opts: TestEnvOptions = {}): Promise<TestEnv> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bistro-test-'));
   const webDir = path.join(dir, 'web');
   fs.mkdirSync(path.join(webDir, 'assets'), { recursive: true });
@@ -138,9 +180,18 @@ export async function createTestEnv(start = '2030-01-15T12:00:00Z'): Promise<Tes
     trustProxy: true,
     webDir,
   };
+  if (opts.beforeOpen) {
+    fs.mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
+    opts.beforeOpen(config.dataDir);
+  }
   let now = new Date(start);
   const provider = new FakeProvider();
-  const ctx = createAppContext(config, { clock: () => now, provider: () => provider, log: () => {} });
+  const ctx = createAppContext(config, {
+    clock: () => now,
+    provider: opts.realBark ? undefined : () => provider,
+    fetch: opts.fetch ?? noNetwork,
+    log: () => {},
+  });
   const publicApp = createHttpApp(ctx, 'public');
   const adminApp = createHttpApp(ctx, 'admin');
 

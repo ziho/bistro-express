@@ -1,9 +1,44 @@
+import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 
 interface Migration {
   version: number;
   name: string;
   sql: string;
+  /** Optional data step, run after `sql` inside the same transaction. */
+  up?: (db: Database.Database) => void;
+}
+
+/** Label given to the device translated from the old single-key Bark settings. */
+export const LEGACY_DEVICE_LABEL = '原设备（旧版单设备设置）';
+
+/**
+ * Moves a legacy `notify.bark.deviceKey` into `bark_devices` so nothing is silently lost, then
+ * removes it from the settings JSON so there is a single source of truth. Invalid JSON is left
+ * untouched (the app falls back to defaults for it, exactly as before).
+ */
+function migrateLegacyBarkKey(db: Database.Database): void {
+  const row = db.prepare(`SELECT value FROM settings WHERE key = 'notify.bark'`).get() as { value: string } | undefined;
+  if (!row) return;
+  let stored: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(row.value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+    stored = parsed as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const key = typeof stored.deviceKey === 'string' ? stored.deviceKey.trim() : '';
+  const ts = new Date().toISOString();
+  if (key) {
+    db.prepare(
+      `INSERT INTO bark_devices (id, label, device_key, enabled, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)`,
+    ).run(randomUUID(), LEGACY_DEVICE_LABEL, key, ts, ts);
+  }
+  if ('deviceKey' in stored) {
+    const rest = Object.fromEntries(Object.entries(stored).filter(([k]) => k !== 'deviceKey'));
+    db.prepare(`UPDATE settings SET value = ?, updated_at = ? WHERE key = 'notify.bark'`).run(JSON.stringify(rest), ts);
+  }
 }
 
 /**
@@ -128,9 +163,42 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: 'bark devices and per-recipient deliveries',
+    sql: `
+      CREATE TABLE bark_devices (
+        id TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        device_key TEXT NOT NULL UNIQUE,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      -- One row per recipient of a notification. target_id is not a foreign key on purpose:
+      -- deleting a device keeps its delivery history (with the label snapshot).
+      CREATE TABLE notification_deliveries (
+        notification_id TEXT NOT NULL REFERENCES notifications(id),
+        target_id TEXT NOT NULL,
+        target_label TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'skipped', 'superseded')),
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT,
+        last_error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        sent_at TEXT,
+        PRIMARY KEY (notification_id, target_id)
+      );
+      CREATE INDEX notification_deliveries_status ON notification_deliveries(status, next_attempt_at);
+    `,
+    up: migrateLegacyBarkKey,
+  },
 ];
 
-export function runMigrations(db: Database.Database): number[] {
+/** `upTo` exists for migration tests (to build an older schema); production always runs all. */
+export function runMigrations(db: Database.Database, upTo = Number.POSITIVE_INFINITY): number[] {
   db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -141,9 +209,10 @@ export function runMigrations(db: Database.Database): number[] {
   );
   const newlyApplied: number[] = [];
   for (const migration of MIGRATIONS) {
-    if (applied.has(migration.version)) continue;
+    if (applied.has(migration.version) || migration.version > upTo) continue;
     db.transaction(() => {
       db.exec(migration.sql);
+      migration.up?.(db);
       db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
         migration.version,
         migration.name,

@@ -32,4 +32,13 @@ export const LIMITS = {
 
 export const MEAL_SUGGESTIONS = ['早午餐', '午餐', '晚餐', '下午茶', '夜宵'] as const;
 
+/** Attempts per recipient device (each device retries independently). */
 export const NOTIFY_MAX_ATTEMPTS = 5;
+
+export const BARK_LIMITS = {
+  maxDevices: 10,
+  label: 30,
+} as const;
+
+/** Longest pasted text/link accepted by the Google Maps link importer. */
+export const MAP_LINK_INPUT_MAX = 2048;

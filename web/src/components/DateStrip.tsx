@@ -1,59 +1,73 @@
-import { CalendarSearch } from 'lucide-react';
-import { useEffect, useId, useRef } from 'react';
+import { CalendarDays } from 'lucide-react';
+import { useState } from 'react';
 import { addDays, weekdayShort } from '../../../shared/time';
+import { fullDateLabel, shortDateLabel } from '../lib/calendar';
+import { CalendarSheet } from './CalendarSheet';
 
 interface Props {
   today: string;
   value: string;
   onChange: (date: string) => void;
+  /** Every date with an active plan (not just the first few). */
   markedDates: Set<string>;
-  days?: number;
 }
 
-/** Horizontally scrolling day picker plus a native date field for any future date. */
-export function DateStrip({ today, value, onChange, markedDates, days = 21 }: Props) {
-  const listRef = useRef<HTMLDivElement>(null);
-  const pickerId = useId();
-  const dates = Array.from({ length: days }, (_, i) => addDays(today, i));
+const STRIP_DAYS = 7;
 
-  useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
-  }, [value]);
+/** The next 7 days as quick chips, plus "选择日期" opening our own month calendar for any future date. */
+export function DateStrip({ today, value, onChange, markedDates }: Props) {
+  const [open, setOpen] = useState(false);
+  const dates = Array.from({ length: STRIP_DAYS }, (_, i) => addDays(today, i));
+  const tomorrow = addDays(today, 1);
+  const inStrip = dates.includes(value);
 
   return (
     <div className="date-strip">
-      <div className="date-strip-list" ref={listRef} role="group" aria-label="选择日期">
+      <div className="date-strip-list" role="group" aria-label="最近 7 天">
         {dates.map((d) => {
-          const [, m, day] = d.split('-');
-          const label = d === today ? '今天' : d === addDays(today, 1) ? '明天' : weekdayShort(d);
+          const label = d === today ? '今天' : d === tomorrow ? '明天' : weekdayShort(d);
+          const marked = markedDates.has(d);
           return (
             <button
               key={d}
               type="button"
               className="date-chip"
               aria-pressed={d === value}
-              aria-label={`${Number(m)}月${Number(day)}日 ${label}${markedDates.has(d) ? '，已有安排' : ''}`}
+              aria-label={`${fullDateLabel(d)}${d === today || d === tomorrow ? `，${label}` : ''}${marked ? '，已有安排' : ''}`}
               onClick={() => onChange(d)}
             >
               <span className="date-chip-week">{label}</span>
-              <span className="date-chip-day">{Number(day)}</span>
-              <span className="date-chip-dot" data-on={markedDates.has(d) || undefined} />
+              <span className="date-chip-day">{Number(d.slice(8))}</span>
+              <span className="date-chip-dot" data-on={marked || undefined} />
             </button>
           );
         })}
       </div>
-      <label className="date-strip-picker" htmlFor={pickerId}>
-        <CalendarSearch aria-hidden="true" />
-        <span className="sr-only">选择其他日期</span>
-        <input
-          id={pickerId}
-          type="date"
-          min={today}
-          value={value}
-          onChange={(e) => e.target.value && onChange(e.target.value < today ? today : e.target.value)}
-        />
-      </label>
+      <button
+        type="button"
+        className="date-strip-more"
+        data-active={!inStrip || undefined}
+        aria-haspopup="dialog"
+        aria-label={inStrip ? '选择日期，打开月历' : `选择日期，当前已选 ${fullDateLabel(value)}，打开月历`}
+        onClick={() => setOpen(true)}
+      >
+        <CalendarDays aria-hidden="true" />
+        <span className="date-strip-more-text">
+          <span>选择日期</span>
+          {!inStrip && <strong>{shortDateLabel(value, today)}</strong>}
+        </span>
+      </button>
+      <CalendarSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        today={today}
+        value={value}
+        markedDates={markedDates}
+        onSelect={(d) => {
+          setOpen(false);
+          onChange(d);
+        }}
+      />
     </div>
   );
 }

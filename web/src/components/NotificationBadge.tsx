@@ -12,18 +12,36 @@ const LABELS: Record<NotificationStatus, { text: string; tone: string; Icon: typ
 
 export const notificationLabel = (status: NotificationStatus) => LABELS[status].text;
 
+/** Badge wording that accounts for multiple recipient devices. Never claims "all sent" on partial delivery. */
+export function describeNotification(n: NotificationSummary): { text: string; tone: string; Icon: typeof Check } {
+  const base = LABELS[n.status];
+  const d = n.delivery;
+  const partial = d && d.sent > 0 && d.sent < d.total ? `${d.sent}/${d.total} 台设备` : null;
+  if (n.status === 'pending' && n.attempts > 0) {
+    const text = partial ? `已送达 ${partial}，其余重试中` : `通知重试中（第 ${n.attempts + 1} 次）`;
+    return { ...base, text };
+  }
+  if ((n.status === 'failed' || n.status === 'unconfigured') && partial) {
+    return { text: `部分送达（${partial}）`, tone: 'wait', Icon: TriangleAlert };
+  }
+  if (n.status === 'unconfigured' && d && d.skipped > 0) {
+    return { ...base, text: '通知暂停（设备已停用）' };
+  }
+  if (n.status === 'sent' && d && d.total > 1) return { ...base, text: `已交给推送服务（${d.total} 台设备）` };
+  return base;
+}
+
 /**
  * Saved and notification states are shown separately. Wording deliberately never claims the
  * owner has read or accepted anything — "sent" only means the push provider accepted it.
  */
 export function NotificationBadge({ notification }: { notification: NotificationSummary | null }) {
   if (!notification) return null;
-  const { text, tone, Icon } = LABELS[notification.status];
-  const retrying = notification.status === 'pending' && notification.attempts > 0;
+  const { text, tone, Icon } = describeNotification(notification);
   return (
     <span className={`badge badge-${tone}`} title={notification.lastError ?? undefined}>
       <Icon aria-hidden="true" />
-      {retrying ? `通知重试中（第 ${notification.attempts + 1} 次）` : text}
+      {text}
     </span>
   );
 }

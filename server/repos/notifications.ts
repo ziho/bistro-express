@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { AdminNotification, NotificationStatus, NotificationSummary, PlanEvent } from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
+import { aggregateDeliveries, countDeliveries } from '../notify/aggregate.js';
+import type { Recipient } from '../notify/types.js';
+import { createDeliveryRepo, type Delivery } from './deliveries.js';
 
 interface NotificationRow {
   id: string;
@@ -30,7 +33,9 @@ export interface OutboxMessage {
   url: string;
 }
 
-const toSummary = (r: NotificationRow): NotificationSummary => ({
+export type RetryResult = 'ok' | 'missing' | 'not_retryable' | 'stale' | 'unconfigured' | 'nothing_to_retry';
+
+const toSummary = (r: NotificationRow, deliveries: Delivery[] | undefined): NotificationSummary => ({
   id: r.id,
   event: r.event,
   status: r.status,
@@ -38,13 +43,80 @@ const toSummary = (r: NotificationRow): NotificationSummary => ({
   lastError: r.last_error,
   planVersion: r.plan_version,
   updatedAt: r.updated_at,
+  delivery: deliveries?.length ? countDeliveries(deliveries) : null,
 });
 
+const UNAVAILABLE_TARGET = '设备已停用或删除，不再发送这条通知';
+
 export function createNotificationRepo(db: DB) {
+  const deliveries = createDeliveryRepo(db);
+  const getRow = (id: string) => db.prepare('SELECT * FROM notifications WHERE id = ?').get(id) as NotificationRow | undefined;
+
+  /** Recompute the notification's aggregate state from its recipients. */
+  function refresh(id: string, now: Date): void {
+    const agg = aggregateDeliveries(deliveries.forNotification(id));
+    db.prepare(
+      `UPDATE notifications SET status = ?, attempts = ?, next_attempt_at = ?, last_error = ?,
+       sent_at = COALESCE(?, sent_at), updated_at = ? WHERE id = ?`,
+    ).run(agg.status, agg.attempts, agg.nextAttemptAt, agg.lastError, agg.sentAt, now.toISOString(), id);
+  }
+
+  function isLatestForPlan(id: string, planId: string): boolean {
+    const row = db
+      .prepare('SELECT id FROM notifications WHERE plan_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1')
+      .get(planId) as { id: string } | undefined;
+    return row?.id === id;
+  }
+
+  /**
+   * Manual retry. Only targets that did not get the message are re-queued, so a device that
+   * already accepted it is never sent the same message again. If nobody received it yet, the
+   * target set is reconciled with the devices that are enabled now.
+   */
+  function retry(id: string, now: Date, recipients: Recipient[]): RetryResult {
+    const row = getRow(id);
+    if (!row) return 'missing';
+    if (row.status !== 'failed' && row.status !== 'unconfigured') return 'not_retryable';
+    if (!isLatestForPlan(id, row.plan_id)) return 'stale';
+    return db.transaction((): RetryResult => {
+      const targets = deliveries.forNotification(id).filter((d) => d.status !== 'superseded');
+      const available = new Map(recipients.map((r) => [r.id, r]));
+      const anySent = targets.some((d) => d.status === 'sent');
+      let queued = 0;
+      for (const target of targets) {
+        if (target.status !== 'failed' && target.status !== 'skipped') continue;
+        const recipient = available.get(target.targetId);
+        if (recipient) {
+          deliveries.reset(target, recipient.label, now);
+          queued += 1;
+        } else if (!anySent) {
+          // Not delivered to anyone and this device is gone/disabled: drop it from the target set.
+          deliveries.retire(target, UNAVAILABLE_TARGET, now);
+        }
+      }
+      if (!anySent) {
+        // Nobody has this message yet, so it can go to whichever devices are enabled now.
+        const known = new Set(targets.map((d) => d.targetId));
+        const fresh = recipients.filter((r) => !known.has(r.id));
+        deliveries.add(id, fresh, now);
+        queued += fresh.length;
+      }
+      if (queued === 0) return recipients.length === 0 ? 'unconfigured' : 'nothing_to_retry';
+      refresh(id, now);
+      return 'ok';
+    })();
+  }
+
   return {
+    deliveries,
+    refresh,
+    isLatestForPlan,
+    retry,
+
     /**
      * Must be called inside the same transaction as the plan write. Supersedes older unsent
-     * revisions for the plan so only the newest state is ever delivered.
+     * revisions for the plan so only the newest state is ever delivered. The recipient list is
+     * fixed now: devices added later never receive this event.
      */
     enqueue(
       rec: {
@@ -52,7 +124,7 @@ export function createNotificationRepo(db: DB) {
         planVersion: number;
         event: PlanEvent;
         provider: string;
-        configured: boolean;
+        recipients: Recipient[];
         title: string;
         body: string;
         url: string;
@@ -61,10 +133,16 @@ export function createNotificationRepo(db: DB) {
     ): string {
       const ts = now.toISOString();
       db.prepare(
+        `UPDATE notification_deliveries SET status = 'superseded', next_attempt_at = NULL, updated_at = ?
+         WHERE status = 'pending' AND notification_id IN
+           (SELECT id FROM notifications WHERE plan_id = ? AND status IN ('pending', 'unconfigured', 'failed'))`,
+      ).run(ts, rec.planId);
+      db.prepare(
         `UPDATE notifications SET status = 'superseded', next_attempt_at = NULL, updated_at = ?
          WHERE plan_id = ? AND status IN ('pending', 'unconfigured', 'failed')`,
       ).run(ts, rec.planId);
       const id = randomUUID();
+      const configured = rec.recipients.length > 0;
       db.prepare(
         `INSERT INTO notifications (id, plan_id, plan_version, event, provider, status, attempts, next_attempt_at,
          last_error, title, body, url, created_at, updated_at)
@@ -75,15 +153,16 @@ export function createNotificationRepo(db: DB) {
         rec.planVersion,
         rec.event,
         rec.provider,
-        rec.configured ? 'pending' : 'unconfigured',
-        rec.configured ? ts : null,
-        rec.configured ? null : '通知渠道未配置',
+        configured ? 'pending' : 'unconfigured',
+        configured ? ts : null,
+        configured ? null : '通知渠道未配置',
         rec.title,
         rec.body,
         rec.url,
         ts,
         ts,
       );
+      deliveries.add(id, rec.recipients, now);
       return id;
     },
 
@@ -96,7 +175,10 @@ export function createNotificationRepo(db: DB) {
            ORDER BY created_at ASC, rowid ASC`,
         )
         .all(...planIds) as NotificationRow[];
-      for (const row of rows) map.set(row.plan_id, toSummary(row));
+      const latest = new Map<string, NotificationRow>();
+      for (const row of rows) latest.set(row.plan_id, row);
+      const byId = deliveries.forNotifications([...latest.values()].map((r) => r.id));
+      for (const [planId, row] of latest) map.set(planId, toSummary(row, byId.get(row.id)));
       return map;
     },
 
@@ -123,21 +205,6 @@ export function createNotificationRepo(db: DB) {
       })();
     },
 
-    markSent(id: string, attempts: number, now: Date): void {
-      const ts = now.toISOString();
-      db.prepare(
-        `UPDATE notifications SET status = 'sent', attempts = ?, sent_at = ?, last_error = NULL,
-         next_attempt_at = NULL, updated_at = ? WHERE id = ?`,
-      ).run(attempts, ts, ts, id);
-    },
-
-    markRetry(id: string, attempts: number, nextAt: Date, error: string, now: Date): void {
-      db.prepare(
-        `UPDATE notifications SET status = 'pending', attempts = ?, next_attempt_at = ?, last_error = ?, updated_at = ?
-         WHERE id = ?`,
-      ).run(attempts, nextAt.toISOString(), error, now.toISOString(), id);
-    },
-
     markFinal(id: string, status: 'failed' | 'unconfigured' | 'superseded', attempts: number, error: string | null, now: Date): void {
       db.prepare(
         `UPDATE notifications SET status = ?, attempts = ?, next_attempt_at = NULL, last_error = ?, updated_at = ?
@@ -145,40 +212,34 @@ export function createNotificationRepo(db: DB) {
       ).run(status, attempts, error, now.toISOString(), id);
     },
 
-    isLatestForPlan(id: string, planId: string): boolean {
-      const row = db
-        .prepare('SELECT id FROM notifications WHERE plan_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1')
-        .get(planId) as { id: string } | undefined;
-      return row?.id === id;
+    /** A newer plan version exists: stop every recipient that has not received this one. */
+    supersede(id: string, now: Date): void {
+      db.transaction(() => {
+        deliveries.supersedeWaiting(id, now);
+        db.prepare(`UPDATE notifications SET status = 'superseded', next_attempt_at = NULL, updated_at = ? WHERE id = ?`).run(
+          now.toISOString(),
+          id,
+        );
+      })();
     },
 
-    /** Recover rows left in 'sending' by a crash/restart. May cause a duplicate push (documented). */
+    /** Recover rows left in 'sending' by a crash/restart. May re-send to the one in-flight device. */
     resetInFlight(now: Date): number {
-      return db
-        .prepare(`UPDATE notifications SET status = 'pending', next_attempt_at = ?, updated_at = ? WHERE status = 'sending'`)
-        .run(now.toISOString(), now.toISOString()).changes;
-    },
-
-    /** Manual retry of a final failure (or a message held because the channel was not configured). */
-    retry(id: string, now: Date): 'ok' | 'missing' | 'not_retryable' | 'stale' {
-      const row = db.prepare('SELECT * FROM notifications WHERE id = ?').get(id) as NotificationRow | undefined;
-      if (!row) return 'missing';
-      if (row.status !== 'failed' && row.status !== 'unconfigured') return 'not_retryable';
-      if (!this.isLatestForPlan(id, row.plan_id)) return 'stale';
       const ts = now.toISOString();
-      db.prepare(
-        `UPDATE notifications SET status = 'pending', attempts = 0, next_attempt_at = ?, last_error = NULL, updated_at = ?
-         WHERE id = ?`,
-      ).run(ts, ts, id);
-      return 'ok';
+      return db.transaction(() => {
+        deliveries.resetInFlight(now);
+        return db
+          .prepare(`UPDATE notifications SET status = 'pending', next_attempt_at = ?, updated_at = ? WHERE status = 'sending'`)
+          .run(ts, ts).changes;
+      })();
     },
 
-    retryAllHeld(now: Date): number {
+    retryAllHeld(now: Date, recipients: Recipient[]): number {
       const ids = (
         db.prepare(`SELECT id FROM notifications WHERE status IN ('failed', 'unconfigured')`).all() as { id: string }[]
       ).map((r) => r.id);
       let count = 0;
-      for (const id of ids) if (this.retry(id, now) === 'ok') count += 1;
+      for (const id of ids) if (retry(id, now, recipients) === 'ok') count += 1;
       return count;
     },
 
@@ -189,17 +250,22 @@ export function createNotificationRepo(db: DB) {
            ORDER BY n.created_at DESC, n.rowid DESC LIMIT ?`,
         )
         .all(limit) as (NotificationRow & { plan_short_id: string })[];
-      return rows.map((r) => ({
-        ...toSummary(r),
-        planId: r.plan_id,
-        planShortId: r.plan_short_id,
-        provider: r.provider,
-        title: r.title,
-        body: r.body,
-        nextAttemptAt: r.next_attempt_at,
-        sentAt: r.sent_at,
-        createdAt: r.created_at,
-      }));
+      const byId = deliveries.forNotifications(rows.map((r) => r.id));
+      return rows.map((r) => {
+        const targets = byId.get(r.id) ?? [];
+        return {
+          ...toSummary(r, targets),
+          planId: r.plan_id,
+          planShortId: r.plan_short_id,
+          provider: r.provider,
+          title: r.title,
+          body: r.body,
+          nextAttemptAt: r.next_attempt_at,
+          sentAt: r.sent_at,
+          createdAt: r.created_at,
+          deliveries: targets.map(({ notificationId: _ignored, ...d }) => d),
+        };
+      });
     },
   };
 }

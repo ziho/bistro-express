@@ -120,7 +120,7 @@ export function createPlanService(deps: PlanServiceDeps) {
         planVersion: plan.version,
         event,
         provider: deps.provider.name,
-        configured: deps.provider.isConfigured(),
+        recipients: deps.provider.listRecipients(),
         ...msg,
       },
       now,

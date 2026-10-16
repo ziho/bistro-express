@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { LIMITS } from '../../../shared/constants';
 import type { Dish, Restaurant } from '../../../shared/types';
 import { ImageUpload } from './ImageUpload';
+import { MapLinkImport } from './MapLinkImport';
 
 export type ItemKind = 'dish' | 'restaurant';
 export type CatalogItem = Dish | Restaurant;
@@ -92,6 +93,12 @@ export function ItemForm({ kind, item, busy, serverError, onSubmit }: Props) {
 
   return (
     <form id="item-form" className="item-form" onSubmit={submit} noValidate>
+      {kind === 'restaurant' && !item && (
+        <MapLinkImport
+          current={{ name: values.name ?? '', mapUrl: values.mapUrl ?? '' }}
+          onApply={(updates) => setValues((prev) => ({ ...prev, ...updates }))}
+        />
+      )}
       <ImageUpload assetId={imageAssetId} onChange={setImageAssetId} />
       {FIELDS[kind].map((f) => {
         const id = `item-${f.key}`;

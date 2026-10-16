@@ -1,13 +1,46 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, RefreshCw, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router';
-import type { AdminNotification } from '../../../shared/types';
+import type { AdminDelivery, AdminNotification, DeliveryStatus } from '../../../shared/types';
 import { api, ApiError } from '../api/client';
 import { Loading } from '../components/Loading';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useToast } from '../components/Toast';
 
 const EVENT_LABEL = { created: '新建', updated: '修改', cancelled: '取消' } as const;
+
+const DELIVERY_LABEL: Record<DeliveryStatus, { text: string; tone: string }> = {
+  pending: { text: '排队中', tone: 'wait' },
+  sending: { text: '发送中', tone: 'wait' },
+  sent: { text: '已交给推送服务', tone: 'ok' },
+  failed: { text: '发送失败', tone: 'bad' },
+  skipped: { text: '已跳过', tone: 'off' },
+  superseded: { text: '不再发送', tone: 'off' },
+};
+
+/** One row per recipient device: who got it, who is retrying, and why one did not. */
+function DeliveryList({ deliveries }: { deliveries: AdminDelivery[] }) {
+  return (
+    <ul className="delivery-list" aria-label="各设备送达情况">
+      {deliveries.map((d) => {
+        const label = DELIVERY_LABEL[d.status];
+        const retrying = d.status === 'pending' && d.attempts > 0;
+        return (
+          <li key={d.targetId} className="delivery-row">
+            <span className="delivery-name">{d.label}</span>
+            <span className={`badge badge-${label.tone}`}>{retrying ? '重试中' : label.text}</span>
+            <span className="muted small">
+              尝试 {d.attempts} 次
+              {d.sentAt && ` · ${new Date(d.sentAt).toLocaleString('zh-CN')}`}
+              {retrying && d.nextAttemptAt && ` · 下次 ${new Date(d.nextAttemptAt).toLocaleTimeString('zh-CN')}`}
+            </span>
+            {d.lastError && d.status !== 'sent' && <span className="field-error delivery-error">{d.lastError}</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 export function NotificationsAdmin() {
   const queryClient = useQueryClient();
@@ -45,7 +78,9 @@ export function NotificationsAdmin() {
       <div className="admin-page-head">
         <div>
           <h1>通知记录</h1>
-          <p className="muted small">「已交给推送服务」只表示推送服务接收了消息，不代表已读。超时重试可能导致重复推送，每条都带编号和版本号。</p>
+          <p className="muted small">
+            「已交给推送服务」只表示推送服务接收了消息，不代表已读。每台设备单独重试，已送达的设备不会重复推送；服务重启时正在发送的那一台可能收到重复消息，每条都带编号和版本号。
+          </p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn btn-ghost" onClick={() => void refresh()}>
@@ -79,10 +114,14 @@ export function NotificationsAdmin() {
                 {n.sentAt && ` · 送出于 ${new Date(n.sentAt).toLocaleString('zh-CN')}`}
                 {n.nextAttemptAt && n.status === 'pending' && ` · 下次尝试 ${new Date(n.nextAttemptAt).toLocaleTimeString('zh-CN')}`}
               </p>
-              {n.lastError && <p className="field-error">{n.lastError}</p>}
+              {n.deliveries.length > 0 ? (
+                <DeliveryList deliveries={n.deliveries} />
+              ) : (
+                n.lastError && <p className="field-error">{n.lastError}</p>
+              )}
               {(n.status === 'failed' || n.status === 'unconfigured') && (
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => retry.mutate(n.id)} disabled={retry.isPending}>
-                  <RotateCcw aria-hidden="true" /> 重试
+                  <RotateCcw aria-hidden="true" /> {n.delivery && n.delivery.sent > 0 ? '重试未送达的设备' : '重试'}
                 </button>
               )}
             </li>

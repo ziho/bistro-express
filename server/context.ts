@@ -1,10 +1,11 @@
 import path from 'node:path';
 import type { AppConfig } from './config.js';
 import { openDatabase, type DB } from './db/connection.js';
-import { createAuthLimiter, type AuthLimiter } from './lib/rateLimit.js';
-import { createBarkProvider } from './notify/bark.js';
+import { createAuthLimiter, RateLimiter, type AuthLimiter } from './lib/rateLimit.js';
+import { createBarkProvider, type FetchLike } from './notify/bark.js';
 import type { NotificationProvider } from './notify/types.js';
 import { NotificationWorker } from './notify/worker.js';
+import { createBarkDeviceRepo } from './repos/barkDevices.js';
 import { createCatalogRepo } from './repos/catalog.js';
 import { createIdempotencyRepo, createMediaRepo, createSettingsRepo } from './repos/misc.js';
 import { createNotificationRepo } from './repos/notifications.js';
@@ -16,12 +17,18 @@ export interface ContextOptions {
   clock?: () => Date;
   /** Override the notification provider (tests use a fake; never real pushes). */
   provider?: (settings: ReturnType<typeof createSettingsRepo>) => NotificationProvider;
+  /**
+   * Outbound HTTP used by Bark pushes, admin test pushes and Google Maps link expansion.
+   * Tests inject a fake so nothing ever leaves the machine.
+   */
+  fetch?: FetchLike;
   log?: (msg: string) => void;
 }
 
 export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
   const clock = opts.clock ?? (() => new Date());
   const log = opts.log ?? ((msg: string) => console.log(`[bistro] ${msg}`));
+  const outboundFetch: FetchLike = opts.fetch ?? ((input, init) => fetch(input, init));
   const db: DB = openDatabase(config.dataDir);
   const repos = {
     sessions: createSessionRepo(db),
@@ -31,8 +38,11 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     media: createMediaRepo(db),
     settings: createSettingsRepo(db),
     idempotency: createIdempotencyRepo(db),
+    barkDevices: createBarkDeviceRepo(db),
   };
-  const provider = opts.provider ? opts.provider(repos.settings) : createBarkProvider(repos.settings);
+  const provider = opts.provider
+    ? opts.provider(repos.settings)
+    : createBarkProvider(repos.settings, repos.barkDevices, outboundFetch);
   const worker = new NotificationWorker({ repo: repos.notifications, provider, clock, log });
   const planService = createPlanService({
     db,
@@ -46,7 +56,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     onCommitted: () => worker.kick(),
   });
   const nowMs = () => clock().getTime();
-  const limiters: { gate: AuthLimiter; admin: AuthLimiter } = {
+  const limiters: { gate: AuthLimiter; admin: AuthLimiter; mapLink: RateLimiter } = {
     gate: createAuthLimiter({
       perClient: 8,
       perClientWindowMs: 15 * 60_000,
@@ -61,6 +71,8 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
       globalWindowMs: 60 * 60_000,
       now: nowMs,
     }),
+    /** Outbound link expansion (admin-only) — keeps accidental loops from hammering Google. */
+    mapLink: new RateLimiter(30, 10 * 60_000, nowMs),
   };
   return {
     config,
@@ -72,6 +84,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     worker,
     planService,
     limiters,
+    outboundFetch,
     mediaDir: path.join(config.dataDir, 'media'),
   };
 }

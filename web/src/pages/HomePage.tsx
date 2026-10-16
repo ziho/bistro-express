@@ -2,29 +2,18 @@ import { CalendarPlus, Sparkles } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { addDays, formatDateLabel, isValidDateString } from '../../../shared/time';
-import type { Plan } from '../../../shared/types';
 import { useCatalog, usePlans } from '../api/queries';
 import { DateStrip } from '../components/DateStrip';
 import { DraftList } from '../components/DraftList';
 import { Cloche, TableForTwo } from '../components/Illustrations';
 import { Loading } from '../components/Loading';
 import { PlanCard } from '../components/PlanCard';
+import { groupByViewerDate, upcomingActiveDays } from '../lib/agenda';
+import { shortDateLabel } from '../lib/calendar';
 import { useToday } from '../lib/hooks';
 import { planDisplay } from '../lib/planView';
 
-function groupByViewerDate(plans: Plan[]): Map<string, Plan[]> {
-  const map = new Map<string, Plan[]>();
-  const sorted = [...plans].sort((a, b) => {
-    const va = planDisplay(a);
-    const vb = planDisplay(b);
-    return `${va.date} ${va.time ?? '99'}`.localeCompare(`${vb.date} ${vb.time ?? '99'}`);
-  });
-  for (const plan of sorted) {
-    const date = planDisplay(plan).date;
-    map.set(date, [...(map.get(date) ?? []), plan]);
-  }
-  return map;
-}
+const AGENDA_DAYS = 10;
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -43,14 +32,10 @@ export function HomePage() {
   const catalog = useCatalog();
 
   const byDate = useMemo(() => groupByViewerDate(plans.data ?? []), [plans.data]);
-  const upcoming = useMemo(
-    () =>
-      [...byDate.entries()]
-        .filter(([date, list]) => date >= today && list.some((p) => p.status === 'active'))
-        .slice(0, 10),
-    [byDate, today],
-  );
-  const marked = useMemo(() => new Set(upcoming.map(([d]) => d)), [upcoming]);
+  const activeDays = useMemo(() => upcomingActiveDays(byDate, today), [byDate, today]);
+  // The calendar marks every active date; only the sidebar agenda is shortened.
+  const marked = useMemo(() => new Set(activeDays.map(([d]) => d)), [activeDays]);
+  const upcoming = activeDays.slice(0, AGENDA_DAYS);
   const dayPlans = byDate.get(selected) ?? [];
   const catalogEmpty = catalog.data && catalog.data.dishes.length === 0 && catalog.data.restaurants.length === 0;
 
@@ -83,7 +68,7 @@ export function HomePage() {
         <section className="day-panel" aria-labelledby="day-title">
           <DateStrip today={today} value={selected} onChange={select} markedDates={marked} />
           <div className="day-head">
-            <h2 id="day-title">{selected === today ? `今天 · ${formatDateLabel(selected)}` : formatDateLabel(selected)}</h2>
+            <h2 id="day-title">{selected === today ? `今天 · ${formatDateLabel(selected)}` : shortDateLabel(selected, today)}</h2>
             <Link className="btn btn-primary" to={`/plans/new?date=${selected}`}>
               <CalendarPlus aria-hidden="true" />
               加一餐
@@ -127,7 +112,7 @@ export function HomePage() {
                     aria-current={date === selected ? 'date' : undefined}
                     onClick={() => select(date)}
                   >
-                    <span className="agenda-date-label">{date === today ? '今天' : formatDateLabel(date)}</span>
+                    <span className="agenda-date-label">{date === today ? '今天' : shortDateLabel(date, today)}</span>
                     <span className="agenda-meals">
                       {list
                         .filter((p) => p.status === 'active')

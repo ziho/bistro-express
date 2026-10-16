@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LIMITS } from '../../shared/constants.js';
+import { BARK_LIMITS, LIMITS, MAP_LINK_INPUT_MAX } from '../../shared/constants.js';
 import { badRequest } from './errors.js';
 
 export const ASSET_ID_RE = /^[a-f0-9]{32}$/;
@@ -93,10 +93,32 @@ export const barkSettingsSchema = z.object({
     .trim()
     .max(LIMITS.url)
     .refine(isHttpUrl, 'Bark 服务器地址必须以 http:// 或 https:// 开头'),
-  /** Omit or send null to keep the stored key; empty string clears it. */
+  /**
+   * Legacy single-key field, kept for older clients: a non-empty key is added as a device
+   * (no-op if already present). Omitted / null / empty never removes devices — use the device API.
+   */
   deviceKey: z
-    .union([z.string().trim().max(200), z.null()])
+    .union([z.string().trim().max(300), z.null()])
     .optional(),
+});
+
+const deviceLabel = text(BARK_LIMITS.label).min(1, '请填写设备名称');
+
+export const barkDeviceCreateSchema = z.object({
+  label: deviceLabel,
+  deviceKey: z.string().trim().min(1, '请填写设备 Key').max(300, '设备 Key 太长'),
+  enabled: z.boolean().default(true),
+});
+
+export const barkDeviceUpdateSchema = z.object({
+  label: deviceLabel.optional(),
+  /** Omit or null keeps the stored key. */
+  deviceKey: z.union([z.string().trim().min(1, '设备 Key 不能为空').max(300, '设备 Key 太长'), z.null()]).optional(),
+  enabled: z.boolean().optional(),
+});
+
+export const mapLinkSchema = z.object({
+  url: z.string().trim().min(1, '请先粘贴 Google 地图链接').max(MAP_LINK_INPUT_MAX, '链接太长了'),
 });
 
 export function parseWith<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {

@@ -2,26 +2,13 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { LIMITS } from '../../../shared/constants.js';
 import { badRequest, conflict, HttpError, notFound } from '../../lib/errors.js';
-import {
-  barkSettingsSchema,
-  dishInputSchema,
-  parseWith,
-  restaurantInputSchema,
-  UUID_RE,
-} from '../../lib/validation.js';
+import { dishInputSchema, parseWith, restaurantInputSchema, UUID_RE } from '../../lib/validation.js';
 import { processUpload } from '../../media/process.js';
-import {
-  barkSettingsView,
-  isBarkConfigured,
-  readBarkSettings,
-  sendBark,
-  writeBarkSettings,
-} from '../../notify/bark.js';
-import { PUSH_GROUP } from '../../notify/message.js';
-import { ProviderError } from '../../notify/types.js';
 import { ok, readJson, requireAdmin } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
 import { adminAuthRoutes } from './auth.js';
+import { barkSettingsRoutes } from './barkSettings.js';
+import { mapLinkRoutes } from './mapLink.js';
 
 function itemId(c: Ctx): string {
   const id = c.req.param('id') ?? '';
@@ -154,7 +141,7 @@ function notificationRoutes() {
 
   r.post('/notifications/retry-held', (c) => {
     const app = c.get('app');
-    const count = app.repos.notifications.retryAllHeld(app.clock());
+    const count = app.repos.notifications.retryAllHeld(app.clock(), app.provider.listRecipients());
     if (count) app.worker.kick();
     return ok(c, { requeued: count });
   });
@@ -163,41 +150,16 @@ function notificationRoutes() {
     const app = c.get('app');
     const id = c.req.param('id');
     if (!UUID_RE.test(id)) throw notFound();
-    const result = app.repos.notifications.retry(id, app.clock());
+    const result = app.repos.notifications.retry(id, app.clock(), app.provider.listRecipients());
     if (result === 'missing') throw notFound('通知记录不存在');
     if (result === 'stale') throw conflict('stale', '这条通知已被更新的版本取代，无需重试');
-    if (result === 'not_retryable') throw conflict('not_retryable', '只有发送失败或未配置的通知可以重试');
+    if (result === 'not_retryable') throw conflict('not_retryable', '只有发送失败或未送达的通知可以重试');
+    if (result === 'unconfigured') throw conflict('unconfigured', '推送还未启用，或没有启用的设备');
+    if (result === 'nothing_to_retry') {
+      throw conflict('nothing_to_retry', '没有可重试的设备：未送达的设备已停用或删除，已送达的设备不会重复推送');
+    }
     app.worker.kick();
     return ok(c, { requeued: true });
-  });
-
-  r.get('/settings/bark', (c) => ok(c, barkSettingsView(readBarkSettings(c.get('app').repos.settings))));
-
-  r.put('/settings/bark', async (c) => {
-    const app = c.get('app');
-    const input = parseWith(barkSettingsSchema, (await readJson(c)).value);
-    const current = readBarkSettings(app.repos.settings);
-    const deviceKey = input.deviceKey === undefined || input.deviceKey === null ? current.deviceKey : input.deviceKey;
-    const next = { enabled: input.enabled, serverUrl: input.serverUrl.replace(/\/+$/, ''), deviceKey };
-    writeBarkSettings(app.repos.settings, next, app.clock());
-    return ok(c, barkSettingsView(next));
-  });
-
-  r.post('/settings/bark/test', async (c) => {
-    const app = c.get('app');
-    const settings = readBarkSettings(app.repos.settings);
-    if (!isBarkConfigured(settings)) throw conflict('unconfigured', 'Bark 还未配置或未启用');
-    try {
-      await sendBark(settings, {
-        title: 'Bistro Express 测试推送',
-        body: '如果你看到这条消息，说明推送渠道已接通。',
-        url: app.config.publicBaseUrl,
-        group: PUSH_GROUP,
-      });
-    } catch (err) {
-      throw new HttpError(502, 'provider_error', err instanceof ProviderError ? err.message : '发送失败');
-    }
-    return ok(c, { accepted: true });
   });
 
   return r;
@@ -214,5 +176,7 @@ export function adminRoutes() {
   r.route('/', catalogRoutes());
   r.route('/', mediaRoutes());
   r.route('/', notificationRoutes());
+  r.route('/', barkSettingsRoutes());
+  r.route('/', mapLinkRoutes());
   return r;
 }

@@ -612,29 +612,30 @@
 
 /* ---------- Date strip ---------- */
 .date-strip {
-  display: flex;
+  display: grid;
   gap: var(--space-2);
-  align-items: stretch;
   min-width: 0;
 }
+@media (min-width: 600px) {
+  .date-strip {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+}
+/* Seven days always fit without scrolling, from small phones up. */
 .date-strip-list {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  padding: 4px 2px 8px;
-  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px 2px 6px;
   min-width: 0;
-  scrollbar-width: thin;
 }
 .date-chip {
-  flex: none;
-  scroll-snap-align: center;
   display: grid;
   justify-items: center;
   gap: 2px;
-  width: 58px;
-  min-height: 72px;
+  min-width: 0;
+  min-height: 68px;
   padding: 6px 0;
   border-radius: var(--radius);
   border: 2px solid var(--line);
@@ -671,35 +672,173 @@
 .date-chip[aria-pressed='true'] .date-chip-dot[data-on] {
   background: var(--butter);
 }
-.date-strip-picker {
-  position: relative;
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 58px;
-  min-height: 72px;
-  margin: 4px 0 8px;
+.date-strip-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 6px var(--space-4);
   border-radius: var(--radius);
-  border: 2px dashed var(--ink-2);
+  border: 2px solid var(--ink-2);
   background: var(--butter-soft);
-  cursor: pointer;
+  color: var(--ink);
+  font-weight: 700;
+  transition: transform var(--dur-fast) var(--ease), background var(--dur-fast);
 }
-.date-strip-picker svg {
-  width: 24px;
-  height: 24px;
+@media (min-width: 600px) {
+  .date-strip-more {
+    margin: 4px 0 6px;
+    min-width: 116px;
+  }
 }
-.date-strip-picker input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
+.date-strip-more:active {
+  transform: scale(0.96);
+}
+.date-strip-more svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.date-strip-more-text {
+  display: grid;
+  text-align: left;
+  line-height: 1.25;
+}
+.date-strip-more-text strong {
+  font-family: var(--font-display);
+}
+/* A selected day beyond the strip is shown (and highlighted) on the button itself. */
+.date-strip-more[data-active] {
+  background: var(--tomato);
+  border-color: var(--ink);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--ink);
+}
+
+/* ---------- Month calendar (in a Sheet) ---------- */
+.calendar {
+  display: grid;
+  gap: var(--space-3);
+}
+.cal-head {
+  display: grid;
+  grid-template-columns: var(--tap) 1fr var(--tap);
+  align-items: center;
+}
+.cal-title {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+.cal-jump {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.cal-select {
+  min-height: var(--tap);
+}
+.cal-grid {
   width: 100%;
-  height: 100%;
-  font-size: 16px;
-  cursor: pointer;
+  border-collapse: separate;
+  border-spacing: 4px;
+  table-layout: fixed;
 }
-.date-strip-picker:focus-within {
+.cal-grid th {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 2px;
+}
+.cal-grid td {
+  padding: 0;
+  text-align: center;
+}
+.cal-day {
+  position: relative;
+  width: 100%;
+  min-height: var(--tap);
+  aspect-ratio: 1;
+  max-height: 56px;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background: var(--paper);
+  font-weight: 700;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.cal-day:hover:not(:disabled) {
+  background: var(--cream-2);
+}
+.cal-day:focus-visible {
   outline: 3px solid var(--sky);
-  outline-offset: 2px;
+  outline-offset: 1px;
+  z-index: 1;
+}
+.cal-day:disabled {
+  color: #b9aea4;
+  background: transparent;
+  cursor: not-allowed;
+}
+.cal-day[aria-current='date'] {
+  border-color: var(--tomato);
+}
+.cal-day[data-marked]::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--butter-strong);
+}
+.cal-day[aria-pressed='true'] {
+  background: var(--tomato);
+  border-color: var(--ink);
+  color: #fff;
+}
+.cal-day[aria-pressed='true'][data-marked]::after {
+  background: var(--butter);
+}
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.cal-legend-dot,
+.cal-legend-today {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.cal-legend-dot {
+  background: var(--butter-strong);
+}
+.cal-legend-today {
+  margin-left: var(--space-2);
+  border: 2px solid var(--tomato);
+  border-radius: 3px;
+}
+.cal-entry {
+  display: grid;
+  gap: 4px;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--line);
+}
+.cal-entry-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.cal-entry-row .input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ---------- Notices, empty states, loading ---------- */
