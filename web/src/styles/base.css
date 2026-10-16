@@ -118,6 +118,9 @@ code {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.wrap-anywhere {
+  overflow-wrap: anywhere;
+}
 .inline-icon {
   width: 1em;
   height: 1em;

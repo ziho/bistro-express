@@ -1,4 +1,5 @@
 import type { DishSnapshot, Plan, PlanMode, PlanStatus, RestaurantSnapshot } from '../../shared/types.js';
+import { splitTags } from '../../shared/restaurant.js';
 import type { DB } from '../db/connection.js';
 
 interface PlanRow {
@@ -47,6 +48,38 @@ function parseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
+const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
+const strOrNull = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+
+/**
+ * Reads a stored restaurant snapshot of any age into the current shape without touching the
+ * stored JSON. Snapshots saved before migration 3 have a `cuisine` and no tags/review/link:
+ * their cuisine is shown as the tags, review and link stay empty.
+ */
+function toRestaurantSnapshot(raw: unknown): RestaurantSnapshot | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as Record<string, unknown>;
+  const tags = Array.isArray(s.tags)
+    ? s.tags.filter((t): t is string => typeof t === 'string')
+    : splitTags(str(s.cuisine));
+  return {
+    id: str(s.id),
+    name: str(s.name),
+    imageAssetId: strOrNull(s.imageAssetId),
+    review: str(s.review),
+    tags,
+    budgetText: str(s.budgetText),
+    address: str(s.address),
+    mapUrl: strOrNull(s.mapUrl),
+    linkUrl: strOrNull(s.linkUrl),
+    linkLabel: str(s.linkLabel),
+  };
+}
+
+function toRestaurantSnapshots(raw: unknown): RestaurantSnapshot[] {
+  return Array.isArray(raw) ? raw.map(toRestaurantSnapshot).filter((s): s is RestaurantSnapshot => s !== null) : [];
+}
+
 const toPlan = (r: PlanRow): StoredPlan => ({
   id: r.id,
   shortId: r.short_id,
@@ -60,8 +93,8 @@ const toPlan = (r: PlanRow): StoredPlan => ({
   mode: r.mode,
   note: r.note,
   dishes: parseJson<DishSnapshot[]>(r.dishes_json, []),
-  candidates: parseJson<RestaurantSnapshot[]>(r.candidates_json, []),
-  selectedRestaurant: parseJson<RestaurantSnapshot | null>(r.selected_json, null),
+  candidates: toRestaurantSnapshots(parseJson<unknown>(r.candidates_json, [])),
+  selectedRestaurant: toRestaurantSnapshot(parseJson<unknown>(r.selected_json, null)),
   sourcePlanId: r.source_plan_id,
   createdAt: r.created_at,
   updatedAt: r.updated_at,

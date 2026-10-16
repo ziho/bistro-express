@@ -6,20 +6,43 @@ import { keys } from '../api/queries';
 import { Cloche } from '../components/Illustrations';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
+import { TagList } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
+import { restaurantSearchFields } from '../lib/restaurants';
 import { ItemForm, type CatalogItem, type ItemKind } from './ItemForm';
 
 const TEXT = {
-  dish: { path: '/admin/dishes', noun: '菜品', unit: '道', add: '添加菜品', group: (i: CatalogItem) => ('category' in i ? i.category : '') },
+  dish: {
+    path: '/admin/dishes',
+    noun: '菜品',
+    unit: '道',
+    add: '添加菜品',
+    searchHint: '搜索菜品名、分类或标签',
+    searchFields: (i: CatalogItem) => [i.name, 'category' in i ? i.category : '', ...i.tags],
+  },
   restaurant: {
     path: '/admin/restaurants',
     noun: '餐厅',
     unit: '家',
     add: '添加餐厅',
-    group: (i: CatalogItem) => ('cuisine' in i ? i.cuisine : ''),
+    searchHint: '搜索店名、点评、标签、地址或备注',
+    searchFields: (i: CatalogItem) => ('review' in i ? restaurantSearchFields(i) : [i.name, ...i.tags]),
   },
 };
+
+function ItemSummary({ item }: { item: CatalogItem }) {
+  if (!('review' in item)) {
+    const line = [item.category, ...item.tags.map((x) => `#${x}`)].filter(Boolean).join(' · ');
+    return <span className="muted small">{line || '未分类'}</span>;
+  }
+  return (
+    <>
+      {item.review && <span className="small admin-item-review">{item.review}</span>}
+      {item.tags.length > 0 ? <TagList tags={item.tags} className="tag-list-compact" /> : <span className="muted small">还没有分类标签</span>}
+    </>
+  );
+}
 
 export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const t = TEXT[kind];
@@ -75,7 +98,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const visible = items.filter(
     (i) =>
       (!tag || i.tags.includes(tag)) &&
-      (!needle || [i.name, t.group(i), ...i.tags].some((f) => f.toLowerCase().includes(needle))),
+      (!needle || t.searchFields(i).some((f) => f.toLowerCase().includes(needle))),
   );
   const activeCount = items.filter((i) => i.active).length;
 
@@ -108,7 +131,11 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
           <h2>{kind === 'dish' ? '还没有菜品，先上几道拿手菜吧' : '还没有餐厅，把想去的店收藏进来吧'}</h2>
           <ol className="onboarding-steps">
             <li>点「{t.add}」，填写名字（必填），可以拍照上传。</li>
-            <li>用分类和标签方便搜索，例如「快手」「下饭」「约会」。</li>
+            <li>
+              {kind === 'dish'
+                ? '用分类和标签方便搜索，例如「快手」「下饭」「约会」。'
+                : '写一句话点评，再加几个分类标签（例如「川菜」「火锅」「约会」），点餐时可以按标签筛选。'}
+            </li>
             <li>暂时不想被选到的，可以随时「下架」，历史记录不受影响。</li>
           </ol>
           <button type="button" className="btn btn-primary" onClick={() => openEditor('new')}>
@@ -124,7 +151,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
               <label htmlFor="admin-search" className="sr-only">
                 搜索{t.noun}
               </label>
-              <input id="admin-search" type="search" className="input" placeholder={`搜索${t.noun}名、分类或标签`} value={q} onChange={(e) => setQ(e.target.value)} />
+              <input id="admin-search" type="search" className="input" placeholder={t.searchHint} value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             {allTags.length > 0 && (
               <div className="chip-scroller" role="group" aria-label="按标签筛选">
@@ -140,34 +167,38 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             )}
           </div>
           <ul className="admin-list">
-            {visible.map((item) => (
-              <li key={item.id} className={`admin-item card ${item.active ? '' : 'is-inactive'}`}>
-                <ItemImage assetId={item.imageAssetId} name={item.name} kind={kind} className="admin-thumb" />
-                <div className="admin-item-text">
-                  <strong>{item.name}</strong>
-                  <span className="muted small">{[t.group(item), ...item.tags.map((x) => `#${x}`)].filter(Boolean).join(' · ') || '未分类'}</span>
-                </div>
-                <label className="switch-row compact">
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={item.active}
-                    onChange={() => toggle.mutate(item)}
-                    aria-label={`${item.name} ${item.active ? '上架中' : '已下架'}`}
-                  />
-                  <span className="switch" aria-hidden="true" />
-                  <span className="small">{item.active ? '上架' : '下架'}</span>
-                </label>
-                <div className="admin-item-actions">
-                  <button type="button" className="icon-btn" aria-label={`编辑 ${item.name}`} onClick={() => openEditor(item)}>
-                    <Pencil aria-hidden="true" />
-                  </button>
-                  <button type="button" className="icon-btn" aria-label={`删除 ${item.name}`} onClick={() => setDeleting(item)}>
-                    <Trash2 aria-hidden="true" />
-                  </button>
-                </div>
-              </li>
-            ))}
+            {visible.map((item) => {
+              // Restaurants are text-first: no placeholder thumbnail when there is no real photo.
+              const showThumb = kind === 'dish' || item.imageAssetId !== null;
+              return (
+                <li key={item.id} className={`admin-item card ${item.active ? '' : 'is-inactive'} ${showThumb ? '' : 'no-thumb'}`}>
+                  {showThumb && <ItemImage assetId={item.imageAssetId} name={item.name} kind={kind} className="admin-thumb" />}
+                  <div className="admin-item-text">
+                    <strong>{item.name}</strong>
+                    <ItemSummary item={item} />
+                  </div>
+                  <label className="switch-row compact">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={item.active}
+                      onChange={() => toggle.mutate(item)}
+                      aria-label={`${item.name} ${item.active ? '上架中' : '已下架'}`}
+                    />
+                    <span className="switch" aria-hidden="true" />
+                    <span className="small">{item.active ? '上架' : '下架'}</span>
+                  </label>
+                  <div className="admin-item-actions">
+                    <button type="button" className="icon-btn" aria-label={`编辑 ${item.name}`} onClick={() => openEditor(item)}>
+                      <Pencil aria-hidden="true" />
+                    </button>
+                    <button type="button" className="icon-btn" aria-label={`删除 ${item.name}`} onClick={() => setDeleting(item)}>
+                      <Trash2 aria-hidden="true" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
           {visible.length === 0 && <p className="muted">没有符合条件的{t.noun}。</p>}
         </>
@@ -195,6 +226,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             item={editing === 'new' ? null : editing}
             busy={save.isPending}
             serverError={formError}
+            tagSuggestions={allTags}
             onSubmit={(payload) => {
               setFormError(null);
               save.mutate(payload);

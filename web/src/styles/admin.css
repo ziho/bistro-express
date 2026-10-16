@@ -90,6 +90,20 @@
   column-gap: var(--space-3);
   padding: var(--space-3);
 }
+/* Restaurants without a photo: no placeholder column. */
+.admin-item.no-thumb {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'text actions'
+    'toggle actions';
+}
+.admin-item-review {
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.tag-list-compact {
+  margin-top: 4px;
+}
 .admin-item.is-inactive {
   background: var(--cream);
   border-style: dashed;

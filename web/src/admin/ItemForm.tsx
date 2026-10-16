@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from 'react';
-import { LIMITS } from '../../../shared/constants';
+import { Fragment, useState, type FormEvent } from 'react';
+import { DEFAULT_LINK_LABEL, LIMITS } from '../../../shared/constants';
+import { isSafeExternalUrl, splitTags } from '../../../shared/restaurant';
 import type { Dish, Restaurant } from '../../../shared/types';
 import { ImageUpload } from './ImageUpload';
 import { MapLinkImport } from './MapLinkImport';
+import { TagField } from './TagField';
 
 export type ItemKind = 'dish' | 'restaurant';
 export type CatalogItem = Dish | Restaurant;
@@ -11,9 +13,12 @@ interface FieldSpec {
   key: string;
   label: string;
   max: number;
-  multiline?: boolean;
-  type?: 'url';
+  /** Textarea rows; omitted = single-line input. */
+  rows?: number;
+  /** 'url' = http(s) link; 'link' = guest-facing external link (stricter, see isSafeExternalUrl). */
+  type?: 'url' | 'link';
   placeholder?: string;
+  hint?: string;
   required?: boolean;
 }
 
@@ -21,18 +26,43 @@ const FIELDS: Record<ItemKind, FieldSpec[]> = {
   dish: [
     { key: 'name', label: '菜名', max: LIMITS.name, required: true, placeholder: '比如：番茄炒蛋' },
     { key: 'category', label: '分类', max: LIMITS.shortText, placeholder: '比如：家常、汤、甜品' },
-    { key: 'description', label: '介绍', max: LIMITS.description, multiline: true, placeholder: '口味、份量、小贴士…' },
+    { key: 'description', label: '介绍', max: LIMITS.description, rows: 3, placeholder: '口味、份量、小贴士…' },
     { key: 'recipeUrl', label: '做法链接', max: LIMITS.url, type: 'url', placeholder: 'https://…' },
   ],
   restaurant: [
     { key: 'name', label: '餐厅名', max: LIMITS.name, required: true, placeholder: '比如：街角小酒馆' },
-    { key: 'cuisine', label: '菜系', max: LIMITS.shortText, placeholder: '比如：川菜、日料' },
+    {
+      key: 'review',
+      label: '一句话点评',
+      max: LIMITS.review,
+      rows: 2,
+      placeholder: '比如：汤底很鲜，适合冬天两个人慢慢吃',
+      hint: '会显示在选餐厅的卡片上，一句话说清这家店的特点。',
+    },
     { key: 'budgetText', label: '预算', max: LIMITS.shortText, placeholder: '比如：人均 120' },
     { key: 'address', label: '地址', max: LIMITS.address },
+    {
+      key: 'linkUrl',
+      label: '菜单 / 官网等链接',
+      max: LIMITS.url,
+      type: 'link',
+      placeholder: 'https://…',
+      hint: '菜单、官网或任何相关网页都可以，点开会在新窗口打开。',
+    },
+    {
+      key: 'linkLabel',
+      label: '链接按钮文字（选填）',
+      max: LIMITS.linkLabel,
+      placeholder: '比如：看菜单、访问官网',
+      hint: `不填时按钮显示「${DEFAULT_LINK_LABEL}」。`,
+    },
     { key: 'mapUrl', label: '地图链接', max: LIMITS.url, type: 'url', placeholder: 'https://…' },
-    { key: 'note', label: '备注', max: LIMITS.description, multiline: true, placeholder: '需要预约、营业时间提示…' },
+    { key: 'note', label: '备注', max: LIMITS.description, rows: 3, placeholder: '需要预约、营业时间提示…' },
   ],
 };
+
+/** The tag field is rendered right after this field. */
+const TAGS_AFTER: Record<ItemKind, string> = { dish: 'recipeUrl', restaurant: 'review' };
 
 export type FormValues = Record<string, string> & { tags: string };
 
@@ -45,10 +75,6 @@ export function toFormValues(kind: ItemKind, item: CatalogItem | null): FormValu
   return values;
 }
 
-export function parseTags(raw: string): string[] {
-  return [...new Set(raw.split(/[\s,，、#]+/).map((t) => t.trim()).filter(Boolean))].slice(0, LIMITS.tags);
-}
-
 function isHttpUrl(v: string): boolean {
   try {
     const u = new URL(v);
@@ -58,38 +84,66 @@ function isHttpUrl(v: string): boolean {
   }
 }
 
+function fieldError(f: FieldSpec, v: string): string | null {
+  if (f.required && !v) return `请填写${f.label}`;
+  if (f.type === 'url' && v && !isHttpUrl(v)) return '链接需要以 http:// 或 https:// 开头';
+  if (f.type === 'link' && v && !isSafeExternalUrl(v)) return '请填写以 http:// 或 https:// 开头的完整网址（不能含空格）';
+  return null;
+}
+
+function tagsError(tags: string[]): string | null {
+  if (tags.length > LIMITS.tags) return `最多 ${LIMITS.tags} 个标签，现在有 ${tags.length} 个，请删掉一些`;
+  const long = tags.find((t) => t.length > LIMITS.tag);
+  return long ? `标签「${long}」超过 ${LIMITS.tag} 个字，请缩短或拆开` : null;
+}
+
 interface Props {
   kind: ItemKind;
   item: CatalogItem | null;
   busy: boolean;
   serverError: string | null;
+  /** Tags already used in this catalog, offered for reuse. */
+  tagSuggestions?: string[];
   onSubmit: (payload: Record<string, unknown>) => void;
 }
 
-export function ItemForm({ kind, item, busy, serverError, onSubmit }: Props) {
+export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], onSubmit }: Props) {
   const [values, setValues] = useState<FormValues>(() => toFormValues(kind, item));
   const [imageAssetId, setImageAssetId] = useState<string | null>(item?.imageAssetId ?? null);
   const [active, setActive] = useState(item?.active ?? true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const setValue = (key: string, value: string) => setValues((prev) => ({ ...prev, [key]: value }));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
     const nextErrors: Record<string, string> = {};
     for (const f of FIELDS[kind]) {
-      const v = values[f.key]?.trim() ?? '';
-      if (f.required && !v) nextErrors[f.key] = `请填写${f.label}`;
-      if (f.type === 'url' && v && !isHttpUrl(v)) nextErrors[f.key] = '链接需要以 http:// 或 https:// 开头';
+      const error = fieldError(f, values[f.key]?.trim() ?? '');
+      if (error) nextErrors[f.key] = error;
     }
+    const tags = splitTags(values.tags);
+    const tagError = tagsError(tags);
+    if (tagError) nextErrors.tags = tagError;
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
-    const payload: Record<string, unknown> = { imageAssetId, active, tags: parseTags(values.tags) };
+    const payload: Record<string, unknown> = { imageAssetId, active, tags };
     for (const f of FIELDS[kind]) {
       const v = values[f.key]?.trim() ?? '';
-      payload[f.key] = f.type === 'url' ? v || null : v;
+      payload[f.key] = f.type ? v || null : v;
     }
     onSubmit(payload);
   };
+
+  const tagField = (
+    <TagField
+      kind={kind}
+      value={values.tags}
+      error={errors.tags}
+      suggestions={tagSuggestions}
+      onChange={(v) => setValue('tags', v)}
+    />
+  );
 
   return (
     <form id="item-form" className="item-form" onSubmit={submit} noValidate>
@@ -100,45 +154,12 @@ export function ItemForm({ kind, item, busy, serverError, onSubmit }: Props) {
         />
       )}
       <ImageUpload assetId={imageAssetId} onChange={setImageAssetId} />
-      {FIELDS[kind].map((f) => {
-        const id = `item-${f.key}`;
-        const common = {
-          id,
-          className: `input ${f.multiline ? 'textarea' : ''}`,
-          maxLength: f.max,
-          placeholder: f.placeholder,
-          value: values[f.key] ?? '',
-          'aria-invalid': errors[f.key] ? true : undefined,
-          'aria-describedby': errors[f.key] ? `${id}-err` : undefined,
-          onChange: (e: { target: { value: string } }) => setValues((prev) => ({ ...prev, [f.key]: e.target.value })),
-        };
-        return (
-          <div className="field" key={f.key}>
-            <label className="field-label" htmlFor={id}>
-              {f.label}
-              {f.required && <span aria-hidden="true"> *</span>}
-            </label>
-            {f.multiline ? <textarea rows={3} {...common} /> : <input type={f.type === 'url' ? 'url' : 'text'} inputMode={f.type === 'url' ? 'url' : undefined} {...common} />}
-            {errors[f.key] && (
-              <p id={`${id}-err`} className="field-error">
-                {errors[f.key]}
-              </p>
-            )}
-          </div>
-        );
-      })}
-      <div className="field">
-        <label className="field-label" htmlFor="item-tags">
-          标签 <span className="muted small">（空格或逗号分隔）</span>
-        </label>
-        <input
-          id="item-tags"
-          className="input"
-          value={values.tags}
-          placeholder="快手 下饭 约会"
-          onChange={(e) => setValues((prev) => ({ ...prev, tags: e.target.value }))}
-        />
-      </div>
+      {FIELDS[kind].map((f) => (
+        <Fragment key={f.key}>
+          <TextField spec={f} value={values[f.key] ?? ''} error={errors[f.key]} onChange={(v) => setValue(f.key, v)} />
+          {f.key === TAGS_AFTER[kind] && tagField}
+        </Fragment>
+      ))}
       <label className="switch-row">
         <input type="checkbox" role="switch" checked={active} onChange={(e) => setActive(e.target.checked)} />
         <span className="switch" aria-hidden="true" />
@@ -150,5 +171,44 @@ export function ItemForm({ kind, item, busy, serverError, onSubmit }: Props) {
         </p>
       )}
     </form>
+  );
+}
+
+function TextField({ spec: f, value, error, onChange }: { spec: FieldSpec; value: string; error?: string; onChange: (v: string) => void }) {
+  const id = `item-${f.key}`;
+  const describedBy = [f.hint ? `${id}-hint` : '', error ? `${id}-err` : ''].filter(Boolean).join(' ');
+  const isLink = f.type !== undefined;
+  const common = {
+    id,
+    className: `input ${f.rows ? 'textarea' : ''}`,
+    maxLength: f.max,
+    placeholder: f.placeholder,
+    value,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': describedBy || undefined,
+    onChange: (e: { target: { value: string } }) => onChange(e.target.value),
+  };
+  return (
+    <div className="field">
+      <label className="field-label" htmlFor={id}>
+        {f.label}
+        {f.required && <span aria-hidden="true"> *</span>}
+      </label>
+      {f.rows ? (
+        <textarea rows={f.rows} {...common} />
+      ) : (
+        <input type={isLink ? 'url' : 'text'} inputMode={isLink ? 'url' : undefined} {...common} />
+      )}
+      {f.hint && (
+        <p id={`${id}-hint`} className="field-hint">
+          {f.hint}
+        </p>
+      )}
+      {error && (
+        <p id={`${id}-err`} className="field-error">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

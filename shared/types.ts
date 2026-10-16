@@ -27,11 +27,19 @@ export interface Restaurant {
   id: string;
   name: string;
   imageAssetId: string | null;
-  cuisine: string;
+  /** 一句话点评. */
+  review: string;
+  /** 分类标签 — the only classification (the old single "cuisine" was merged into tags). */
   tags: string[];
   budgetText: string;
   address: string;
+  /** Google Maps link. */
   mapUrl: string | null;
+  /** Any other relevant page: menu, official website… */
+  linkUrl: string | null;
+  /** Button text for linkUrl; empty means DEFAULT_LINK_LABEL. */
+  linkLabel: string;
+  /** Longer free-form note (备注). */
   note: string;
   active: boolean;
   createdAt: string;
@@ -46,15 +54,21 @@ export interface DishSnapshot {
   imageAssetId: string | null;
 }
 
-/** Frozen copy of a restaurant at the time a plan was saved. */
+/**
+ * Frozen copy of a restaurant at the time a plan was saved. Snapshots stored before the
+ * tags/review/link fields existed are normalized on read (their cuisine becomes the tags).
+ */
 export interface RestaurantSnapshot {
   id: string;
   name: string;
-  cuisine: string;
   imageAssetId: string | null;
+  review: string;
+  tags: string[];
   budgetText: string;
   address: string;
   mapUrl: string | null;
+  linkUrl: string | null;
+  linkLabel: string;
 }
 
 /** Per-recipient delivery state. 'skipped' = device disabled/removed or channel switched off. */

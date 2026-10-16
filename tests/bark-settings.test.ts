@@ -181,7 +181,7 @@ describe('migration from the single-key Bark settings', () => {
     env = await createTestEnv(undefined, { beforeOpen: (dir) => seedV1(dir, json) });
     expect(env.ctx.repos.barkDevices.count()).toBe(0);
     const versions = env.ctx.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    expect(versions).toEqual([{ version: 1 }, { version: 2 }]);
+    expect(versions).toEqual(expect.arrayContaining([{ version: 1 }, { version: 2 }]));
   });
 
   it('keeps accepting the legacy single-key settings payload as "add this device"', async () => {

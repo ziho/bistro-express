@@ -1,10 +1,12 @@
-import { Check, Info, MapPin, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Check, Info, Plus } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import type { Restaurant } from '../../../../shared/types';
 import { EmptyPlate } from '../../components/Illustrations';
 import { ItemImage } from '../../components/ItemImage';
+import { MapLinkButton, RestaurantLinkButton, TagList } from '../../components/RestaurantBits';
 import { Sheet } from '../../components/Sheet';
-import { CatalogFilters, emptyFilter, matchesQuery, type FilterState } from './CatalogFilters';
+import { filterRestaurants } from '../../lib/restaurants';
+import { CatalogFilters, emptyFilter, type FilterState } from './CatalogFilters';
 
 interface Props {
   restaurants: Restaurant[];
@@ -15,19 +17,13 @@ interface Props {
 const uniqueSorted = (values: string[]) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh'));
 
 export function RestaurantPicker({ restaurants, candidateIds, onToggle }: Props) {
+  const idPrefix = useId();
   const [filter, setFilter] = useState<FilterState>(emptyFilter);
   const [detail, setDetail] = useState<Restaurant | null>(null);
   const selected = useMemo(() => new Set(candidateIds), [candidateIds]);
-  const cuisines = useMemo(() => uniqueSorted(restaurants.map((r) => r.cuisine)), [restaurants]);
   const tags = useMemo(() => uniqueSorted(restaurants.flatMap((r) => r.tags)), [restaurants]);
 
-  const visible = restaurants.filter(
-    (r) =>
-      (!filter.group || r.cuisine === filter.group) &&
-      (!filter.tag || r.tags.includes(filter.tag)) &&
-      (!filter.onlySelected || selected.has(r.id)) &&
-      matchesQuery(filter.q, [r.name, r.cuisine, r.address, r.note, r.budgetText, ...r.tags]),
-  );
+  const visible = filterRestaurants(restaurants, filter, selected);
 
   if (restaurants.length === 0) {
     return (
@@ -44,11 +40,11 @@ export function RestaurantPicker({ restaurants, candidateIds, onToggle }: Props)
       <CatalogFilters
         value={filter}
         onChange={setFilter}
-        groups={cuisines}
+        groups={[]}
         tags={tags}
-        groupLabel="按菜系和标签筛选"
+        groupLabel="按分类标签筛选"
         selectedCount={selected.size}
-        placeholder="搜餐厅、菜系、地址或标签"
+        placeholder="搜店名、点评、标签、地址或预算"
       />
       <p className="sr-only" aria-live="polite">
         找到 {visible.length} 家餐厅
@@ -56,59 +52,120 @@ export function RestaurantPicker({ restaurants, candidateIds, onToggle }: Props)
       {visible.length === 0 ? (
         <p className="muted empty-filter">没有符合条件的餐厅，换个关键词试试。</p>
       ) : (
-        <ul className="card-grid">
-          {visible.map((r) => {
-            const isOn = selected.has(r.id);
-            return (
-              <li key={r.id} className={`food-card ${isOn ? 'is-selected' : ''}`}>
-                <button type="button" className="food-card-main" aria-pressed={isOn} onClick={() => onToggle(r.id)}>
-                  <ItemImage assetId={r.imageAssetId} name={r.name} kind="restaurant" />
-                  <span className="food-card-text">
-                    <span className="food-card-name">{r.name}</span>
-                    <span className="food-card-meta">{[r.cuisine, r.budgetText].filter(Boolean).join(' · ')}</span>
-                  </span>
-                  <span className="food-card-check" aria-hidden="true">
-                    {isOn ? <Check /> : <Plus />}
-                  </span>
-                  <span className="sr-only">{isOn ? '已加入候选，点击移除' : '加入候选'}</span>
-                </button>
-                <button type="button" className="food-card-info" onClick={() => setDetail(r)} aria-label={`${r.name} 详情`}>
-                  <Info aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
+        <ul className="rest-grid">
+          {visible.map((r) => (
+            <RestaurantCard
+              key={r.id}
+              restaurant={r}
+              nameId={`${idPrefix}-${r.id}`}
+              selected={selected.has(r.id)}
+              onToggle={() => onToggle(r.id)}
+              onDetail={() => setDetail(r)}
+            />
+          ))}
         </ul>
       )}
 
       <Sheet open={detail !== null} onClose={() => setDetail(null)} title={detail?.name ?? ''}>
         {detail && (
-          <div className="detail">
-            <ItemImage assetId={detail.imageAssetId} name={detail.name} kind="restaurant" variant="full" className="detail-image" />
-            <p className="muted">
-              {[detail.cuisine, detail.budgetText, ...detail.tags.map((t) => `#${t}`)].filter(Boolean).join(' · ')}
-            </p>
-            {detail.address && <p>{detail.address}</p>}
-            {detail.note && <p className="detail-desc">{detail.note}</p>}
-            {detail.mapUrl && (
-              <a className="btn btn-ghost" href={detail.mapUrl} target="_blank" rel="noopener noreferrer">
-                <MapPin aria-hidden="true" />
-                打开地图
-              </a>
-            )}
-            <button
-              type="button"
-              className={`btn ${selected.has(detail.id) ? 'btn-ghost' : 'btn-primary'} btn-block`}
-              onClick={() => {
-                onToggle(detail.id);
-                setDetail(null);
-              }}
-            >
-              {selected.has(detail.id) ? '移出候选' : '加入候选'}
-            </button>
-          </div>
+          <RestaurantDetail
+            restaurant={detail}
+            selected={selected.has(detail.id)}
+            onToggle={() => {
+              onToggle(detail.id);
+              setDetail(null);
+            }}
+          />
         )}
       </Sheet>
+    </div>
+  );
+}
+
+const metaText = (r: Restaurant) => [r.budgetText, r.address].filter(Boolean).join(' · ');
+
+interface CardProps {
+  restaurant: Restaurant;
+  nameId: string;
+  selected: boolean;
+  onToggle: () => void;
+  onDetail: () => void;
+}
+
+/** Text-first card: the name may wrap over several lines; a photo is shown only when one exists. */
+function RestaurantCard({ restaurant: r, nameId, selected, onToggle, onDetail }: CardProps) {
+  const meta = metaText(r);
+  return (
+    <li className={`rest-card ${selected ? 'is-selected' : ''}`}>
+      <div className="rest-card-body">
+        {r.imageAssetId && <ItemImage assetId={r.imageAssetId} name={r.name} kind="restaurant" className="rest-card-photo" />}
+        <div className="rest-card-text">
+          <h3 id={nameId} className="rest-card-name">
+            {r.name}
+          </h3>
+          {r.review && <p className="rest-card-review">{r.review}</p>}
+          <TagList tags={r.tags} />
+          {meta && <p className="rest-card-meta">{meta}</p>}
+        </div>
+      </div>
+      <div className="rest-card-actions">
+        <button
+          type="button"
+          className={`btn btn-sm btn-wrap rest-card-select ${selected ? 'btn-primary' : ''}`}
+          aria-pressed={selected}
+          aria-describedby={nameId}
+          onClick={onToggle}
+        >
+          {selected ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}
+          <span>{selected ? '已加入候选' : '加入候选'}</span>
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" aria-describedby={nameId} onClick={onDetail}>
+          <Info aria-hidden="true" />
+          详情
+        </button>
+        <RestaurantLinkButton item={r} name={r.name} />
+      </div>
+    </li>
+  );
+}
+
+function RestaurantDetail({ restaurant: r, selected, onToggle }: { restaurant: Restaurant; selected: boolean; onToggle: () => void }) {
+  return (
+    <div className="detail">
+      {r.imageAssetId && <ItemImage assetId={r.imageAssetId} name={r.name} kind="restaurant" variant="full" className="detail-image detail-photo" />}
+      {r.review && <p className="detail-review">{r.review}</p>}
+      <TagList tags={r.tags} />
+      {(r.budgetText || r.address) && (
+        <dl className="detail-facts">
+          {r.budgetText && (
+            <div>
+              <dt>预算</dt>
+              <dd>{r.budgetText}</dd>
+            </div>
+          )}
+          {r.address && (
+            <div>
+              <dt>地址</dt>
+              <dd>{r.address}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+      {r.note && (
+        <div>
+          <h3 className="detail-subtitle">备注</h3>
+          <p className="detail-desc">{r.note}</p>
+        </div>
+      )}
+      {(r.linkUrl || r.mapUrl) && (
+        <div className="link-actions">
+          <RestaurantLinkButton item={r} name={r.name} className="btn btn-ghost" />
+          <MapLinkButton mapUrl={r.mapUrl} className="btn btn-ghost" />
+        </div>
+      )}
+      <button type="button" className={`btn ${selected ? 'btn-ghost' : 'btn-primary'} btn-block`} onClick={onToggle}>
+        {selected ? '移出候选' : '加入候选'}
+      </button>
     </div>
   );
 }

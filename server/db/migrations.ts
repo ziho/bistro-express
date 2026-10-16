@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
+import { splitTags } from '../../shared/restaurant.js';
 
 interface Migration {
   version: number;
@@ -38,6 +39,46 @@ function migrateLegacyBarkKey(db: Database.Database): void {
   if ('deviceKey' in stored) {
     const rest = Object.fromEntries(Object.entries(stored).filter(([k]) => k !== 'deviceKey'));
     db.prepare(`UPDATE settings SET value = ?, updated_at = ? WHERE key = 'notify.bark'`).run(JSON.stringify(rest), ts);
+  }
+}
+
+function parseTagArray(raw: string): unknown[] | null {
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+/**
+ * Adds review/link columns and merges each restaurant's legacy cuisine into its tags.
+ * The cuisine column itself is kept (no table rewrite) but is no longer read by the app.
+ * Safe to run more than once: columns are only added when missing and the merge never
+ * duplicates a tag. Existing tags are all kept, even when that exceeds the tag limit.
+ */
+export function migrateRestaurantClassification(db: Database.Database): void {
+  addColumnIfMissing(db, 'restaurants', 'review', `TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing(db, 'restaurants', 'link_url', 'TEXT');
+  addColumnIfMissing(db, 'restaurants', 'link_label', `TEXT NOT NULL DEFAULT ''`);
+
+  const rows = db.prepare(`SELECT id, cuisine, tags FROM restaurants WHERE TRIM(cuisine) <> ''`).all() as {
+    id: string;
+    cuisine: string;
+    tags: string;
+  }[];
+  const update = db.prepare('UPDATE restaurants SET tags = ? WHERE id = ?');
+  for (const row of rows) {
+    const existing = parseTagArray(row.tags);
+    // Unreadable tags are left exactly as they are; the cuisine column still holds the value.
+    if (!existing) continue;
+    const missing = splitTags(row.cuisine).filter((t) => !existing.includes(t));
+    if (missing.length) update.run(JSON.stringify([...missing, ...existing]), row.id);
   }
 }
 
@@ -194,6 +235,12 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX notification_deliveries_status ON notification_deliveries(status, next_attempt_at);
     `,
     up: migrateLegacyBarkKey,
+  },
+  {
+    version: 3,
+    name: 'restaurant review, external link and cuisine merged into tags',
+    sql: '',
+    up: migrateRestaurantClassification,
   },
 ];
 

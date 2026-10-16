@@ -1,20 +1,43 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Ban, Clock, Globe2, Home, MapPin, PartyPopper, Pencil, Repeat2, Store } from 'lucide-react';
+import { ArrowLeft, Ban, Clock, Globe2, Home, PartyPopper, Pencil, Repeat2, Store } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { formatDateLabel } from '../../../shared/time';
-import type { Plan } from '../../../shared/types';
+import type { Plan, RestaurantSnapshot } from '../../../shared/types';
 import { api, ApiError, newIdempotencyKey } from '../api/client';
 import { keys, useCatalog, usePlan } from '../api/queries';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
 import { NotificationBadge, SavedBadge } from '../components/NotificationBadge';
+import { MapLinkButton, RestaurantLinkButton, TagList } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { saveDraft } from '../lib/drafts';
 import { useToday } from '../lib/hooks';
 import { cloneToDraft, isEditable, planDisplay } from '../lib/planView';
 import { NotFoundPage } from './NotFoundPage';
+
+/** The restaurant as it was frozen in the plan; the photo is shown only when there is one. */
+function ChosenRestaurant({ restaurant: r }: { restaurant: RestaurantSnapshot }) {
+  const meta = [r.budgetText, r.address].filter(Boolean).join(' · ');
+  return (
+    <div className="chosen-restaurant">
+      {r.imageAssetId && <ItemImage assetId={r.imageAssetId} name={r.name} kind="restaurant" />}
+      <div className="chosen-text">
+        <strong className="chosen-name">{r.name}</strong>
+        {r.review && <p className="chosen-review">{r.review}</p>}
+        <TagList tags={r.tags} />
+        {meta && <p className="muted small">{meta}</p>}
+        {(r.linkUrl || r.mapUrl) && (
+          <div className="link-actions">
+            <RestaurantLinkButton item={r} name={r.name} />
+            <MapLinkButton mapUrl={r.mapUrl} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function PlanDetailPage() {
   const { id } = useParams();
@@ -142,25 +165,9 @@ export function PlanDetailPage() {
           <h2 id="rest-title" className="section-title">
             选中的餐厅
           </h2>
-          {p.selectedRestaurant && (
-            <div className="chosen-restaurant">
-              <ItemImage assetId={p.selectedRestaurant.imageAssetId} name={p.selectedRestaurant.name} kind="restaurant" />
-              <div>
-                <strong className="chosen-name">{p.selectedRestaurant.name}</strong>
-                <p className="muted small">
-                  {[p.selectedRestaurant.cuisine, p.selectedRestaurant.budgetText].filter(Boolean).join(' · ')}
-                </p>
-                {p.selectedRestaurant.address && <p className="small">{p.selectedRestaurant.address}</p>}
-                {p.selectedRestaurant.mapUrl && (
-                  <a className="btn btn-ghost btn-sm" href={p.selectedRestaurant.mapUrl} target="_blank" rel="noopener noreferrer">
-                    <MapPin aria-hidden="true" /> 打开地图
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
+          {p.selectedRestaurant && <ChosenRestaurant restaurant={p.selectedRestaurant} />}
           {p.candidates.length > 1 && (
-            <p className="muted small">候选：{p.candidates.map((c) => c.name).join('、')}</p>
+            <p className="muted small wrap-anywhere">候选：{p.candidates.map((c) => c.name).join('、')}</p>
           )}
         </section>
       )}

@@ -240,7 +240,7 @@ export async function seedDish(admin: Client, name: string, extra: Record<string
 }
 
 export async function seedRestaurant(admin: Client, name: string, extra: Record<string, unknown> = {}) {
-  const res = await admin.post('/bistro/api/admin/restaurants', { name, cuisine: '川菜', ...extra });
+  const res = await admin.post('/bistro/api/admin/restaurants', { name, tags: ['川菜'], ...extra });
   if (res.status !== 201) throw new Error(`seed restaurant failed: ${res.text}`);
   return res.body.data as { id: string; name: string };
 }

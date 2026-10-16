@@ -82,16 +82,19 @@ describe('admin restaurant CRUD', () => {
     const admin = await env.admin();
     const created = await admin.post('/bistro/api/admin/restaurants', {
       name: '小酒馆',
-      cuisine: '西餐',
-      tags: ['约会'],
+      review: '小份西餐，适合约会',
+      tags: ['西餐', '约会'],
       budgetText: '人均 150',
       address: '某路 1 号',
       mapUrl: 'https://maps.example.com/?q=1',
+      linkUrl: 'https://example.com/menu',
+      linkLabel: '看菜单',
       note: '需要预约',
     });
     expect(created.status).toBe(201);
     const r = created.body.data;
-    expect(r).toMatchObject({ cuisine: '西餐', budgetText: '人均 150', active: true });
+    expect(r).toMatchObject({ review: '小份西餐，适合约会', tags: ['西餐', '约会'], budgetText: '人均 150', active: true });
+    expect(r).not.toHaveProperty('cuisine');
     const off = await admin.patch(`/bistro/api/admin/restaurants/${r.id}/active`, { active: false });
     expect(off.body.data.active).toBe(false);
     const guest = await env.guest();

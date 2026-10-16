@@ -65,6 +65,17 @@
   padding: 0 var(--space-4);
   font-size: 0.9rem;
 }
+/* Buttons whose text comes from data (e.g. a custom link label): wrap instead of overflowing. */
+.btn-wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.3;
+  max-width: 100%;
+  min-width: 0;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 
 .icon-btn {
   display: inline-grid;
@@ -111,6 +122,12 @@
   font-weight: 700;
   font-size: 0.95rem;
   padding: 0;
+}
+.field-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--muted);
 }
 .field-error {
   color: var(--danger);
@@ -577,6 +594,107 @@
   height: 20px;
 }
 
+/* ---------- Restaurant cards (text-first picker) ---------- */
+.rest-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  align-items: start;
+  gap: var(--space-3);
+}
+.rest-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.rest-card.is-selected {
+  border-color: var(--tomato);
+  box-shadow: 0 0 0 3px var(--coral-soft), 0 4px 0 var(--tomato);
+}
+.rest-card-body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.rest-card-photo {
+  width: 64px;
+  flex: none;
+  aspect-ratio: 1;
+  border-radius: 10px;
+}
+.rest-card-text {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+.rest-card-name {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.rest-card-review {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.rest-card-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.rest-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rest-card-select {
+  flex: 1 1 auto;
+}
+
+/* Read-only tag chips */
+.tag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.tag {
+  max-width: 100%;
+  padding: 1px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--cream-2);
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 /* ---------- Filters ---------- */
 .filters {
   display: grid;
@@ -990,6 +1108,38 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.detail-photo {
+  width: min(100%, 320px);
+}
+.detail-review {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.detail-facts {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.detail-facts > div {
+  display: grid;
+  grid-template-columns: 3em minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.detail-facts dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+.detail-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.detail-subtitle {
+  font-size: 0.95rem;
+  margin: 0 0 4px;
+}
 
 /* ---------- Toasts ---------- */
 .toast-region {
@@ -1105,9 +1255,29 @@
   width: 120px;
   flex: none;
 }
+@media (max-width: 420px) {
+  .chosen-restaurant .item-image {
+    width: 80px;
+  }
+}
+.chosen-text {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.chosen-text p {
+  margin: 0;
+}
 .chosen-name {
+  display: block;
   font-size: 1.25rem;
+  line-height: 1.3;
   font-family: var(--font-display);
+  overflow-wrap: anywhere;
+}
+.chosen-review {
+  overflow-wrap: anywhere;
 }
 .saved-celebration {
   display: flex;

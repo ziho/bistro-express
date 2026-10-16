@@ -16,15 +16,18 @@ interface DishRow {
   updated_at: string;
 }
 
+/** The legacy `cuisine` column still exists (merged into tags by migration 3) but is no longer read. */
 interface RestaurantRow {
   id: string;
   name: string;
   image_asset_id: string | null;
-  cuisine: string;
+  review: string;
   tags: string;
   budget_text: string;
   address: string;
   map_url: string | null;
+  link_url: string | null;
+  link_label: string;
   note: string;
   active: number;
   created_at: string;
@@ -57,11 +60,13 @@ const toRestaurant = (r: RestaurantRow): Restaurant => ({
   id: r.id,
   name: r.name,
   imageAssetId: r.image_asset_id,
-  cuisine: r.cuisine,
+  review: r.review,
   tags: parseTags(r.tags),
   budgetText: r.budget_text,
   address: r.address,
   mapUrl: r.map_url,
+  linkUrl: r.link_url,
+  linkLabel: r.link_label,
   note: r.note,
   active: r.active === 1,
   createdAt: r.created_at,
@@ -170,17 +175,20 @@ export function createCatalogRepo(db: DB) {
       const id = randomUUID();
       const ts = now.toISOString();
       db.prepare(
-        `INSERT INTO restaurants (id, name, image_asset_id, cuisine, tags, budget_text, address, map_url, note, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO restaurants (id, name, image_asset_id, review, tags, budget_text, address, map_url, link_url, link_label,
+         note, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
         input.name,
         input.imageAssetId,
-        input.cuisine,
+        input.review,
         JSON.stringify(input.tags),
         input.budgetText,
         input.address,
         input.mapUrl,
+        input.linkUrl,
+        input.linkLabel,
         input.note,
         input.active ? 1 : 0,
         ts,
@@ -192,17 +200,19 @@ export function createCatalogRepo(db: DB) {
     updateRestaurant(id: string, input: RestaurantInput, now: Date): Restaurant | null {
       const result = db
         .prepare(
-          `UPDATE restaurants SET name = ?, image_asset_id = ?, cuisine = ?, tags = ?, budget_text = ?, address = ?,
-           map_url = ?, note = ?, active = ?, updated_at = ? WHERE id = ?`,
+          `UPDATE restaurants SET name = ?, image_asset_id = ?, review = ?, tags = ?, budget_text = ?, address = ?,
+           map_url = ?, link_url = ?, link_label = ?, note = ?, active = ?, updated_at = ? WHERE id = ?`,
         )
         .run(
           input.name,
           input.imageAssetId,
-          input.cuisine,
+          input.review,
           JSON.stringify(input.tags),
           input.budgetText,
           input.address,
           input.mapUrl,
+          input.linkUrl,
+          input.linkLabel,
           input.note,
           input.active ? 1 : 0,
           now.toISOString(),

@@ -88,11 +88,14 @@ export function createPlanService(deps: PlanServiceDeps) {
       return {
         id: r.id,
         name: r.name,
-        cuisine: r.cuisine,
         imageAssetId: r.imageAssetId,
+        review: r.review,
+        tags: [...r.tags],
         budgetText: r.budgetText,
         address: r.address,
         mapUrl: r.mapUrl,
+        linkUrl: r.linkUrl,
+        linkLabel: r.linkLabel,
       };
     });
     const selectedRestaurant = candidates.find((c) => c.id === input.selectedRestaurantId)!;

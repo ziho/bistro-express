@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BARK_LIMITS, LIMITS, MAP_LINK_INPUT_MAX } from '../../shared/constants.js';
+import { isSafeExternalUrl } from '../../shared/restaurant.js';
 import { badRequest } from './errors.js';
 
 export const ASSET_ID_RE = /^[a-f0-9]{32}$/;
@@ -22,6 +23,16 @@ const optionalUrl = z
   .optional()
   .transform((v) => (v ? v : null))
   .refine((v) => v === null || isHttpUrl(v), '链接必须以 http:// 或 https:// 开头');
+
+/** Nullable link that is rendered as a guest-facing anchor: strict http(s), no credentials. */
+const optionalExternalUrl = z
+  .union([z.string().trim().max(LIMITS.url, `链接不能超过 ${LIMITS.url} 个字符`), z.null()])
+  .optional()
+  .transform((v) => (v ? v : null))
+  .refine((v) => v === null || isSafeExternalUrl(v), '链接必须是以 http:// 或 https:// 开头的完整网址');
+
+/** Single-line text: line breaks and runs of spaces collapse to one space. */
+const singleLine = (max: number) => text(max).transform((v) => v.replace(/\s+/g, ' '));
 
 const tags = z
   .array(z.string().trim().min(1).max(LIMITS.tag, `标签不能超过 ${LIMITS.tag} 个字`))
@@ -48,11 +59,13 @@ export type DishInput = z.infer<typeof dishInputSchema>;
 export const restaurantInputSchema = z.object({
   name: text(LIMITS.name).min(1, '请填写餐厅名'),
   imageAssetId: assetId,
-  cuisine: text(LIMITS.shortText).default(''),
+  review: singleLine(LIMITS.review).default(''),
   tags,
   budgetText: text(LIMITS.shortText).default(''),
   address: text(LIMITS.address).default(''),
   mapUrl: optionalUrl,
+  linkUrl: optionalExternalUrl,
+  linkLabel: singleLine(LIMITS.linkLabel).default(''),
   note: text(LIMITS.description).default(''),
   active: z.boolean().default(true),
 });
