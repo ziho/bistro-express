@@ -1,5 +1,5 @@
 import type { DishSnapshot, Plan, PlanMode, PlanStatus, RestaurantSnapshot } from '../../shared/types.js';
-import { splitTags } from '../../shared/restaurant.js';
+import { legacyLink, readStoredLinks, splitTags } from '../../shared/restaurant.js';
 import type { DB } from '../db/connection.js';
 
 interface PlanRow {
@@ -54,7 +54,9 @@ const strOrNull = (v: unknown): string | null => (typeof v === 'string' && v ? v
 /**
  * Reads a stored restaurant snapshot of any age into the current shape without touching the
  * stored JSON. Snapshots saved before migration 3 have a `cuisine` and no tags/review/link:
- * their cuisine is shown as the tags, review and link stay empty.
+ * their cuisine is shown as the tags, review and links stay empty. Snapshots saved before
+ * migration 4 have no `links` array: their single linkUrl/linkLabel (if any) becomes one link.
+ * An explicit `links` array — even an empty one — is used as is.
  */
 function toRestaurantSnapshot(raw: unknown): RestaurantSnapshot | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -71,8 +73,7 @@ function toRestaurantSnapshot(raw: unknown): RestaurantSnapshot | null {
     budgetText: str(s.budgetText),
     address: str(s.address),
     mapUrl: strOrNull(s.mapUrl),
-    linkUrl: strOrNull(s.linkUrl),
-    linkLabel: str(s.linkLabel),
+    links: Array.isArray(s.links) ? readStoredLinks(s.links) : legacyLink(s.linkUrl, s.linkLabel),
   };
 }
 

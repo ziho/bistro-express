@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readStoredLinks } from '../../shared/restaurant.js';
 import type { Dish, Restaurant } from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
 import type { DishInput, RestaurantInput } from '../lib/validation.js';
@@ -16,7 +17,10 @@ interface DishRow {
   updated_at: string;
 }
 
-/** The legacy `cuisine` column still exists (merged into tags by migration 3) but is no longer read. */
+/**
+ * The legacy `cuisine` (merged into tags by migration 3) and `link_url`/`link_label` (moved into
+ * links_json by migration 4) columns still exist but are no longer read.
+ */
 interface RestaurantRow {
   id: string;
   name: string;
@@ -26,12 +30,19 @@ interface RestaurantRow {
   budget_text: string;
   address: string;
   map_url: string | null;
-  link_url: string | null;
-  link_label: string;
+  links_json: string;
   note: string;
   active: number;
   created_at: string;
   updated_at: string;
+}
+
+function parseJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 function parseTags(raw: string): string[] {
@@ -65,8 +76,7 @@ const toRestaurant = (r: RestaurantRow): Restaurant => ({
   budgetText: r.budget_text,
   address: r.address,
   mapUrl: r.map_url,
-  linkUrl: r.link_url,
-  linkLabel: r.link_label,
+  links: readStoredLinks(parseJson(r.links_json)),
   note: r.note,
   active: r.active === 1,
   createdAt: r.created_at,
@@ -175,9 +185,9 @@ export function createCatalogRepo(db: DB) {
       const id = randomUUID();
       const ts = now.toISOString();
       db.prepare(
-        `INSERT INTO restaurants (id, name, image_asset_id, review, tags, budget_text, address, map_url, link_url, link_label,
+        `INSERT INTO restaurants (id, name, image_asset_id, review, tags, budget_text, address, map_url, links_json,
          note, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
         input.name,
@@ -187,8 +197,7 @@ export function createCatalogRepo(db: DB) {
         input.budgetText,
         input.address,
         input.mapUrl,
-        input.linkUrl,
-        input.linkLabel,
+        JSON.stringify(input.links),
         input.note,
         input.active ? 1 : 0,
         ts,
@@ -201,7 +210,8 @@ export function createCatalogRepo(db: DB) {
       const result = db
         .prepare(
           `UPDATE restaurants SET name = ?, image_asset_id = ?, review = ?, tags = ?, budget_text = ?, address = ?,
-           map_url = ?, link_url = ?, link_label = ?, note = ?, active = ?, updated_at = ? WHERE id = ?`,
+           map_url = ?, links_json = ?, link_url = NULL, link_label = '', note = ?, active = ?, updated_at = ?
+           WHERE id = ?`,
         )
         .run(
           input.name,
@@ -211,8 +221,7 @@ export function createCatalogRepo(db: DB) {
           input.budgetText,
           input.address,
           input.mapUrl,
-          input.linkUrl,
-          input.linkLabel,
+          JSON.stringify(input.links),
           input.note,
           input.active ? 1 : 0,
           now.toISOString(),

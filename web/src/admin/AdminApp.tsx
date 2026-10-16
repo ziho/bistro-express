@@ -1,12 +1,15 @@
-import { Bell, CalendarDays, Settings, Store, Utensils } from 'lucide-react';
-import { Navigate, NavLink, Route, Routes } from 'react-router';
+import { Bell, CalendarDays, LayoutGrid, Settings, Store, Utensils } from 'lucide-react';
+import { Navigate, NavLink, Outlet, Route, Routes } from 'react-router';
 import { Logo, OfflineBanner } from '../components/AppShell';
+import { AdminOverview } from './AdminOverview';
+import { AdminWelcome } from './AdminWelcome';
 import { BarkSettingsPage } from './BarkSettingsPage';
 import { CatalogAdmin } from './CatalogAdmin';
 import { NotificationsAdmin } from './NotificationsAdmin';
 import { PlansAdmin } from './PlansAdmin';
 
 const TABS = [
+  { to: 'overview', label: '概览', Icon: LayoutGrid },
   { to: 'dishes', label: '菜品', Icon: Utensils },
   { to: 'restaurants', label: '餐厅', Icon: Store },
   { to: 'plans', label: '计划', Icon: CalendarDays },
@@ -14,14 +17,15 @@ const TABS = [
   { to: 'settings', label: '推送设置', Icon: Settings },
 ];
 
-export default function AdminApp() {
+/** Shell of the management pages. The brand leads back to the welcome page. */
+function AdminLayout() {
   return (
     <div className="app admin">
       <a className="skip-link" href="#admin-main">
         跳到主要内容
       </a>
       <header className="topbar">
-        <NavLink to="/" className="brand" aria-label="回到点餐首页">
+        <NavLink to="/admin" end className="brand" aria-label="回到后台欢迎页">
           <Logo />
           <span className="admin-tag">后台</span>
         </NavLink>
@@ -42,16 +46,25 @@ export default function AdminApp() {
         ))}
       </nav>
       <main id="admin-main" className="main admin-main">
-        <Routes>
-          <Route index element={<Navigate to="dishes" replace />} />
-          <Route path="dishes" element={<CatalogAdmin kind="dish" />} />
-          <Route path="restaurants" element={<CatalogAdmin kind="restaurant" />} />
-          <Route path="plans" element={<PlansAdmin />} />
-          <Route path="notifications" element={<NotificationsAdmin />} />
-          <Route path="settings" element={<BarkSettingsPage />} />
-          <Route path="*" element={<Navigate to="dishes" replace />} />
-        </Routes>
+        <Outlet />
       </main>
     </div>
+  );
+}
+
+export default function AdminApp() {
+  return (
+    <Routes>
+      <Route index element={<AdminWelcome />} />
+      <Route element={<AdminLayout />}>
+        <Route path="overview" element={<AdminOverview />} />
+        <Route path="dishes" element={<CatalogAdmin kind="dish" />} />
+        <Route path="restaurants" element={<CatalogAdmin kind="restaurant" />} />
+        <Route path="plans" element={<PlansAdmin />} />
+        <Route path="notifications" element={<NotificationsAdmin />} />
+        <Route path="settings" element={<BarkSettingsPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/admin" replace />} />
+    </Routes>
   );
 }

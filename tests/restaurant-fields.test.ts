@@ -69,7 +69,7 @@ describe('migration 3: cuisine merged into tags', () => {
   it('merges each cuisine into tags once, keeping every restaurant, tag and note', async () => {
     env = await createTestEnv(undefined, { beforeOpen: seedV2 });
     const versions = env.ctx.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
 
     const admin = await env.admin();
     const list = (await admin.get('/bistro/api/admin/restaurants')).body.data as Record<string, unknown>[];
@@ -80,8 +80,7 @@ describe('migration 3: cuisine merged into tags', () => {
       tags: ['川菜', '约会'],
       note: '周末要排队',
       review: '',
-      linkUrl: null,
-      linkLabel: '',
+      links: [],
       budgetText: '人均 50',
       mapUrl: LEGACY_SNAPSHOT.mapUrl,
     });
@@ -123,8 +122,7 @@ describe('migration 3: cuisine merged into tags', () => {
       budgetText: '人均 50',
       address: '某路 1 号',
       mapUrl: LEGACY_SNAPSHOT.mapUrl,
-      linkUrl: null,
-      linkLabel: '',
+      links: [],
     };
     expect(plan.selectedRestaurant).toEqual(expected);
     expect(plan.candidates).toEqual([expected]);
@@ -151,7 +149,7 @@ describe('migration 3: cuisine merged into tags', () => {
     );
     expect(res.status).toBe(200);
     expect(res.body.data.version).toBe(2);
-    expect(res.body.data.selectedRestaurant).toMatchObject({ tags: ['川菜', '约会'], review: '', linkUrl: null });
+    expect(res.body.data.selectedRestaurant).toMatchObject({ tags: ['川菜', '约会'], review: '', links: [] });
   });
 });
 
@@ -171,8 +169,8 @@ async function create(admin: Client, body: Record<string, unknown>) {
   return admin.post('/bistro/api/admin/restaurants', body);
 }
 
-describe('restaurant review, tags and external link', () => {
-  it('creates, reads and edits review/link fields through admin and guest catalog', async () => {
+describe('restaurant review and tags', () => {
+  it('creates, reads and edits review/tags through admin and guest catalog', async () => {
     env = await createTestEnv();
     const admin = await env.admin();
     const guest = await env.guest();
@@ -181,22 +179,18 @@ describe('restaurant review, tags and external link', () => {
       cuisine: '川菜', // legacy field from an old client: ignored
       review: '  汤底很鲜，\n  适合冬天  ',
       tags: ['火锅', '约会'],
-      linkUrl: ' https://example.com/menu ',
-      linkLabel: '看菜单',
     });
     expect(created.status).toBe(201);
     const r = created.body.data;
-    expect(r).toMatchObject({ review: '汤底很鲜， 适合冬天', tags: ['火锅', '约会'], linkUrl: 'https://example.com/menu', linkLabel: '看菜单' });
+    expect(r).toMatchObject({ review: '汤底很鲜， 适合冬天', tags: ['火锅', '约会'] });
     expect(r).not.toHaveProperty('cuisine');
 
     const fromCatalog = (await guest.get('/bistro/api/catalog')).body.data.restaurants[0];
-    expect(fromCatalog).toMatchObject({ review: r.review, tags: r.tags, linkUrl: r.linkUrl, linkLabel: '看菜单' });
+    expect(fromCatalog).toMatchObject({ review: r.review, tags: r.tags });
 
-    // Clearing the URL removes the link; the label can stay for later.
-    const cleared = await admin.put(`/bistro/api/admin/restaurants/${r.id}`, { ...r, linkUrl: '' });
-    expect(cleared.status).toBe(200);
-    expect(cleared.body.data).toMatchObject({ linkUrl: null, linkLabel: '看菜单' });
-    expect((await guest.get('/bistro/api/catalog')).body.data.restaurants[0].linkUrl).toBeNull();
+    const edited = await admin.put(`/bistro/api/admin/restaurants/${r.id}`, { ...r, review: '换了主厨', tags: ['小酒馆'] });
+    expect(edited.status).toBe(200);
+    expect((await guest.get('/bistro/api/catalog')).body.data.restaurants[0]).toMatchObject({ review: '换了主厨', tags: ['小酒馆'] });
   });
 
   it('only requires a name; everything else defaults to empty', async () => {
@@ -210,45 +204,21 @@ describe('restaurant review, tags and external link', () => {
       budgetText: '',
       address: '',
       mapUrl: null,
-      linkUrl: null,
-      linkLabel: '',
+      links: [],
       note: '',
       imageAssetId: null,
     });
+    expect(res.body.data).not.toHaveProperty('linkUrl');
     expect((await create(admin, { name: '  ' })).status).toBe(400);
   });
 
-  it('enforces review and link label limits', async () => {
+  it('enforces the review limit', async () => {
     env = await createTestEnv();
     const admin = await env.admin();
     expect((await create(admin, { name: 'a', review: '好'.repeat(LIMITS.review) })).status).toBe(201);
     const longReview = await create(admin, { name: 'b', review: '好'.repeat(LIMITS.review + 1) });
     expect(longReview.status).toBe(400);
     expect(longReview.body.error.details.field).toBe('review');
-    expect((await create(admin, { name: 'c', linkLabel: '字'.repeat(LIMITS.linkLabel) })).status).toBe(201);
-    const longLabel = await create(admin, { name: 'd', linkLabel: '字'.repeat(LIMITS.linkLabel + 1) });
-    expect(longLabel.status).toBe(400);
-    expect(longLabel.body.error.details.field).toBe('linkLabel');
-  });
-
-  it.each([
-    'javascript:alert(1)',
-    'data:text/html,<b>hi</b>',
-    'ftp://example.com/menu',
-    'example.com/menu',
-    '//example.com/menu',
-    'https://user:pass@example.com/',
-    'https://exa mple.com/',
-    `https://example.com/${'x'.repeat(LIMITS.url)}`,
-  ])('rejects the unsafe external link %s', async (linkUrl) => {
-    env = await createTestEnv();
-    const admin = await env.admin();
-    const res = await create(admin, { name: 'x', linkUrl });
-    expect(res.status).toBe(400);
-    expect(res.body.error.details.field).toBe('linkUrl');
-    const ok = await seedRestaurant(admin, 'y');
-    const update = await admin.put(`/bistro/api/admin/restaurants/${ok.id}`, { name: 'y', linkUrl });
-    expect(update.status).toBe(400);
   });
 
   it('reuses the same tag across restaurants independently', async () => {
@@ -262,33 +232,20 @@ describe('restaurant review, tags and external link', () => {
     expect(Object.fromEntries(restaurants.map((r) => [r.name, r.tags]))).toEqual({ 甲: ['约会'], 乙: ['火锅'] });
   });
 
-  it('freezes tags, review and link into plan snapshots', async () => {
+  it('freezes tags and review into plan snapshots', async () => {
     env = await createTestEnv();
     const admin = await env.admin();
     const guest = await env.guest();
-    const r = await seedRestaurant(admin, '小酒馆', {
-      review: '<b>适合约会</b>',
-      tags: ['西餐', '约会'],
-      linkUrl: 'https://example.com/menu',
-      linkLabel: '',
-    });
+    const r = await seedRestaurant(admin, '小酒馆', { review: '<b>适合约会</b>', tags: ['西餐', '约会'] });
     const created = await guest.post('/bistro/api/plans', restaurantPlan([r.id], r.id), idem());
     expect(created.status).toBe(201);
-    const frozen = {
-      review: '<b>适合约会</b>', // stored verbatim, escaped by React at render time
-      tags: ['西餐', '约会'],
-      linkUrl: 'https://example.com/menu',
-      linkLabel: '',
-    };
+    const frozen = { review: '<b>适合约会</b>', tags: ['西餐', '约会'] }; // stored verbatim, escaped by React
     expect(created.body.data.selectedRestaurant).toMatchObject(frozen);
     expect(created.body.data.selectedRestaurant).not.toHaveProperty('cuisine');
 
-    await admin.put(`/bistro/api/admin/restaurants/${r.id}`, { name: '小酒馆', review: '换了主厨', tags: ['小酒馆'], linkUrl: null });
+    await admin.put(`/bistro/api/admin/restaurants/${r.id}`, { name: '小酒馆', review: '换了主厨', tags: ['小酒馆'] });
     const again = (await guest.get(`/bistro/api/plans/${created.body.data.id}`)).body.data;
     expect(again.selectedRestaurant).toMatchObject(frozen);
     expect(again.candidates[0]).toMatchObject(frozen);
-
-    const next = await guest.post('/bistro/api/plans', restaurantPlan([r.id], r.id), idem());
-    expect(next.body.data.selectedRestaurant).toMatchObject({ review: '换了主厨', tags: ['小酒馆'], linkUrl: null });
   });
 });

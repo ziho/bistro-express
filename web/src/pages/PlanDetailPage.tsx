@@ -9,7 +9,7 @@ import { keys, useCatalog, usePlan } from '../api/queries';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
 import { NotificationBadge, SavedBadge } from '../components/NotificationBadge';
-import { MapLinkButton, RestaurantLinkButton, TagList } from '../components/RestaurantBits';
+import { MapLinkButton, RestaurantLinkRows, TagList } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { saveDraft } from '../lib/drafts';
@@ -28,9 +28,9 @@ function ChosenRestaurant({ restaurant: r }: { restaurant: RestaurantSnapshot })
         {r.review && <p className="chosen-review">{r.review}</p>}
         <TagList tags={r.tags} />
         {meta && <p className="muted small">{meta}</p>}
-        {(r.linkUrl || r.mapUrl) && (
+        <RestaurantLinkRows links={r.links} name={r.name} />
+        {r.mapUrl && (
           <div className="link-actions">
-            <RestaurantLinkButton item={r} name={r.name} />
             <MapLinkButton mapUrl={r.mapUrl} />
           </div>
         )}

@@ -23,6 +23,14 @@ export interface Dish {
   updatedAt: string;
 }
 
+/** One external page for a restaurant (menu, official website, booking…). */
+export interface RestaurantLink {
+  /** Display name; empty means DEFAULT_LINK_LABEL. */
+  label: string;
+  /** Absolute http(s) URL (see isSafeExternalUrl). */
+  url: string;
+}
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -35,10 +43,8 @@ export interface Restaurant {
   address: string;
   /** Google Maps link. */
   mapUrl: string | null;
-  /** Any other relevant page: menu, official website… */
-  linkUrl: string | null;
-  /** Button text for linkUrl; empty means DEFAULT_LINK_LABEL. */
-  linkLabel: string;
+  /** Other relevant pages (menu, official website…) in display order, at most LIMITS.restaurantLinks. */
+  links: RestaurantLink[];
   /** Longer free-form note (备注). */
   note: string;
   active: boolean;
@@ -56,7 +62,8 @@ export interface DishSnapshot {
 
 /**
  * Frozen copy of a restaurant at the time a plan was saved. Snapshots stored before the
- * tags/review/link fields existed are normalized on read (their cuisine becomes the tags).
+ * tags/review/link fields existed are normalized on read: their cuisine becomes the tags, and a
+ * single legacy linkUrl/linkLabel (snapshots without a `links` array) becomes one link.
  */
 export interface RestaurantSnapshot {
   id: string;
@@ -67,8 +74,7 @@ export interface RestaurantSnapshot {
   budgetText: string;
   address: string;
   mapUrl: string | null;
-  linkUrl: string | null;
-  linkLabel: string;
+  links: RestaurantLink[];
 }
 
 /** Per-recipient delivery state. 'skipped' = device disabled/removed or channel switched off. */

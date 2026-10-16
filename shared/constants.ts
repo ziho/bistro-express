@@ -22,8 +22,10 @@ export const LIMITS = {
   address: 200,
   /** Restaurant one-sentence review (一句话点评). */
   review: 160,
-  /** Custom text for a restaurant's external link button. */
+  /** Custom display name of one restaurant link. */
   linkLabel: 20,
+  /** External links (menu, website…) per restaurant. */
+  restaurantLinks: 8,
   maxDishesPerMeal: 30,
   maxCandidates: 20,
   uploadBytes: 20 * 1024 * 1024,
@@ -34,6 +36,9 @@ export const LIMITS = {
 
 /** Button text for a restaurant's external link when no custom label is set. */
 export const DEFAULT_LINK_LABEL = '查看链接';
+
+/** How many of a restaurant's links are shown directly on its selection card (the rest live in 详情). */
+export const CARD_QUICK_LINKS = 2;
 
 export const MEAL_SUGGESTIONS = ['早午餐', '午餐', '晚餐', '下午茶', '夜宵'] as const;
 

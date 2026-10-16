@@ -24,13 +24,6 @@ const optionalUrl = z
   .transform((v) => (v ? v : null))
   .refine((v) => v === null || isHttpUrl(v), '链接必须以 http:// 或 https:// 开头');
 
-/** Nullable link that is rendered as a guest-facing anchor: strict http(s), no credentials. */
-const optionalExternalUrl = z
-  .union([z.string().trim().max(LIMITS.url, `链接不能超过 ${LIMITS.url} 个字符`), z.null()])
-  .optional()
-  .transform((v) => (v ? v : null))
-  .refine((v) => v === null || isSafeExternalUrl(v), '链接必须是以 http:// 或 https:// 开头的完整网址');
-
 /** Single-line text: line breaks and runs of spaces collapse to one space. */
 const singleLine = (max: number) => text(max).transform((v) => v.replace(/\s+/g, ' '));
 
@@ -56,20 +49,57 @@ export const dishInputSchema = z.object({
 });
 export type DishInput = z.infer<typeof dishInputSchema>;
 
-export const restaurantInputSchema = z.object({
-  name: text(LIMITS.name).min(1, '请填写餐厅名'),
-  imageAssetId: assetId,
-  review: singleLine(LIMITS.review).default(''),
-  tags,
-  budgetText: text(LIMITS.shortText).default(''),
-  address: text(LIMITS.address).default(''),
-  mapUrl: optionalUrl,
-  linkUrl: optionalExternalUrl,
-  linkLabel: singleLine(LIMITS.linkLabel).default(''),
-  note: text(LIMITS.description).default(''),
-  active: z.boolean().default(true),
-});
-export type RestaurantInput = z.infer<typeof restaurantInputSchema>;
+/**
+ * One editor row. A row with neither name nor URL is an unused row and is dropped; a name
+ * without a URL is an error. The URL is rendered as a guest-facing anchor, so it must pass
+ * isSafeExternalUrl.
+ */
+const restaurantLink = z
+  .object({
+    label: singleLine(LIMITS.linkLabel).default(''),
+    url: z.string().trim().max(LIMITS.url, `链接不能超过 ${LIMITS.url} 个字符`).default(''),
+  })
+  .superRefine((link, ctx) => {
+    if (!link.url && link.label) ctx.addIssue({ code: 'custom', path: ['url'], message: '请填写这个链接的网址' });
+    if (link.url && !isSafeExternalUrl(link.url)) {
+      ctx.addIssue({ code: 'custom', path: ['url'], message: '链接必须是以 http:// 或 https:// 开头的完整网址' });
+    }
+  });
+
+const restaurantLinks = z
+  .array(restaurantLink)
+  .max(LIMITS.restaurantLinks, `最多 ${LIMITS.restaurantLinks} 个链接`)
+  .default([])
+  .transform((list) => list.filter((l) => l.url).map((l) => ({ label: l.label, url: l.url })));
+
+/**
+ * Older clients send a single `linkUrl`/`linkLabel` instead of `links`. When `links` is absent it
+ * is built from them (one entry, or none without a URL); an explicit `links` always wins, and
+ * `links: []` clears every link. The legacy keys are then dropped by the object schema.
+ */
+function translateLegacyLink(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || 'links' in input) return input;
+  const { linkUrl, linkLabel } = input as Record<string, unknown>;
+  const hasUrl = linkUrl !== undefined && linkUrl !== null && linkUrl !== '';
+  return { ...input, links: hasUrl ? [{ label: linkLabel ?? '', url: linkUrl }] : [] };
+}
+
+export const restaurantInputSchema = z.preprocess(
+  translateLegacyLink,
+  z.object({
+    name: text(LIMITS.name).min(1, '请填写餐厅名'),
+    imageAssetId: assetId,
+    review: singleLine(LIMITS.review).default(''),
+    tags,
+    budgetText: text(LIMITS.shortText).default(''),
+    address: text(LIMITS.address).default(''),
+    mapUrl: optionalUrl,
+    links: restaurantLinks,
+    note: text(LIMITS.description).default(''),
+    active: z.boolean().default(true),
+  }),
+);
+export type RestaurantInput = z.output<typeof restaurantInputSchema>;
 
 const idList = (max: number) => z.array(z.string().min(1).max(64)).max(max).default([]);
 

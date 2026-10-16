@@ -94,8 +94,7 @@ export function createPlanService(deps: PlanServiceDeps) {
         budgetText: r.budgetText,
         address: r.address,
         mapUrl: r.mapUrl,
-        linkUrl: r.linkUrl,
-        linkLabel: r.linkLabel,
+        links: r.links.map((l) => ({ ...l })),
       };
     });
     const selectedRestaurant = candidates.find((c) => c.id === input.selectedRestaurantId)!;

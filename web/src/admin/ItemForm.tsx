@@ -1,9 +1,11 @@
 import { Fragment, useState, type FormEvent } from 'react';
-import { DEFAULT_LINK_LABEL, LIMITS } from '../../../shared/constants';
-import { isSafeExternalUrl, splitTags } from '../../../shared/restaurant';
+import { LIMITS } from '../../../shared/constants';
+import { splitTags } from '../../../shared/restaurant';
 import type { Dish, Restaurant } from '../../../shared/types';
+import { collectLinks, toLinkRows, type LinkRow, type LinkRowError } from '../lib/linkRows';
 import { ImageUpload } from './ImageUpload';
 import { MapLinkImport } from './MapLinkImport';
+import { RestaurantLinksEditor } from './RestaurantLinksEditor';
 import { TagField } from './TagField';
 
 export type ItemKind = 'dish' | 'restaurant';
@@ -15,8 +17,8 @@ interface FieldSpec {
   max: number;
   /** Textarea rows; omitted = single-line input. */
   rows?: number;
-  /** 'url' = http(s) link; 'link' = guest-facing external link (stricter, see isSafeExternalUrl). */
-  type?: 'url' | 'link';
+  /** 'url' = http(s) link. */
+  type?: 'url';
   placeholder?: string;
   hint?: string;
   required?: boolean;
@@ -41,21 +43,6 @@ const FIELDS: Record<ItemKind, FieldSpec[]> = {
     },
     { key: 'budgetText', label: '预算', max: LIMITS.shortText, placeholder: '比如：人均 120' },
     { key: 'address', label: '地址', max: LIMITS.address },
-    {
-      key: 'linkUrl',
-      label: '菜单 / 官网等链接',
-      max: LIMITS.url,
-      type: 'link',
-      placeholder: 'https://…',
-      hint: '菜单、官网或任何相关网页都可以，点开会在新窗口打开。',
-    },
-    {
-      key: 'linkLabel',
-      label: '链接按钮文字（选填）',
-      max: LIMITS.linkLabel,
-      placeholder: '比如：看菜单、访问官网',
-      hint: `不填时按钮显示「${DEFAULT_LINK_LABEL}」。`,
-    },
     { key: 'mapUrl', label: '地图链接', max: LIMITS.url, type: 'url', placeholder: 'https://…' },
     { key: 'note', label: '备注', max: LIMITS.description, rows: 3, placeholder: '需要预约、营业时间提示…' },
   ],
@@ -63,6 +50,8 @@ const FIELDS: Record<ItemKind, FieldSpec[]> = {
 
 /** The tag field is rendered right after this field. */
 const TAGS_AFTER: Record<ItemKind, string> = { dish: 'recipeUrl', restaurant: 'review' };
+/** The restaurant's links editor is rendered right after this field. */
+const LINKS_AFTER = 'address';
 
 export type FormValues = Record<string, string> & { tags: string };
 
@@ -87,7 +76,6 @@ function isHttpUrl(v: string): boolean {
 function fieldError(f: FieldSpec, v: string): string | null {
   if (f.required && !v) return `请填写${f.label}`;
   if (f.type === 'url' && v && !isHttpUrl(v)) return '链接需要以 http:// 或 https:// 开头';
-  if (f.type === 'link' && v && !isSafeExternalUrl(v)) return '请填写以 http:// 或 https:// 开头的完整网址（不能含空格）';
   return null;
 }
 
@@ -112,7 +100,23 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], o
   const [imageAssetId, setImageAssetId] = useState<string | null>(item?.imageAssetId ?? null);
   const [active, setActive] = useState(item?.active ?? true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [linkRows, setLinkRows] = useState<LinkRow[]>(() => toLinkRows(item && 'links' in item ? item.links : []));
+  const [linkErrors, setLinkErrors] = useState<Record<string, LinkRowError>>({});
   const setValue = (key: string, value: string) => setValues((prev) => ({ ...prev, [key]: value }));
+
+  const updateLinkRows = (rows: LinkRow[]) => {
+    setLinkRows(rows);
+    // Recheck rows that already show an error as they are edited; don't flag new blank rows.
+    setLinkErrors((previous) => {
+      const current = collectLinks(rows).errors;
+      const remaining: Record<string, LinkRowError> = {};
+      for (const key of Object.keys(previous)) {
+        const error = current[key];
+        if (error) remaining[key] = error;
+      }
+      return remaining;
+    });
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -125,13 +129,16 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], o
     const tags = splitTags(values.tags);
     const tagError = tagsError(tags);
     if (tagError) nextErrors.tags = tagError;
+    const links = kind === 'restaurant' ? collectLinks(linkRows) : null;
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    setLinkErrors(links?.errors ?? {});
+    if (Object.keys(nextErrors).length || (links && Object.keys(links.errors).length)) return;
     const payload: Record<string, unknown> = { imageAssetId, active, tags };
     for (const f of FIELDS[kind]) {
       const v = values[f.key]?.trim() ?? '';
       payload[f.key] = f.type ? v || null : v;
     }
+    if (links) payload.links = links.links;
     onSubmit(payload);
   };
 
@@ -158,6 +165,9 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], o
         <Fragment key={f.key}>
           <TextField spec={f} value={values[f.key] ?? ''} error={errors[f.key]} onChange={(v) => setValue(f.key, v)} />
           {f.key === TAGS_AFTER[kind] && tagField}
+          {kind === 'restaurant' && f.key === LINKS_AFTER && (
+            <RestaurantLinksEditor rows={linkRows} errors={linkErrors} onChange={updateLinkRows} />
+          )}
         </Fragment>
       ))}
       <label className="switch-row">

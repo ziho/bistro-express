@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { splitTags } from '../../shared/restaurant.js';
+import { legacyLink, splitTags } from '../../shared/restaurant.js';
 
 interface Migration {
   version: number;
@@ -80,6 +80,22 @@ export function migrateRestaurantClassification(db: Database.Database): void {
     const missing = splitTags(row.cuisine).filter((t) => !existing.includes(t));
     if (missing.length) update.run(JSON.stringify([...missing, ...existing]), row.id);
   }
+}
+
+/**
+ * Adds `links_json` (the restaurant's list of external links) and copies each legacy single
+ * link_url/link_label into it as the first entry. The legacy columns are kept as they are (no
+ * table rewrite); the catalog repo clears them whenever it writes `links_json`.
+ * Safe to run more than once: only rows whose links are still empty and that still hold a legacy
+ * URL are converted, so a link deleted through the app (which clears link_url) never comes back.
+ */
+export function migrateRestaurantLinks(db: Database.Database): void {
+  addColumnIfMissing(db, 'restaurants', 'links_json', `TEXT NOT NULL DEFAULT '[]'`);
+  const rows = db
+    .prepare(`SELECT id, link_url, link_label FROM restaurants WHERE TRIM(COALESCE(link_url, '')) <> '' AND links_json = '[]'`)
+    .all() as { id: string; link_url: string; link_label: string | null }[];
+  const update = db.prepare('UPDATE restaurants SET links_json = ? WHERE id = ?');
+  for (const row of rows) update.run(JSON.stringify(legacyLink(row.link_url, row.link_label)), row.id);
 }
 
 /**
@@ -241,6 +257,12 @@ const MIGRATIONS: Migration[] = [
     name: 'restaurant review, external link and cuisine merged into tags',
     sql: '',
     up: migrateRestaurantClassification,
+  },
+  {
+    version: 4,
+    name: 'restaurant multiple external links',
+    sql: '',
+    up: migrateRestaurantLinks,
   },
 ];
 

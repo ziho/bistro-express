@@ -3,7 +3,7 @@ import { useId, useMemo, useState } from 'react';
 import type { Restaurant } from '../../../../shared/types';
 import { EmptyPlate } from '../../components/Illustrations';
 import { ItemImage } from '../../components/ItemImage';
-import { MapLinkButton, RestaurantLinkButton, TagList } from '../../components/RestaurantBits';
+import { MapLinkButton, RestaurantLinkRows, RestaurantQuickLinks, TagList } from '../../components/RestaurantBits';
 import { Sheet } from '../../components/Sheet';
 import { filterRestaurants } from '../../lib/restaurants';
 import { CatalogFilters, emptyFilter, type FilterState } from './CatalogFilters';
@@ -108,6 +108,7 @@ function RestaurantCard({ restaurant: r, nameId, selected, onToggle, onDetail }:
           {meta && <p className="rest-card-meta">{meta}</p>}
         </div>
       </div>
+      <RestaurantQuickLinks links={r.links} name={r.name} onShowAll={onDetail} />
       <div className="rest-card-actions">
         <button
           type="button"
@@ -123,7 +124,6 @@ function RestaurantCard({ restaurant: r, nameId, selected, onToggle, onDetail }:
           <Info aria-hidden="true" />
           详情
         </button>
-        <RestaurantLinkButton item={r} name={r.name} />
       </div>
     </li>
   );
@@ -157,9 +157,14 @@ function RestaurantDetail({ restaurant: r, selected, onToggle }: { restaurant: R
           <p className="detail-desc">{r.note}</p>
         </div>
       )}
-      {(r.linkUrl || r.mapUrl) && (
+      {r.links.length > 0 && (
+        <div>
+          <h3 className="detail-subtitle">相关链接</h3>
+          <RestaurantLinkRows links={r.links} name={r.name} />
+        </div>
+      )}
+      {r.mapUrl && (
         <div className="link-actions">
-          <RestaurantLinkButton item={r} name={r.name} className="btn btn-ghost" />
           <MapLinkButton mapUrl={r.mapUrl} className="btn btn-ghost" />
         </div>
       )}

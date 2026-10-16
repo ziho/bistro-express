@@ -79,7 +79,12 @@
   color: var(--ink);
 }
 .topnav-link:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
+}
+@media (hover: hover) {
+  .topnav-link:hover:not(.active) {
+    background: var(--cream-2);
+  }
 }
 
 .main {
@@ -139,9 +144,9 @@
 .gate-card {
   width: min(440px, 100%);
   background: var(--paper);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: 6px 6px 0 var(--butter), var(--shadow-lg);
+  box-shadow: var(--shadow-lg);
   padding: var(--space-6) var(--space-5);
   text-align: center;
 }
@@ -192,9 +197,9 @@
   align-items: center;
   gap: var(--space-3);
   background: var(--paper);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: 5px 5px 0 var(--coral-soft);
+  box-shadow: var(--shadow);
   padding: var(--space-5);
   margin-bottom: var(--space-5);
   overflow: hidden;
@@ -280,7 +285,7 @@
 }
 .empty-day {
   background: var(--paper);
-  border: 2px dashed var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: var(--space-5);
   text-align: center;
@@ -308,7 +313,7 @@
   gap: 2px;
   text-align: left;
   border: 1px solid var(--line);
-  border-left: 5px solid var(--butter);
+  border-left: 3px solid var(--butter-strong);
   background: var(--cream);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);

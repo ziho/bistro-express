@@ -1,6 +1,7 @@
 .admin-tag {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--cream-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   padding: 0 10px;
   font-size: 0.75rem;
@@ -25,23 +26,161 @@
   min-height: var(--tap);
   padding: 0 var(--space-4);
   border-radius: var(--radius-pill);
-  border: 2px solid var(--line);
-  background: var(--paper);
+  border: 1px solid transparent;
+  background: transparent;
   text-decoration: none;
   color: var(--ink-2);
-  font-weight: 700;
+  font-weight: 600;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
 }
 .admin-tab svg {
   width: 18px;
   height: 18px;
 }
 .admin-tab.active {
-  background: var(--butter);
-  border-color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line-strong);
   color: var(--ink);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+.admin-tab.active svg {
+  color: var(--tomato);
+}
+@media (hover: hover) {
+  .admin-tab:hover:not(.active) {
+    background: var(--cream-2);
+  }
 }
 .admin-main {
   padding-top: var(--space-2);
+}
+
+/* ---------- Welcome (front door) ---------- */
+.admin-welcome {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + var(--space-5)) calc(var(--safe-right) + var(--space-4))
+    calc(var(--safe-bottom) + var(--space-5)) calc(var(--safe-left) + var(--space-4));
+  background: radial-gradient(120% 80% at 50% 0%, var(--paper) 0%, var(--cream) 55%, var(--cream-2) 100%);
+}
+.admin-welcome-card {
+  width: min(460px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+.admin-welcome-art {
+  width: min(200px, 60vw);
+  height: auto;
+  margin: var(--space-4) 0 var(--space-2);
+}
+.admin-welcome-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.4rem);
+  letter-spacing: 0.02em;
+}
+.admin-welcome-text {
+  text-wrap: balance;
+  max-width: 30em;
+  margin: 0 0 var(--space-3);
+  color: var(--ink-2);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+.admin-welcome-enter {
+  min-width: 200px;
+  min-height: 52px;
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+}
+.admin-welcome-alt {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* ---------- Overview (management hub) ---------- */
+.overview-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+.overview-tile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 96px;
+  padding: var(--space-4);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color var(--dur-fast), transform var(--dur-fast) var(--ease);
+}
+.overview-tile:active {
+  transform: scale(0.99);
+}
+@media (hover: hover) {
+  .overview-tile:hover {
+    border-color: var(--line-strong);
+  }
+}
+.overview-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 14px;
+  background: var(--coral-soft);
+  color: var(--tomato-dark);
+}
+.overview-tile-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.overview-tile-text {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.overview-tile-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 750;
+}
+.overview-tile-status {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.overview-tile-status.is-attention {
+  color: var(--danger);
+}
+.overview-tile-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.overview-tile-chevron {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--muted);
 }
 
 .admin-page {
@@ -106,7 +245,12 @@
 }
 .admin-item.is-inactive {
   background: var(--cream);
-  border-style: dashed;
+  box-shadow: none;
+}
+.admin-item-text > strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 .admin-item.is-inactive .admin-thumb {
   filter: grayscale(0.8);
@@ -160,7 +304,7 @@
   max-width: 280px;
   aspect-ratio: 4 / 3;
   border-radius: var(--radius);
-  border: 2px dashed var(--line);
+  border: 1px dashed var(--line-strong);
   background: var(--cream);
   display: grid;
   place-items: center;
@@ -187,6 +331,62 @@
 .image-upload-actions label.btn {
   cursor: pointer;
 }
+/* ---------- Restaurant links editor ---------- */
+.links-editor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.links-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--tap);
+  grid-template-areas:
+    'label remove'
+    'url url';
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+}
+.links-editor-row > .links-editor-field:first-child {
+  grid-area: label;
+}
+.links-editor-row > .links-editor-field:nth-child(2) {
+  grid-area: url;
+}
+.links-editor-remove {
+  grid-area: remove;
+  align-self: end;
+  color: var(--danger);
+}
+@media (min-width: 640px) {
+  .links-editor-row {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) var(--tap);
+    grid-template-areas: 'label url remove';
+    align-items: start;
+  }
+  .links-editor-remove {
+    align-self: start;
+    margin-top: 26px;
+  }
+}
+.links-editor-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.links-editor-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.links-editor-add {
+  justify-self: start;
+}
+
 .image-upload-actions label.btn:focus-within {
   outline: 3px solid var(--sky);
   outline-offset: 2px;
@@ -235,7 +435,7 @@
   gap: var(--space-2);
   margin-bottom: var(--space-4);
   padding: var(--space-3);
-  border: 2px dashed var(--butter-strong);
+  border: 1px solid #efd88f;
   border-radius: var(--radius);
   background: var(--butter-soft);
 }
@@ -340,7 +540,6 @@
 }
 .device-item.is-inactive {
   background: var(--cream);
-  border-style: dashed;
 }
 .device-icon {
   grid-area: icon;

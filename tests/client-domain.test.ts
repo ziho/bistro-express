@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LINK_LABEL } from '../shared/constants.js';
-import { isSafeExternalUrl, restaurantLink, splitTags } from '../shared/restaurant.js';
+import { DEFAULT_LINK_LABEL, LIMITS } from '../shared/constants.js';
+import { isSafeExternalUrl, legacyLink, readStoredLinks, restaurantLinks, splitTags } from '../shared/restaurant.js';
 import type { Catalog, Plan, Restaurant, RestaurantSnapshot } from '../shared/types.js';
 import { draftToInput } from '../web/src/lib/drafts.js';
 import { drawOne, randomIndex } from '../web/src/lib/draw.js';
+import { collectLinks, newLinkRow, toLinkRows } from '../web/src/lib/linkRows.js';
 import { cloneToDraft } from '../web/src/lib/planView.js';
 import { filterRestaurants } from '../web/src/lib/restaurants.js';
 
@@ -65,8 +66,7 @@ const snapshot: RestaurantSnapshot = {
   budgetText: '',
   address: '',
   mapUrl: null,
-  linkUrl: null,
-  linkLabel: '',
+  links: [],
 };
 
 const restaurant = (patch: Partial<Restaurant> = {}): Restaurant => ({
@@ -78,8 +78,7 @@ const restaurant = (patch: Partial<Restaurant> = {}): Restaurant => ({
   budgetText: '',
   address: '',
   mapUrl: null,
-  linkUrl: null,
-  linkLabel: '',
+  links: [],
   note: '',
   active: true,
   createdAt: '',
@@ -88,14 +87,63 @@ const restaurant = (patch: Partial<Restaurant> = {}): Restaurant => ({
 });
 
 describe('restaurant link and search helpers', () => {
-  it('shows a link action only for a safe http(s) URL, with a default label', () => {
-    expect(restaurantLink({ linkUrl: 'https://example.com/menu', linkLabel: '' })).toEqual({
-      href: 'https://example.com/menu',
-      label: DEFAULT_LINK_LABEL,
+  it('shows link actions only for safe http(s) URLs, in order, with a default label', () => {
+    const links = [
+      { label: '', url: 'https://example.com/menu' },
+      { label: ' 看菜单 ', url: 'https://example.com' },
+      { label: '坏的', url: 'javascript:alert(1)' },
+      { label: '订位', url: 'https://book.example.com/' },
+    ];
+    expect(restaurantLinks({ links })).toEqual([
+      { href: 'https://example.com/menu', label: DEFAULT_LINK_LABEL },
+      { href: 'https://example.com', label: '看菜单' },
+      { href: 'https://book.example.com/', label: '订位' },
+    ]);
+    expect(restaurantLinks({ links: [] })).toEqual([]);
+  });
+
+  it('reads stored links defensively and translates a legacy single link', () => {
+    expect(readStoredLinks([{ label: 'A', url: 'https://a.test' }, { url: 'https://b.test' }, null, { label: 'x' }, 'str', { url: 5 }])).toEqual([
+      { label: 'A', url: 'https://a.test' },
+      { label: '', url: 'https://b.test' },
+    ]);
+    expect(readStoredLinks('not an array')).toEqual([]);
+    expect(legacyLink(' https://a.test ', ' 看菜单 ')).toEqual([{ label: '看菜单', url: 'https://a.test' }]);
+    expect(legacyLink('', '看菜单')).toEqual([]);
+    expect(legacyLink(null, '')).toEqual([]);
+  });
+
+  it('collects editor rows like the server: blank rows dropped, partial or unsafe rows flagged', () => {
+    const rows = [
+      newLinkRow({ label: ' 看菜单 ', url: ' https://example.com/menu ' }),
+      newLinkRow(),
+      newLinkRow({ label: '', url: 'https://example.com' }),
+    ];
+    expect(collectLinks(rows)).toEqual({
+      links: [
+        { label: '看菜单', url: 'https://example.com/menu' },
+        { label: '', url: 'https://example.com' },
+      ],
+      errors: {},
     });
-    expect(restaurantLink({ linkUrl: 'https://example.com', linkLabel: ' 看菜单 ' })?.label).toBe('看菜单');
-    expect(restaurantLink({ linkUrl: null, linkLabel: '看菜单' })).toBeNull();
-    expect(restaurantLink({ linkUrl: 'javascript:alert(1)', linkLabel: '' })).toBeNull();
+    const bad = [
+      newLinkRow({ label: '官网', url: '' }),
+      newLinkRow({ label: '', url: 'example.com' }),
+      newLinkRow({ label: '字'.repeat(LIMITS.linkLabel + 1), url: 'https://ok.test' }),
+    ];
+    const result = collectLinks(bad);
+    expect(result.links).toEqual([]);
+    expect(Object.keys(result.errors)).toEqual(bad.map((r) => r.key));
+    expect(result.errors[bad[0].key].url).toBeTruthy();
+    expect(result.errors[bad[1].key].url).toBeTruthy();
+    expect(result.errors[bad[2].key].label).toBeTruthy();
+  });
+
+  it('gives each editor row a stable unique key and starts with one blank row', () => {
+    const rows = toLinkRows([{ label: 'a', url: 'https://a.test' }, { label: 'b', url: 'https://b.test' }]);
+    expect(new Set(rows.map((r) => r.key)).size).toBe(2);
+    expect(toLinkRows([])).toHaveLength(1);
+    expect(toLinkRows([])[0]).toMatchObject({ label: '', url: '' });
   });
 
   it('accepts only browser-safe external URLs', () => {
