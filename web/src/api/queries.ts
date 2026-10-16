@@ -31,4 +31,8 @@ export const usePlan = (id: string | undefined) =>
     queryKey: keys.plan(id ?? ''),
     queryFn: () => api<Plan>('GET', `/plans/${id}`),
     enabled: Boolean(id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.notification?.status;
+      return status === 'pending' || status === 'sending' ? 2_000 : false;
+    },
   });
