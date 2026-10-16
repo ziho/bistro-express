@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { isAdminPath } from '../server/http/middleware.js';
-import { createTestEnv, TEST_ADMIN_PASSWORD, type TestEnv } from './helpers.js';
+import { createTestEnv, type TestEnv } from './helpers.js';
 
 let env: TestEnv;
 beforeEach(async () => {
@@ -34,8 +34,8 @@ describe('public listener isolation', () => {
   });
 
   it('404s admin APIs even with an admin session cookie and spoofed headers', async () => {
-    const admin = await env.admin();
-    const adminCookie = `bx_admin=${admin.cookies.get('bx_admin')}`;
+    const legacy = env.ctx.repos.sessions.create('admin', 8 * 3600, env.now());
+    const adminCookie = 'bx_admin=' + legacy.token;
     const spoofed = {
       cookie: adminCookie,
       host: 'admin.test:8788',
@@ -55,7 +55,7 @@ describe('public listener isolation', () => {
       const res = await env.publicApp.request(`https://public.test${p}`, {
         method,
         headers: spoofed,
-        body: method === 'POST' ? JSON.stringify({ password: TEST_ADMIN_PASSWORD }) : undefined,
+        body: method === 'POST' ? JSON.stringify({ password: 'unused' }) : undefined,
       });
       expect(res.status).toBe(404);
     }
@@ -65,13 +65,13 @@ describe('public listener isolation', () => {
   });
 
   it('admin session is not honoured as guest access on the public listener', async () => {
-    const admin = await env.admin();
+    const legacy = env.ctx.repos.sessions.create('admin', 8 * 3600, env.now());
     const res = await env.publicApp.request('https://public.test/bistro/api/catalog', {
-      headers: { cookie: `bx_admin=${admin.cookies.get('bx_admin')}` },
+      headers: { cookie: 'bx_admin=' + legacy.token },
     });
     expect(res.status).toBe(401);
     const session = await env.publicApp.request('https://public.test/bistro/api/auth/session', {
-      headers: { cookie: `bx_admin=${admin.cookies.get('bx_admin')}` },
+      headers: { cookie: 'bx_admin=' + legacy.token },
     });
     expect((await session.json()).data).toEqual({ listener: 'public', guest: false, admin: false });
   });

@@ -4,9 +4,8 @@ import { LIMITS } from '../../../shared/constants.js';
 import { badRequest, conflict, HttpError, notFound } from '../../lib/errors.js';
 import { dishInputSchema, parseWith, restaurantInputSchema, UUID_RE } from '../../lib/validation.js';
 import { processUpload } from '../../media/process.js';
-import { ok, readJson, requireAdmin } from '../helpers.js';
+import { ok, readJson, requireAdminListener } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
-import { adminAuthRoutes } from './auth.js';
 import { barkSettingsRoutes } from './barkSettings.js';
 import { mapLinkRoutes } from './mapLink.js';
 
@@ -167,12 +166,11 @@ function notificationRoutes() {
 
 export function adminRoutes() {
   const r = new Hono<HonoEnv>();
-  r.route('/', adminAuthRoutes());
   r.use('*', async (c, next) => {
-    if (c.req.path.endsWith('/admin/login') || c.req.path.endsWith('/admin/logout')) return next();
-    requireAdmin(c);
+    requireAdminListener(c);
     await next();
   });
+  r.get('/me', (c) => ok(c, { admin: true }));
   r.route('/', catalogRoutes());
   r.route('/', mediaRoutes());
   r.route('/', notificationRoutes());

@@ -212,7 +212,7 @@ describe('POST /admin/restaurants/resolve-map-link', () => {
     expect(dups.find((d) => d.id === byCid.id)).toMatchObject({ active: false, matchedBy: ['CID'] });
   });
 
-  it('fails with a clear, retryable explanation and stays admin-only', async () => {
+  it('fails with a clear explanation and stays private-listener-only', async () => {
     env = await createTestEnv(undefined, { fetch: fakeRedirects({ [DEER_SHORT]: { status: 404 } }).fetch });
     const admin = await env.admin();
     const dead = await admin.post(PATH, { url: DEER_SHORT });
@@ -225,7 +225,7 @@ describe('POST /admin/restaurants/resolve-map-link', () => {
 
     const guest = await env.guest();
     expect((await guest.post(PATH, { url: KATSU_SHORT })).status).toBe(404);
-    expect((await env.adminClient().post(PATH, { url: KATSU_SHORT })).status).toBe(401);
+    expect((await env.adminClient().post(PATH, { url: KATSU_SHORT })).status).toBe(502); // private access needs no cookie
   });
 
   it('rate-limits outbound expansion', async () => {

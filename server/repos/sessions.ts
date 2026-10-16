@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DB } from '../db/connection.js';
 import { randomToken, sha256 } from '../lib/crypto.js';
 
+/** 'admin' is retained for old database rows; it no longer grants access. */
 export type SessionKind = 'guest' | 'admin';
 
 export interface SessionRecord {

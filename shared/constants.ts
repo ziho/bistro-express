@@ -7,10 +7,8 @@ export const ADMIN_API_PATH = `${API_PATH}/admin`;
 export const APP_NAME = 'Bistro Express';
 
 export const GUEST_COOKIE = 'bx_guest';
-export const ADMIN_COOKIE = 'bx_admin';
 
 export const GUEST_SESSION_SECONDS = 30 * 24 * 60 * 60;
-export const ADMIN_SESSION_SECONDS = 8 * 60 * 60;
 
 export const LIMITS = {
   mealLabel: 20,

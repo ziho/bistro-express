@@ -144,6 +144,7 @@ export interface Catalog {
 export interface SessionInfo {
   listener: 'public' | 'admin';
   guest: boolean;
+  /** True on the private listener (network access, no password/session required). */
   admin: boolean;
 }
 

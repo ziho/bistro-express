@@ -8,10 +8,10 @@ beforeEach(async () => {
 afterEach(() => env.cleanup());
 
 describe('catalog access', () => {
-  it('requires a guest or admin session', async () => {
+  it('requires the public date gate but trusts the private listener', async () => {
     expect((await env.publicClient().get('/bistro/api/catalog')).status).toBe(401);
-    expect((await env.adminClient().get('/bistro/api/catalog')).status).toBe(401);
-    expect((await env.adminClient().get('/bistro/api/admin/dishes')).status).toBe(401);
+    expect((await env.adminClient().get('/bistro/api/catalog')).status).toBe(200);
+    expect((await env.adminClient().get('/bistro/api/admin/dishes')).status).toBe(200);
   });
 
   it('starts empty', async () => {

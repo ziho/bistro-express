@@ -11,7 +11,6 @@ export interface AppConfig {
   host: string;
   dataDir: string;
   entryDateHash: string;
-  adminPasswordHash: string;
   cookieSecure: boolean;
   trustProxy: boolean;
   /** Directory with the built SPA (index.html, assets). */
@@ -57,12 +56,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const pub = requireBaseUrl('PUBLIC_BASE_URL', env.PUBLIC_BASE_URL);
   const adm = requireBaseUrl('ADMIN_BASE_URL', env.ADMIN_BASE_URL);
   const entryDateHash = env.ENTRY_DATE_HASH ?? '';
-  const adminPasswordHash = env.ADMIN_PASSWORD_HASH ?? '';
   if (!HASH_RE.test(entryDateHash)) {
     throw new ConfigError('ENTRY_DATE_HASH is missing or malformed — run `npm run setup` first');
-  }
-  if (!HASH_RE.test(adminPasswordHash)) {
-    throw new ConfigError('ADMIN_PASSWORD_HASH is missing or malformed — run `npm run setup` first');
   }
   const cookieSecure = env.COOKIE_SECURE !== 'false';
   if (!cookieSecure && !(isLocalOrigin(pub.origin) && isLocalOrigin(adm.origin))) {
@@ -78,7 +73,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     host: env.HOST ?? '0.0.0.0',
     dataDir: path.resolve(env.DATA_DIR ?? './data'),
     entryDateHash,
-    adminPasswordHash,
     cookieSecure,
     trustProxy: env.TRUST_PROXY !== 'false',
     webDir: path.resolve(env.WEB_DIR ?? './dist/web'),

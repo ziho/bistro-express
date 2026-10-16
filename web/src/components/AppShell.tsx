@@ -76,10 +76,12 @@ export function AppShell() {
               <span>后台</span>
             </NavLink>
           )}
-          <button type="button" className="topnav-link" onClick={() => void logout()}>
-            <LogOut aria-hidden="true" />
-            <span>退出</span>
-          </button>
+          {!isInternal && (
+            <button type="button" className="topnav-link" onClick={() => void logout()}>
+              <LogOut aria-hidden="true" />
+              <span>退出</span>
+            </button>
+          )}
         </nav>
       </header>
       <OfflineBanner />

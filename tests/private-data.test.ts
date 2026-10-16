@@ -6,12 +6,10 @@ let env: TestEnv;
 beforeEach(async () => { env = await createTestEnv(); });
 afterEach(() => env.cleanup());
 
-it('rejects valid JSON primitives at authentication endpoints as input errors', async () => {
+it('rejects valid JSON primitives at the public date gate as input errors', async () => {
   for (const value of [null, 123, true, 'not an object', []]) {
     const gate = await env.publicClient().request('POST', '/bistro/api/auth/gate', { json: value });
     expect(gate.status, gate.text).toBe(400);
-    const login = await env.adminClient().request('POST', '/bistro/api/admin/login', { json: value });
-    expect(login.status, login.text).toBe(400);
   }
 });
 

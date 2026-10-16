@@ -56,18 +56,11 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     onCommitted: () => worker.kick(),
   });
   const nowMs = () => clock().getTime();
-  const limiters: { gate: AuthLimiter; admin: AuthLimiter; mapLink: RateLimiter } = {
+  const limiters: { gate: AuthLimiter; mapLink: RateLimiter } = {
     gate: createAuthLimiter({
       perClient: 8,
       perClientWindowMs: 15 * 60_000,
       global: 40,
-      globalWindowMs: 60 * 60_000,
-      now: nowMs,
-    }),
-    admin: createAuthLimiter({
-      perClient: 5,
-      perClientWindowMs: 15 * 60_000,
-      global: 20,
       globalWindowMs: 60 * 60_000,
       now: nowMs,
     }),

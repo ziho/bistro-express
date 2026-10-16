@@ -1,10 +1,9 @@
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { ADMIN_COOKIE, BASE_PATH, GUEST_COOKIE } from '../../shared/constants.js';
-import { badRequest, unauthorized } from '../lib/errors.js';
+import { BASE_PATH, GUEST_COOKIE } from '../../shared/constants.js';
+import { badRequest, notFound, unauthorized } from '../lib/errors.js';
 import { IDEMPOTENCY_KEY_RE } from '../lib/validation.js';
-import type { SessionKind } from '../repos/sessions.js';
 import type { Ctx } from './types.js';
 
 export function ok<T>(c: Ctx, data: T, status: ContentfulStatusCode = 200) {
@@ -36,21 +35,16 @@ export function idempotencyKey(c: Ctx): string {
   return key;
 }
 
-const cookieName = (kind: SessionKind) => (kind === 'guest' ? GUEST_COOKIE : ADMIN_COOKIE);
-
-export function readSessionToken(c: Ctx, kind: SessionKind): string {
-  return getCookie(c, cookieName(kind)) ?? '';
+export function readGuestToken(c: Ctx): string {
+  return getCookie(c, GUEST_COOKIE) ?? '';
 }
-
-export function hasSession(c: Ctx, kind: SessionKind): boolean {
+export function hasGuestSession(c: Ctx): boolean {
   const app = c.get('app');
-  if (kind === 'admin' && c.get('listener') !== 'admin') return false;
-  const token = readSessionToken(c, kind);
-  return Boolean(token && app.repos.sessions.find(token, kind, app.clock()));
+  const token = readGuestToken(c);
+  return Boolean(token && app.repos.sessions.find(token, 'guest', app.clock()));
 }
-
-export function setSessionCookie(c: Ctx, kind: SessionKind, token: string, maxAgeSeconds: number) {
-  setCookie(c, cookieName(kind), token, {
+export function setGuestCookie(c: Ctx, token: string, maxAgeSeconds: number) {
+  setCookie(c, GUEST_COOKIE, token, {
     path: BASE_PATH,
     httpOnly: true,
     secure: c.get('app').config.cookieSecure,
@@ -58,20 +52,19 @@ export function setSessionCookie(c: Ctx, kind: SessionKind, token: string, maxAg
     maxAge: maxAgeSeconds,
   });
 }
-
-export function clearSessionCookie(c: Ctx, kind: SessionKind) {
-  deleteCookie(c, cookieName(kind), { path: BASE_PATH, secure: c.get('app').config.cookieSecure });
+export function clearGuestCookie(c: Ctx) {
+  deleteCookie(c, GUEST_COOKIE, { path: BASE_PATH, secure: c.get('app').config.cookieSecure });
 }
 
-/** Guest features: a guest session, or (internal listener only) an admin session. */
+/** The private listener trusts its network boundary; public visitors still need the date gate. */
 export function requireGuestAccess(c: Ctx): void {
-  if (hasSession(c, 'guest')) return;
-  if (c.get('listener') === 'admin' && hasSession(c, 'admin')) return;
+  if (c.get('listener') === 'admin' || hasGuestSession(c)) return;
   throw unauthorized();
 }
 
-export function requireAdmin(c: Ctx): void {
-  if (!hasSession(c, 'admin')) throw unauthorized('请先登录管理后台');
+/** Only the server's listener selects admin access, never a URL, Host or forwarded header. */
+export function requireAdminListener(c: Ctx): void {
+  if (c.get('listener') !== 'admin') throw notFound();
 }
 
 /** Rate-limit key for the requesting client. Forwarded headers are only trusted behind our proxy. */

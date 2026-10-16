@@ -11,12 +11,10 @@
 ## 首次部署
 
 ```bash
-# 1. 生成 .env（入口日期与管理密码只以 scrypt 哈希保存）
+# 1. 生成 .env（公网入口日期只以 scrypt 哈希保存，后台免密码）
 PUBLIC_BASE_URL=https://share.zihoh.com/bistro \
 ADMIN_BASE_URL=https://whitepc.tail913bc.ts.net:8788/bistro \
 npm run setup            # 按提示输入入口日期（YYYY-MM-DD），也可用 BISTRO_ENTRY_DATE=… 或 stdin 传入
-
-# 生成的管理密码在 secrets/admin-password.txt（权限 600，已 gitignore），读取后可自行删除
 
 # 2. 构建并启动（需要已存在的外部网络 1panel-network）
 docker compose up -d --build
@@ -31,13 +29,14 @@ docker compose ps        # 健康检查：/bistro/api/health
 docker compose logs -f bistro-express          # 查看日志
 docker compose up -d --build                    # 更新代码后重新部署（启动时自动执行数据库迁移）
 docker compose restart bistro-express           # 重启
-npm run setup -- --rotate-admin                 # 重新生成管理密码，之后重启容器
 BISTRO_ENTRY_DATE=YYYY-MM-DD npm run setup      # 修改入口日期，之后重启容器
 ```
 
 首次进入后台后：在「推送设置」里打开总开关、添加 Bark 设备并发送测试推送；在「菜品」「餐厅」添加内容（初始目录为空）。未配置推送时，通知会显示为「通知未配置」，配置后可在「通知」页一键重试。
 
 升级到多设备版本时，启动会自动执行数据库迁移 2：旧的单个设备 Key 会变成一台名为「原设备（旧版单设备设置）」的设备（总开关与服务器地址保持不变），已有通知记录原样保留。`.env` 不需要改动。
+
+后台通过 Tailscale 私有入口直接访问，应用不再要求管理密码。内部监听仍只映射到本机回环，公开监听和公网 Nginx 继续拒绝所有管理路径。公网点餐的日期验证保持不变。
 
 ## 功能说明
 
@@ -92,8 +91,9 @@ npm run build && node --env-file=.env dist/server/server/index.js
 
 ## 安全要点
 
-- 访客：输入正确日期后获得 30 天会话；管理：密码登录，会话 8 小时。令牌随机生成、仅哈希存库，Cookie 为 `HttpOnly; Secure; SameSite=Lax; Path=/bistro`
-- 登录与日期验证有按客户端 + 全局的失败次数限制；所有写请求校验 `Origin`
+- 公网访客：输入正确日期后获得 30 天会话。令牌随机生成、仅哈希存库，Cookie 为 `HttpOnly; Secure; SameSite=Lax; Path=/bistro`。
+- 后台：连接 Tailscale 后直接进入，无需密码或管理 Cookie。权限由内部监听端口决定；伪造 Host、转发头或旧管理 Cookie 均不能在公网取得管理权限。旧管理密码配置不再使用，初始化也不再生成管理密码。
+- 公网日期验证有按客户端 + 全局的失败次数限制；包括后台在内的所有写请求仍校验 `Origin`。
 - 菜单、计划、图片都需要会话；Service Worker 只缓存公开外壳与静态资源，从不缓存 API/图片
 - 上传支持 JPEG/PNG/WebP/HEIC，统一转为去除 EXIF 的 WebP（长边 1600 + 480 缩略图），不接受 SVG
 - `.env`、`data/`、`secrets/` 均已 gitignore；`.env.example` 只含占位值
@@ -104,6 +104,6 @@ npm run build && node --env-file=.env dist/server/server/index.js
 - 管理后台（先连接 Tailscale）：<https://whitepc.tail913bc.ts.net:8788/bistro/admin>
 - NPM 的现有 `share.zihoh.com` HTTPS 站点包含 `/data/nginx/custom/bistro-express.locations.conf`，内容来自 `ops/nginx-location.conf`。更新片段后先执行 `nginx -t`，通过后再平滑重载。
 - Tailscale 私有代理：`tailscale serve --bg --https=8788 http://127.0.0.1:8787`，保留其他 Serve 端口。
-- 正式数据在 `data/`，初始管理密码在 `secrets/admin-password.txt`；两者均排除出 Git 和镜像构建上下文。
+- 正式数据在 `data/`，排除出 Git 和镜像构建上下文；旧版 `secrets/` 仍排除在外，现已不再生成或使用管理密码。
 
 容器同时连接 NPM 的共享网络和项目专用的 bistro-express-outbound 网桥。默认外连走专用网桥，供 Google Maps 短链接解析及 Bark 推送使用；公开入口仍通过 NPM，后台端口仍只绑定本机回环。Compose 需要支持 gw_priority（2.33.1 或更新版本）。

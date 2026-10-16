@@ -12,7 +12,6 @@ import { ProviderError, type NotificationProvider, type PushMessage, type Recipi
 
 /** Fictional gate answer used only in tests. */
 export const TEST_ENTRY_DATE = '2001-02-03';
-export const TEST_ADMIN_PASSWORD = 'test-admin-password-123';
 export const PUBLIC_ORIGIN = 'https://public.test';
 export const ADMIN_ORIGIN = 'https://admin.test:8788';
 
@@ -133,7 +132,7 @@ export interface TestEnv {
   cleanup(): void;
 }
 
-let cachedHashes: { entry: string; admin: string } | null = null;
+let cachedEntryHash: string | null = null;
 
 /** Fails loudly if code under test tries to reach the network without an injected fake. */
 export const noNetwork: FetchLike = async (url) => {
@@ -160,10 +159,7 @@ export async function createTestEnv(start = '2030-01-15T12:00:00Z', opts: TestEn
   fs.writeFileSync(path.join(webDir, 'sw.js'), 'self.addEventListener("fetch",()=>{})');
 
   // Low scrypt cost keeps tests fast; production uses setup.mjs defaults.
-  cachedHashes ??= {
-    entry: await hashScrypt(entryDateSecret(TEST_ENTRY_DATE), 1024, 8, 1),
-    admin: await hashScrypt(TEST_ADMIN_PASSWORD, 1024, 8, 1),
-  };
+  cachedEntryHash ??= await hashScrypt(entryDateSecret(TEST_ENTRY_DATE), 1024, 8, 1);
 
   const config: AppConfig = {
     publicBaseUrl: `${PUBLIC_ORIGIN}/bistro`,
@@ -174,8 +170,7 @@ export async function createTestEnv(start = '2030-01-15T12:00:00Z', opts: TestEn
     adminPort: 0,
     host: '127.0.0.1',
     dataDir: path.join(dir, 'data'),
-    entryDateHash: cachedHashes.entry,
-    adminPasswordHash: cachedHashes.admin,
+    entryDateHash: cachedEntryHash,
     cookieSecure: true,
     trustProxy: true,
     webDir,
@@ -216,10 +211,7 @@ export async function createTestEnv(start = '2030-01-15T12:00:00Z', opts: TestEn
       return client;
     },
     async admin() {
-      const client = new Client(adminApp, ADMIN_ORIGIN);
-      const res = await client.post('/bistro/api/admin/login', { password: TEST_ADMIN_PASSWORD });
-      if (res.status !== 200) throw new Error(`admin login failed: ${res.text}`);
-      return client;
+      return new Client(adminApp, ADMIN_ORIGIN);
     },
     cleanup() {
       void ctx.worker.stop();

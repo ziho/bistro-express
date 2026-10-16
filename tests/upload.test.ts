@@ -84,12 +84,13 @@ describe('image uploads', () => {
     expect(res.status).toBe(413);
   });
 
-  it('rejects uploads without a file and from non-admins', async () => {
+  it('requires a file, allows cookie-free private uploads and blocks public uploads', async () => {
     const admin = await env.admin();
     expect((await admin.request('POST', '/bistro/api/admin/media', { body: new FormData() })).status).toBe(400);
     const anon = env.adminClient();
     const png = await sharp({ create: { width: 10, height: 10, channels: 3, background: '#fff' } }).png().toBuffer();
-    expect((await upload(anon, png, 'a.png', 'image/png')).status).toBe(401);
+    expect((await upload(anon, png, 'a.png', 'image/png')).status).toBe(201);
+    expect((await upload(env.publicClient(), png, 'a.png', 'image/png')).status).toBe(404);
   });
 
   it('media requires authentication and rejects traversal-shaped ids', async () => {

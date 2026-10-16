@@ -4,10 +4,8 @@
 //   npm run setup                         # prompts for the entry date
 //   BISTRO_ENTRY_DATE=YYYY-MM-DD npm run setup
 //   echo YYYY-MM-DD | npm run setup
-//   npm run setup -- --rotate-admin       # generate a new admin password
 //
-// The entry date is stored only as a salted scrypt hash. A generated admin password is written to
-// secrets/admin-password.txt (mode 600, gitignored) and is never printed.
+// The public entry date is stored only as a salted scrypt hash. Admin access relies on Tailscale.
 import { randomBytes, scrypt } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,12 +15,12 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENV_FILE = path.join(ROOT, '.env');
 const ENV_EXAMPLE = path.join(ROOT, '.env.example');
-const SECRETS_DIR = path.join(ROOT, 'secrets');
-const PASSWORD_FILE = path.join(SECRETS_DIR, 'admin-password.txt');
 const DATA_DIR = path.join(ROOT, 'data');
 
-const args = new Set(process.argv.slice(2));
-const rotateAdmin = args.has('--rotate-admin');
+if (process.argv.length > 2) {
+  console.error('后台通过 Tailscale 免密码访问；setup 不接受管理密码或其他参数。');
+  process.exit(1);
+}
 
 /** Must match server/lib/crypto.ts. */
 const entryDateSecret = (date) => `bistro-entry-date:v1:${date}`;
@@ -78,20 +76,8 @@ async function promptLine(question) {
   );
 }
 
-function generatePassword() {
-  // 24 chars from an unambiguous alphabet ≈ 137 bits.
-  const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = randomBytes(64);
-  let out = '';
-  for (const b of bytes) {
-    if (b < alphabet.length * Math.floor(256 / alphabet.length)) out += alphabet[b % alphabet.length];
-    if (out.length === 24) break;
-  }
-  return out;
-}
-
 async function main() {
-  let lines = readEnvLines();
+  let lines = readEnvLines().filter((line) => !line.startsWith('ADMIN_PASSWORD_HASH='));
   const changes = [];
 
   const existingDateHash = getValue(lines, 'ENTRY_DATE_HASH');
@@ -110,25 +96,6 @@ async function main() {
   } else if (!existingDateHash) {
     console.error('✗ 尚未配置入口日期，请提供 BISTRO_ENTRY_DATE 或在提示时输入');
     process.exit(1);
-  }
-
-  const existingAdminHash = getValue(lines, 'ADMIN_PASSWORD_HASH');
-  if (!existingAdminHash || rotateAdmin) {
-    const provided = process.env.BISTRO_ADMIN_PASSWORD ?? '';
-    if (provided && provided.length < 12) {
-      console.error('✗ BISTRO_ADMIN_PASSWORD 至少需要 12 个字符');
-      process.exit(1);
-    }
-    const password = provided || generatePassword();
-    lines = setValue(lines, 'ADMIN_PASSWORD_HASH', await hashScrypt(password));
-    if (!provided) {
-      fs.mkdirSync(SECRETS_DIR, { recursive: true, mode: 0o700 });
-      fs.writeFileSync(PASSWORD_FILE, `${password}\n`, { mode: 0o600 });
-      fs.chmodSync(PASSWORD_FILE, 0o600);
-      changes.push(`管理密码已生成，保存在 ${path.relative(ROOT, PASSWORD_FILE)}（仅本机可读）`);
-    } else {
-      changes.push('管理密码哈希已按 BISTRO_ADMIN_PASSWORD 更新');
-    }
   }
 
   for (const key of ['PUBLIC_BASE_URL', 'ADMIN_BASE_URL']) {
@@ -157,7 +124,6 @@ async function main() {
   console.log('✓ .env 已写入（权限 600）');
   for (const change of changes) console.log(`✓ ${change}`);
   console.log('✓ data/ 目录已就绪');
-  if (rotateAdmin) console.log('提示：重启容器后新密码生效；已登录的管理会话最多 8 小时后过期。');
 }
 
 main().catch((err) => {

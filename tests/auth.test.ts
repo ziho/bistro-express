@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createTestEnv, TEST_ADMIN_PASSWORD, TEST_ENTRY_DATE, type TestEnv } from './helpers.js';
+import { createTestEnv, TEST_ENTRY_DATE, type TestEnv } from './helpers.js';
 
 let env: TestEnv;
 beforeEach(async () => {
@@ -88,36 +88,45 @@ describe('guest date gate', () => {
   });
 });
 
-describe('admin login (internal listener)', () => {
-  it('logs in with the password and grants an 8 hour session', async () => {
+describe('passwordless private listener', () => {
+  it('opens admin APIs without a password or cookie and creates no session', async () => {
     const client = env.adminClient();
-    const res = await client.post('/bistro/api/admin/login', { password: TEST_ADMIN_PASSWORD });
-    expect(res.status).toBe(200);
-    expect(res.headers.getSetCookie().find((c) => c.startsWith('bx_admin='))).toMatch(/Max-Age=28800/);
-    expect((await client.get('/bistro/api/admin/dishes')).status).toBe(200);
-    env.advance(8 * 3600_000 + 1000);
-    expect((await client.get('/bistro/api/admin/dishes')).status).toBe(401);
-  });
-
-  it('rejects wrong passwords and rate limits them', async () => {
-    const client = env.adminClient();
-    for (let i = 0; i < 5; i += 1) {
-      expect((await client.post('/bistro/api/admin/login', { password: 'nope-nope-nope' })).status).toBe(401);
+    expect((await client.get('/bistro/api/admin/me')).body.data).toEqual({ admin: true });
+    for (const route of ['dishes', 'restaurants', 'plans', 'notifications', 'settings/bark']) {
+      const res = await client.get('/bistro/api/admin/' + route);
+      expect(res.status, route).toBe(200);
+      expect(res.headers.getSetCookie()).toHaveLength(0);
     }
-    expect((await client.post('/bistro/api/admin/login', { password: TEST_ADMIN_PASSWORD })).status).toBe(429);
+    expect(client.cookies.size).toBe(0);
+    expect(env.ctx.db.prepare('SELECT COUNT(*) AS n FROM sessions').get()).toEqual({ n: 0 });
   });
 
-  it('admin session also unlocks guest features on the internal listener', async () => {
-    const admin = await env.admin();
-    expect((await admin.get('/bistro/api/catalog')).status).toBe(200);
-    const session = await admin.get('/bistro/api/auth/session');
-    expect(session.body.data).toEqual({ listener: 'admin', guest: true, admin: true });
-  });
-
-  it('a guest session cannot reach admin APIs', async () => {
+  it('does not expire private access or depend on old admin cookies', async () => {
     const client = env.adminClient();
-    await client.post('/bistro/api/auth/gate', { date: TEST_ENTRY_DATE });
-    expect((await client.get('/bistro/api/admin/dishes')).status).toBe(401);
+    client.cookies.set('bx_admin', 'expired-or-invalid-legacy-token');
+    env.advance(31 * 24 * 3600_000);
+    expect((await client.get('/bistro/api/admin/dishes')).status).toBe(200);
+    expect((await client.get('/bistro/api/auth/session')).body.data).toEqual({ listener: 'admin', guest: true, admin: true });
+  });
+
+  it('also opens guest features on the private listener without the date gate', async () => {
+    const client = env.adminClient();
+    expect((await client.get('/bistro/api/catalog')).status).toBe(200);
+    expect((await client.get('/bistro/api/auth/session')).body.data).toEqual({ listener: 'admin', guest: true, admin: true });
+  });
+
+  it('allows catalog changes without a login or cookie', async () => {
+    const client = env.adminClient();
+    const created = await client.post('/bistro/api/admin/dishes', { name: '免登录录入' });
+    expect(created.status).toBe(201);
+    expect((await client.put('/bistro/api/admin/dishes/' + created.body.data.id, { name: '修改成功' })).status).toBe(200);
+    expect(client.cookies.size).toBe(0);
+  });
+
+  it('removes the old password login/logout endpoints', async () => {
+    const client = env.adminClient();
+    expect((await client.post('/bistro/api/admin/login', { password: 'unused' })).status).toBe(404);
+    expect((await client.post('/bistro/api/admin/logout')).status).toBe(404);
   });
 });
 
@@ -133,8 +142,14 @@ describe('origin checks on writes', () => {
       (await client.post('/bistro/api/auth/gate', { date: TEST_ENTRY_DATE }, { origin: 'https://admin.test:8788' })).status,
     ).toBe(403);
     const admin = env.adminClient();
-    expect(
-      (await admin.post('/bistro/api/admin/login', { password: TEST_ADMIN_PASSWORD }, { origin: 'https://public.test' })).status,
-    ).toBe(403);
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+      for (const origin of [null, 'https://evil.test', 'https://public.test']) {
+        const res = await admin.request(method, '/bistro/api/admin/dishes', { json: { name: 'x' }, origin });
+        expect(res.status).toBe(403);
+      }
+    }
+    const missingOrigin = await admin.request('POST', '/bistro/api/admin/media', { body: new FormData(), origin: null });
+    expect(missingOrigin.status).toBe(403);
+    expect(env.ctx.repos.catalog.listDishes(false)).toHaveLength(0);
   });
 });
