@@ -76,7 +76,7 @@ export function GatePage() {
         <Logo />
         <TableForTwo className="gate-art" />
         <h1 className="gate-title">入嚟坐</h1>
-        <p className="gate-sub">选对日期，就能进去点餐。</p>
+        <p className="gate-sub">仲记唔记得？</p>
         <form onSubmit={submit} className="gate-form" noValidate>
           <label htmlFor="gate-date" className="field-label">
             日期
