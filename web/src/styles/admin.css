@@ -341,10 +341,11 @@
 }
 .links-editor-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--tap);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    'label remove'
-    'url url';
+    'label'
+    'url'
+    'actions';
   gap: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--line);
@@ -357,20 +358,24 @@
 .links-editor-row > .links-editor-field:nth-child(2) {
   grid-area: url;
 }
+.links-editor-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
 .links-editor-remove {
-  grid-area: remove;
-  align-self: end;
+  margin-left: auto;
   color: var(--danger);
 }
 @media (min-width: 640px) {
   .links-editor-row {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) var(--tap);
-    grid-template-areas: 'label url remove';
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas:
+      'label url'
+      'actions actions';
     align-items: start;
-  }
-  .links-editor-remove {
-    align-self: start;
-    margin-top: 26px;
   }
 }
 .links-editor-field {
