@@ -14,6 +14,7 @@ import './styles/editor.css';
 import './styles/dishes.css';
 import './styles/admin.css';
 import './styles/bulk-import.css';
+import './styles/shopping.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

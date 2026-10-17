@@ -310,3 +310,70 @@ export interface RestaurantImportResponse {
   /** true when this is the stored answer to an earlier identical request (same Idempotency-Key). */
   replayed: boolean;
 }
+
+/** 待采购 / 家里已有（够这一餐用）/ 已买好. Mutually exclusive and reversible. */
+export type ShoppingStatus = 'pending' | 'have' | 'bought';
+
+/** One shopping item added by hand to a saved home meal (not part of any recipe). */
+export interface ShoppingManualItem {
+  id: string;
+  name: string;
+  /** Free text; '' when not given. */
+  quantity: string;
+  /** Free text; '' when not given. */
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Where one requirement of a shopping group comes from, with its original free-text values. */
+export type ShoppingSource =
+  | {
+      kind: 'dish';
+      dishId: string;
+      dishName: string;
+      /** The ingredient row's original name (groups may merge case/whitespace variants). */
+      name: string;
+      quantity: string;
+      purchaseNote: string;
+    }
+  | { kind: 'manual'; manualId: string; name: string; quantity: string; note: string };
+
+/** Overall purchase reminder (shoppingNote) of one dish, shown apart from the ingredient groups. */
+export interface ShoppingDishNote {
+  dishId: string;
+  dishName: string;
+  note: string;
+}
+
+/** One ingredient group of a saved meal's checklist. */
+export interface ShoppingItem {
+  /** Normalized name; stable across reorderings and display-name case/space changes. */
+  key: string;
+  /** Display name (the first source's original name). */
+  name: string;
+  sources: ShoppingSource[];
+  status: ShoppingStatus;
+  /** The group's requirement changed after it was marked have/bought; it was reset to pending. */
+  needsReview: boolean;
+}
+
+export type ShoppingLockReason = 'cancelled' | 'past' | 'restaurant';
+
+/** GET /plans/:id/shopping and every shopping write response. */
+export interface ShoppingList {
+  planId: string;
+  /** The meal version this list was derived from; writes must send it back as expectedPlanVersion. */
+  planVersion: number;
+  /** Independent shopping revision (0 = never written); writes must send it back as expectedRevision. */
+  revision: number;
+  writable: boolean;
+  lockReason: ShoppingLockReason | null;
+  items: ShoppingItem[];
+  manual: ShoppingManualItem[];
+  dishNotes: ShoppingDishNote[];
+  /** Names of dishes in this meal without any recorded main ingredient. */
+  dishesWithoutIngredients: string[];
+  counts: Record<ShoppingStatus, number>;
+  updatedAt: string | null;
+}

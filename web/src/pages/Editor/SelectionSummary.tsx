@@ -1,4 +1,4 @@
-import { Dices, Home, Send, Store, Trash2, Wand2 } from 'lucide-react';
+import { ClipboardList, Dices, Home, Send, Store, Trash2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { formatDateLabel } from '../../../../shared/time';
 import type { Catalog } from '../../../../shared/types';
@@ -12,12 +12,14 @@ interface Props {
   snapshotNames: Map<string, string>;
   onChange: (patch: Partial<Draft>) => void;
   onReview: () => void;
+  /** Opens the read-only shopping checklist preview (home meals). */
+  onShoppingPreview: () => void;
   disabled?: boolean;
 }
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onReview, disabled }: Props) {
+export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onReview, onShoppingPreview, disabled }: Props) {
   const [drawCount, setDrawCount] = useState(0);
   const [rolling, setRolling] = useState(false);
   const dishName = new Map(catalog.dishes.map((d) => [d.id, d.name]));
@@ -83,6 +85,13 @@ export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onRe
             );
           })}
         </ul>
+      )}
+
+      {draft.mode === 'home' && ids.length > 0 && (
+        <button type="button" className="btn btn-ghost btn-block" onClick={onShoppingPreview} aria-haspopup="dialog">
+          <ClipboardList aria-hidden="true" />
+          采购清单预览
+        </button>
       )}
 
       {draft.mode === 'restaurant' && (

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ListChecks, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ClipboardList, ListChecks, RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { LIMITS } from '../../../../shared/constants';
@@ -18,6 +18,7 @@ import { MealMetaForm, timeProblem } from './MealMetaForm';
 import { RestaurantPicker } from './RestaurantPicker';
 import { ReviewDialog } from './ReviewDialog';
 import { SelectionSummary } from './SelectionSummary';
+import { ShoppingPreviewSheet } from './ShoppingPreviewSheet';
 import { useEditorDraft } from './useEditorDraft';
 
 type FieldErrors = Partial<Record<'date' | 'mealLabel' | 'localTime', string>>;
@@ -53,6 +54,7 @@ export function EditorPage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -146,6 +148,13 @@ export function EditorPage() {
     }
   };
 
+  const openShoppingPreview = () => {
+    if (!drawerOpen) return setPreviewOpen(true);
+    // Phone: close the summary drawer first (it restores focus) so only one modal is ever open.
+    setDrawerOpen(false);
+    window.requestAnimationFrame(() => setPreviewOpen(true));
+  };
+
   const summary = (
     <SelectionSummary
       draft={draft}
@@ -153,6 +162,7 @@ export function EditorPage() {
       snapshotNames={snapshotNames}
       onChange={update}
       onReview={openReview}
+      onShoppingPreview={openShoppingPreview}
       disabled={busy}
     />
   );
@@ -198,7 +208,15 @@ export function EditorPage() {
         </section>
 
         <section className="editor-picker" aria-label={draft.mode === 'home' ? '选菜' : '选餐厅'}>
-          <h2 className="section-title">{draft.mode === 'home' ? '今天在家吃什么' : '想去哪几家'}</h2>
+          <div className="picker-heading">
+            <h2 className="section-title">{draft.mode === 'home' ? '今天在家吃什么' : '想去哪几家'}</h2>
+            {draft.mode === 'home' && draft.dishIds.length > 0 && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={openShoppingPreview} aria-haspopup="dialog">
+                <ClipboardList aria-hidden="true" />
+                采购清单
+              </button>
+            )}
+          </div>
           {draft.mode === 'home' ? (
             <DishPicker dishes={cat.dishes} selectedIds={draft.dishIds} onToggle={toggleDish} />
           ) : (
@@ -245,6 +263,13 @@ export function EditorPage() {
           </Sheet>
         </>
       )}
+
+      <ShoppingPreviewSheet
+        open={previewOpen && draft.mode === 'home'}
+        onClose={() => setPreviewOpen(false)}
+        dishIds={draft.dishIds}
+        dishes={cat.dishes}
+      />
 
       <ReviewDialog
         open={reviewOpen}

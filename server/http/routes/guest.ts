@@ -7,6 +7,7 @@ import { parseWith, planCancelSchema, planInputSchema, planUpdateSchema, UUID_RE
 import { mediaPath, type MediaVariant } from '../../media/process.js';
 import { idempotencyKey, ok, readJson, requireGuestAccess } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
+import { registerShoppingRoutes } from './shopping.js';
 
 function optionalDate(c: Ctx, name: string): string | undefined {
   const value = c.req.query(name);
@@ -74,6 +75,8 @@ export function guestRoutes() {
     });
     return ok(c, res.body, res.status as 200);
   });
+
+  registerShoppingRoutes(r);
 
   r.get('/media/:id/:variant', async (c) => {
     const variant = c.req.param('variant') as MediaVariant;

@@ -12,8 +12,11 @@ import { createIdempotencyRepo, createMediaRepo, createSettingsRepo } from './re
 import { createNotificationRepo } from './repos/notifications.js';
 import { createPlanRepo } from './repos/plans.js';
 import { createSessionRepo } from './repos/sessions.js';
+import { createShoppingRepo } from './repos/shopping.js';
 import { createPlanService } from './services/planService.js';
 import { createRestaurantImporter } from './services/restaurantImport.js';
+import { createShoppingService } from './services/shoppingService.js';
+import { syncShoppingAfterPlanWrite } from './services/shoppingState.js';
 
 export interface ContextOptions {
   clock?: () => Date;
@@ -41,6 +44,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     settings: createSettingsRepo(db),
     idempotency: createIdempotencyRepo(db),
     barkDevices: createBarkDeviceRepo(db),
+    shopping: createShoppingRepo(db),
   };
   const provider = opts.provider
     ? opts.provider(repos.settings)
@@ -56,6 +60,14 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     publicBaseUrl: config.publicBaseUrl,
     clock,
     onCommitted: () => worker.kick(),
+    afterUpdate: (plan, now) => syncShoppingAfterPlanWrite(repos.shopping, plan, now),
+  });
+  const shoppingService = createShoppingService({
+    db,
+    plans: repos.plans,
+    shopping: repos.shopping,
+    idempotency: repos.idempotency,
+    clock,
   });
   const restaurantImporter = createRestaurantImporter({ db, catalog: repos.catalog, idempotency: repos.idempotency, clock });
   const nowMs = () => clock().getTime();
@@ -82,6 +94,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     provider,
     worker,
     planService,
+    shoppingService,
     restaurantImporter,
     limiters,
     outboundFetch,

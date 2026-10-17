@@ -93,3 +93,18 @@ export const BULK_IMPORT = {
 
 /** Link previews per 10 minutes: one 100-row batch plus retries, still bounded. */
 export const MAP_LINK_RATE_LIMIT = 150;
+
+/** Shared shopping checklist of a home meal (采购清单): manual additions per meal. */
+export const SHOPPING_LIMITS = {
+  /** Manual additions per meal. */
+  manualItems: 50,
+  name: 40,
+  /** Free text, never converted or summed. */
+  quantity: 60,
+  note: 160,
+  /** Longest group key accepted in a request (keys are normalized ingredient names). */
+  groupKey: 200,
+} as const;
+
+/** Foreground refetch interval of a saved meal's shopping list (cross-device sharing is pull-based). */
+export const SHOPPING_REFRESH_MS = 30_000;

@@ -3,8 +3,8 @@ import { isPastDate, isValidDateString, isValidTimeZone, resolveLocalDateTime, T
 import { snapshotOfDish } from '../../shared/dish.js';
 import type { DishSnapshot, Plan, PlanEvent, RestaurantSnapshot } from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
-import { sha256, shortCode } from '../lib/crypto.js';
-import { badRequest, conflict, HttpError, notFound, unprocessable } from '../lib/errors.js';
+import { shortCode } from '../lib/crypto.js';
+import { badRequest, conflict, notFound, unprocessable } from '../lib/errors.js';
 import type { PlanInputParsed } from '../lib/validation.js';
 import { buildPlanMessage } from '../notify/message.js';
 import type { NotificationProvider } from '../notify/types.js';
@@ -12,6 +12,7 @@ import type { CatalogRepo } from '../repos/catalog.js';
 import type { IdempotencyRepo, StoredResponse } from '../repos/misc.js';
 import type { NotificationRepo } from '../repos/notifications.js';
 import type { PlanRepo, PlanWrite, StoredPlan } from '../repos/plans.js';
+import { runIdempotent, type IdempotentRequest } from './idempotent.js';
 
 export interface PlanServiceDeps {
   db: DB;
@@ -24,13 +25,11 @@ export interface PlanServiceDeps {
   clock: () => Date;
   /** Called after a committed write that queued a notification. */
   onCommitted: () => void;
+  /** Runs inside the transaction of a successful plan update (shopping checklist reconciliation). */
+  afterUpdate?: (plan: StoredPlan, now: Date) => void;
 }
 
-export interface IdempotentRequest {
-  key: string;
-  /** method + path + body, hashed to detect key reuse for a different request. */
-  fingerprintSource: string;
-}
+export type { IdempotentRequest } from './idempotent.js';
 
 const unique = (ids: string[]) => [...new Set(ids)];
 
@@ -130,18 +129,7 @@ export function createPlanService(deps: PlanServiceDeps) {
 
   /** Runs `fn` and stores its response under the idempotency key, all in one transaction. */
   function idempotent(req: IdempotentRequest, fn: (now: Date) => StoredResponse): StoredResponse {
-    const now = clock();
-    const fingerprint = sha256(req.fingerprintSource);
-    const result = db.transaction(() => {
-      const previous = idempotency.lookup(req.key, fingerprint);
-      if (previous === 'mismatch') {
-        throw new HttpError(422, 'idempotency_mismatch', '重复的请求编号，请刷新后重试');
-      }
-      if (previous) return { replayed: true, response: previous };
-      const response = fn(now);
-      idempotency.store(req.key, fingerprint, response, now);
-      return { replayed: false, response };
-    })();
+    const result = runIdempotent({ db, idempotency }, req, clock(), fn);
     if (!result.replayed) deps.onCommitted();
     return result.response;
   }
@@ -197,6 +185,7 @@ export function createPlanService(deps: PlanServiceDeps) {
         if (!plans.update(id, expectedVersion, write, now)) {
           throw conflict('version_conflict', '这个计划已在别处被修改', { current: withNotification(plans.get(id)!) });
         }
+        deps.afterUpdate?.(plans.get(id)!, now);
         enqueue(id, 'updated', now);
         return { status: 200, body: withNotification(plans.get(id)!) };
       });

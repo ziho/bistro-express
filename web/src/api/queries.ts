@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import type { Catalog, Plan, SessionInfo } from '../../../shared/types';
+import { SHOPPING_REFRESH_MS } from '../../../shared/constants';
+import type { Catalog, Plan, SessionInfo, ShoppingList } from '../../../shared/types';
 import { api } from './client';
 
 export const keys = {
@@ -7,6 +8,7 @@ export const keys = {
   catalog: ['catalog'] as const,
   plans: (scope: string) => ['plans', scope] as const,
   plan: (id: string) => ['plan', id] as const,
+  shopping: (planId: string) => ['shopping', planId] as const,
 };
 
 export const useSession = () =>
@@ -35,4 +37,18 @@ export const usePlan = (id: string | undefined) =>
       const status = query.state.data?.notification?.status;
       return status === 'pending' || status === 'sending' ? 2_000 : false;
     },
+  });
+
+/**
+ * A saved meal's shared checklist. Shared across devices by pulling: refetched whenever the page
+ * is opened or regains focus, and every SHOPPING_REFRESH_MS while it stays in the foreground.
+ */
+export const useShoppingList = (planId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: keys.shopping(planId),
+    queryFn: () => api<ShoppingList>('GET', `/plans/${planId}/shopping`),
+    enabled,
+    staleTime: 0,
+    refetchInterval: SHOPPING_REFRESH_MS,
+    refetchIntervalInBackground: false,
   });

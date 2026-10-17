@@ -18,6 +18,7 @@ import { saveDraft } from '../lib/drafts';
 import { useToday } from '../lib/hooks';
 import { cloneToDraft, isEditable, planDisplay } from '../lib/planView';
 import { NotFoundPage } from './NotFoundPage';
+import { ShoppingSection } from './Shopping/ShoppingSection';
 
 /** The restaurant as it was frozen in the plan; the photo is shown only when there is one. */
 function ChosenRestaurant({ restaurant: r }: { restaurant: RestaurantSnapshot }) {
@@ -204,6 +205,8 @@ export function PlanDetailPage() {
           <p className="pre-wrap">{p.note}</p>
         </section>
       )}
+
+      {p.mode === 'home' && <ShoppingSection plan={p} />}
 
       <div className="detail-actions">
         {editable && (

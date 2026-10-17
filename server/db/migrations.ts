@@ -299,6 +299,22 @@ const MIGRATIONS: Migration[] = [
     sql: '',
     up: migrateDishDetails,
   },
+  {
+    version: 6,
+    name: 'shared shopping checklist per home meal',
+    // Side table only: plans, their snapshots and timestamps are never touched. A plan without a
+    // row simply has an all-pending list without manual items (derived on read, nothing written).
+    sql: `
+      CREATE TABLE IF NOT EXISTS plan_shopping (
+        plan_id TEXT PRIMARY KEY REFERENCES plans(id),
+        revision INTEGER NOT NULL,
+        manual_json TEXT NOT NULL DEFAULT '[]',
+        states_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `,
+  },
 ];
 
 /** `upTo` exists for migration tests (to build an older schema); production always runs all. */
