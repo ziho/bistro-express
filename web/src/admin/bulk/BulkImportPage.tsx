@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { Loading } from '../../components/Loading';
 import { Sheet } from '../../components/Sheet';
 import { rowGroup } from '../../lib/bulkQueue';
+import { BatchTreatTypes } from './BatchTreatTypes';
 import { BulkRowCard } from './BulkRowCard';
 import { BatchLocation, BatchTags, PasteBox, QueueToolbar, type RowFilter } from './BulkControls';
 import { venueLocationOptions } from '../../lib/venueForm';
@@ -22,7 +23,7 @@ function Outcome({ outcome }: { outcome: CommitOutcome }) {
           {outcome.errors > 0 && `，${outcome.errors} 行需要修改`}
         </strong>
         <p className="small">
-          已导入的行变为只读，不会再次导入。地址、点评和照片可以之后在 <Link to="/admin/restaurants">餐厅列表</Link> 里编辑补充。
+          已导入的行变为只读，不会再次导入。地址、点评和照片可以之后在 <Link to="/admin/restaurants">店铺列表</Link> 里编辑补充。
         </p>
       </div>
     </div>
@@ -78,9 +79,10 @@ export function BulkImportPage() {
       remove: bulk.remove,
       editLocation: bulk.editLocation,
       setPurposes: bulk.setPurposes,
+      setTreatTypes: bulk.setTreatTypes,
       retryGeo: bulk.retryGeo,
     }),
-    [bulk.edit, bulk.retry, bulk.setManual, bulk.toggle, bulk.remove, bulk.editLocation, bulk.setPurposes, bulk.retryGeo],
+    [bulk.edit, bulk.retry, bulk.setManual, bulk.toggle, bulk.remove, bulk.editLocation, bulk.setPurposes, bulk.setTreatTypes, bulk.retryGeo],
   );
 
   return (
@@ -134,6 +136,7 @@ export function BulkImportPage() {
           />
           <BatchTags selected={bulk.counts.selected} suggestions={suggestions} onApply={bulk.addBatchTags} />
           <BatchLocation selected={bulk.counts.selected} options={locationOptions} onFill={bulk.fillLocation} onPurposes={bulk.fillPurposes} />
+          <BatchTreatTypes selected={bulk.counts.selected} onApply={bulk.fillTreatTypes} />
           {bulk.outcome && <Outcome outcome={bulk.outcome} />}
           <ul className="bulk-rows" aria-label="导入队列">
             {visible.map((row) => (

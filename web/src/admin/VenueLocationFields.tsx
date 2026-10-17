@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { MapPinned, TriangleAlert } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type { GeoOutcome, LocationSuggestion, MapLinkPreview, VenuePurpose } from '../../../shared/types';
 import { formatLocation, LOCATION_LIMITS, PURPOSE_LABEL, VENUE_PURPOSES } from '../../../shared/venue';
 import { api, ApiError } from '../api/client';
@@ -31,12 +31,14 @@ interface Props {
   options: LocationOptions;
   problems: LocationProblems;
   purposeError?: string;
+  /** Rendered right after 用途 (the drinks / dessert type field of a treat venue). */
+  afterPurposes?: ReactNode;
 }
 
 const PLACEHOLDER: Record<LocationField, string> = { country: '比如：加拿大', region: '比如：British Columbia（城市国家可不填）', city: '比如：Burnaby' };
 
 /** Optional 国家/地区 · 省/州 · 城市 plus 用途 for the venue form. Suggestions never overwrite typing silently. */
-export function VenueLocationFields({ state, onChange, purposes, onPurposes, mapUrl, incoming, options, problems, purposeError }: Props) {
+export function VenueLocationFields({ state, onChange, purposes, onPurposes, mapUrl, incoming, options, problems, purposeError, afterPurposes }: Props) {
   const id = useId();
   const latestMapUrl = useRef(mapUrl);
   latestMapUrl.current = mapUrl;
@@ -109,6 +111,7 @@ export function VenueLocationFields({ state, onChange, purposes, onPurposes, map
           </p>
         )}
       </fieldset>
+      {afterPurposes}
 
       <fieldset className="field venue-location">
         <legend className="field-label">

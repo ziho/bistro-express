@@ -1,10 +1,12 @@
 import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { treatTypeChoices, treatTypeLabel, type TreatTypeChoice, type TreatTypeFilter } from '../../../shared/treatType';
 import type { Restaurant, VenuePurpose } from '../../../shared/types';
 import { PURPOSE_LABEL } from '../../../shared/venue';
 import {
   activeFilterCount,
   BLANK_PLACE_LABEL,
+  clearVenueCriteria,
   filterVenues,
   placeKeyLabel,
   placeTree,
@@ -26,11 +28,21 @@ interface Props {
   selected?: ReadonlySet<string>;
   /** Admin only: choose 吃饭 / 饮品甜品 / 全部. */
   purposeChoice?: boolean;
+  /** Offer the drinks / dessert type criterion in the panel (hidden while the purpose is 吃饭). */
+  typeChoice?: boolean;
+  /** Treat picker: the types also as quick chips above the results, applied at once. */
+  quickTypes?: boolean;
   /** Plural noun for counts, e.g. 家. */
   unit?: string;
 }
 
-const toggle = (list: string[], item: string) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
+const toggle = <T extends string>(list: T[], item: T): T[] => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
+
+/** Type choices to offer: those in use, plus any still selected (so they can be removed). */
+function typeChoicesFor(all: TreatTypeChoice[], selected: TreatTypeFilter[]): TreatTypeChoice[] {
+  const missing = selected.filter((t) => !all.some((c) => c.value === t)).map((t) => ({ value: t, label: treatTypeLabel(t), count: 0 }));
+  return [...all, ...missing];
+}
 
 /** Every place key in the tree (for pruning remembered filters). */
 export function collectPlaceKeys(nodes: PlaceNode[], out = new Set<string>()): Set<string> {
@@ -42,17 +54,36 @@ export function collectPlaceKeys(nodes: PlaceNode[], out = new Set<string>()): S
 }
 
 /**
- * Search box + 筛选 (tags ANY/ALL, places, purpose) + removable active chips. On phones the
- * criteria open in a sheet and apply with 「查看 N 家」; on wider screens they sit in an inline
- * panel and apply immediately. Changing filters never touches the candidate selection.
+ * Search box + 筛选 (purpose, drinks / dessert types, tags ANY/ALL, places) + removable active
+ * chips. On phones the criteria open in a sheet and apply with 「查看 N 家」; on wider screens they
+ * sit in an inline panel and apply immediately. Quick type chips (treat picker) always apply at
+ * once. Choices and counts come from the whole `venues` list. Changing filters never touches the
+ * candidate selection.
  */
-export function VenueFilters({ venues, value, onChange, placeholder, selected, purposeChoice = false, unit = '家' }: Props) {
+export function VenueFilters({
+  venues,
+  value,
+  onChange,
+  placeholder,
+  selected,
+  purposeChoice = false,
+  typeChoice = false,
+  quickTypes = false,
+  unit = '家',
+}: Props) {
   const wide = useMediaQuery('(min-width: 760px)');
   const searchId = useId();
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const [staged, setStaged] = useState<VenueFilter>(value);
   const tree = useMemo(() => placeTree(venues), [venues]);
+  const types = useMemo(() => treatTypeChoices(venues), [venues]);
+
+  // A wide open panel applies immediately. If it becomes a phone drawer (rotation / split view),
+  // stage the current applied values rather than the stale snapshot from when it first opened.
+  useEffect(() => {
+    if (!wide && open) setStaged(value);
+  }, [wide, open]);
   const count = activeFilterCount(value) + (purposeChoice && value.purpose ? 1 : 0);
   const stagedCount = filterVenues(venues, staged, selected).length;
 
@@ -61,10 +92,15 @@ export function VenueFilters({ venues, value, onChange, placeholder, selected, p
     setOpen((o) => (wide ? !o : true));
   };
   const set = (patch: Partial<VenueFilter>) => onChange({ ...value, ...patch });
-  const clearAll = () => onChange({ ...value, tags: [], places: [], onlySelected: false, ...(purposeChoice ? { purpose: null } : {}) });
+  const clearAll = () => onChange(clearVenueCriteria(value, purposeChoice));
 
   const chips: { key: string; label: string; remove: () => void }[] = [
     ...(purposeChoice && value.purpose ? [{ key: 'purpose', label: PURPOSE_LABEL[value.purpose], remove: () => set({ purpose: null }) }] : []),
+    ...value.treatTypes.map((t) => ({
+      key: `k-${t}`,
+      label: treatTypeLabel(t),
+      remove: () => set({ treatTypes: value.treatTypes.filter((x) => x !== t) }),
+    })),
     ...value.tags.map((t) => ({ key: `t-${t}`, label: `#${t}`, remove: () => set({ tags: value.tags.filter((x) => x !== t) }) })),
     ...value.places.map((p) => ({ key: `p-${p}`, label: placeKeyLabel(p, tree.nodes), remove: () => set({ places: value.places.filter((x) => x !== p) }) })),
   ];
@@ -113,6 +149,25 @@ export function VenueFilters({ venues, value, onChange, placeholder, selected, p
           <span className="muted small">{value.tagMode === 'all' ? '标签全部符合' : '标签任一符合'}</span>
         )}
       </div>
+      {quickTypes && types.length > 0 && (
+        <div className="chip-scroller type-quick-chips" role="group" aria-label="按类型筛选（可多选，符合任一）">
+          <button type="button" className="chip" aria-pressed={value.treatTypes.length === 0} onClick={() => set({ treatTypes: [] })}>
+            全部类型
+          </button>
+          {typeChoicesFor(types, value.treatTypes).map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              className="chip"
+              aria-pressed={value.treatTypes.includes(c.value)}
+              onClick={() => set({ treatTypes: toggle(value.treatTypes, c.value) })}
+            >
+              {c.label}
+              <span className="chip-count">{c.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {chips.length > 0 && (
         <ul className="active-filters" aria-label="已启用的筛选">
           {chips.map((c) => (
@@ -133,7 +188,7 @@ export function VenueFilters({ venues, value, onChange, placeholder, selected, p
 
       {wide && open && (
         <div id={panelId} className="filter-panel card" role="region" aria-label="筛选条件">
-          <FilterPanel venues={venues} tree={tree} value={value} onChange={onChange} purposeChoice={purposeChoice} />
+          <FilterPanel venues={venues} tree={tree} types={typeChoice ? types : []} value={value} onChange={onChange} purposeChoice={purposeChoice} />
           <p className="muted small" aria-live="polite">
             符合条件的有 {filterVenues(venues, value, selected).length} {unit}
           </p>
@@ -150,7 +205,7 @@ export function VenueFilters({ venues, value, onChange, placeholder, selected, p
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() => setStaged({ ...staged, tags: [], places: [], onlySelected: false, ...(purposeChoice ? { purpose: null } : {}) })}
+                onClick={() => setStaged(clearVenueCriteria(staged, purposeChoice))}
               >
                 清除全部
               </button>
@@ -167,7 +222,9 @@ export function VenueFilters({ venues, value, onChange, placeholder, selected, p
             </>
           }
         >
-          {open && <FilterPanel venues={venues} tree={tree} value={staged} onChange={setStaged} purposeChoice={purposeChoice} />}
+          {open && (
+            <FilterPanel venues={venues} tree={tree} types={typeChoice ? types : []} value={staged} onChange={setStaged} purposeChoice={purposeChoice} />
+          )}
         </Sheet>
       )}
     </div>
@@ -177,12 +234,14 @@ export function VenueFilters({ venues, value, onChange, placeholder, selected, p
 interface PanelProps {
   venues: Restaurant[];
   tree: ReturnType<typeof placeTree>;
+  /** Drinks / dessert type choices; empty hides the section. */
+  types: TreatTypeChoice[];
   value: VenueFilter;
   onChange: (next: VenueFilter) => void;
   purposeChoice: boolean;
 }
 
-function FilterPanel({ venues, tree, value, onChange, purposeChoice }: PanelProps) {
+function FilterPanel({ venues, tree, types, value, onChange, purposeChoice }: PanelProps) {
   const id = useId();
   const [tagQuery, setTagQuery] = useState('');
   const [placeQuery, setPlaceQuery] = useState('');
@@ -206,6 +265,32 @@ function FilterPanel({ venues, tree, value, onChange, purposeChoice }: PanelProp
               </label>
             ))}
           </div>
+        </fieldset>
+      )}
+
+      {(types.length > 0 || value.treatTypes.length > 0) && value.purpose !== 'meal' && (
+        <fieldset className="filter-section">
+          <legend className="field-label">
+            饮品甜品类型{' '}
+            <span className="muted small">
+              {value.treatTypes.length > 0 ? `（已选 ${value.treatTypes.length} 个，任一符合）` : '（只看饮品甜品店，可多选）'}
+            </span>
+          </legend>
+          <ul className="check-list">
+            {typeChoicesFor(types, value.treatTypes).map((c) => (
+              <li key={c.value}>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={value.treatTypes.includes(c.value)}
+                    onChange={() => set({ treatTypes: toggle(value.treatTypes, c.value) })}
+                  />
+                  <span>{c.label}</span>
+                  <span className="muted small">{c.count}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
         </fieldset>
       )}
 

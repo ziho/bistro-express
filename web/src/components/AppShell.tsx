@@ -28,7 +28,7 @@ export function OfflineBanner() {
   return (
     <div className="offline-banner" role="status">
       <WifiOff aria-hidden="true" />
-      <span>现在离线：可以继续编辑草稿（只存在本机），联网后再提交。</span>
+      <span>暂时没网，先慢慢拣。草稿留在这台设备，联网后再提交。</span>
     </div>
   );
 }
@@ -68,7 +68,7 @@ export function AppShell() {
         <nav className="topnav" aria-label="主导航">
           <NavLink to="/" end className="topnav-link">
             <CalendarHeart aria-hidden="true" />
-            <span>计划</span>
+            <span>安排</span>
           </NavLink>
           <NavLink to="/history" className="topnav-link">
             <History aria-hidden="true" />

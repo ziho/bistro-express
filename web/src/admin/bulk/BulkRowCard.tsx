@@ -1,15 +1,17 @@
 import { CircleCheck, ExternalLink, MapPinned, RotateCw, Trash2, TriangleAlert } from 'lucide-react';
 import { memo } from 'react';
 import { classifyMapsUrl } from '../../../../shared/mapsUrl';
-import type { RestaurantDuplicate, VenuePurpose } from '../../../../shared/types';
+import { TREAT_TYPE_LABEL, TREAT_TYPES } from '../../../../shared/treatType';
+import type { RestaurantDuplicate, TreatType, VenuePurpose } from '../../../../shared/types';
 import { PURPOSE_LABEL, VENUE_PURPOSES } from '../../../../shared/venue';
 import { OsmAttribution } from '../../components/RestaurantBits';
 import { canRetryGeo, isRetryable, type QueueRow, type RowEdit, type RowInfo, type RowProblem } from '../../lib/bulkQueue';
-import { LOCATION_FIELD_LABEL, LOCATION_FIELDS, locationPayload, togglePurpose, type LocationField } from '../../lib/venueForm';
+import { LOCATION_FIELD_LABEL, LOCATION_FIELDS, locationPayload, togglePurpose, toggleTreatType, type LocationField } from '../../lib/venueForm';
 
 export interface RowActions {
   editLocation: (id: string, field: LocationField, value: string) => void;
   setPurposes: (id: string, purposes: VenuePurpose[]) => void;
+  setTreatTypes: (id: string, types: TreatType[]) => void;
   retryGeo: (id: string) => void;
   edit: (id: string, edit: RowEdit) => void;
   retry: (id: string) => void;
@@ -249,7 +251,7 @@ export const BulkRowCard = memo(function BulkRowCard({ row, info, locked, action
         />
         <Field
           id={`${base}-map`}
-          label="地图链接（保存到餐厅）"
+          label="地图链接（保存到店铺）"
           type="url"
           value={row.mapUrl}
           problems={showProblems ? of('mapUrl') : []}
@@ -296,6 +298,17 @@ export const BulkRowCard = memo(function BulkRowCard({ row, info, locked, action
         ))}
         {of('purposes').length > 0 && <span className="field-error">{of('purposes')[0]!.message}</span>}
       </fieldset>
+      {row.purposes.includes('treat') && (
+        <fieldset className="bulk-purposes" disabled={locked}>
+          <legend className="bulk-field-label">饮品甜品类型（可选，不选为未分类）</legend>
+          {TREAT_TYPES.map((t) => (
+            <label key={t} className="check-row small">
+              <input type="checkbox" checked={row.treatTypes.includes(t)} onChange={() => actions.setTreatTypes(row.id, toggleTreatType(row.treatTypes, t))} />
+              <span>{TREAT_TYPE_LABEL[t]}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
       <GeoNote row={row} locked={locked} onRetry={() => actions.retryGeo(row.id)} />
       <MapLink url={row.mapUrl || row.sourceUrl} />
     </li>

@@ -9,8 +9,10 @@ import type {
   RestaurantDuplicate,
   RestaurantImportResponse,
   RestaurantImportRow,
+  TreatType,
   VenuePurpose,
 } from '../../../shared/types';
+import { normalizeTreatTypes } from '../../../shared/treatType';
 import { normalizeLocationText, normalizePurposes } from '../../../shared/venue';
 import { mergeImport } from './mapImport';
 import {
@@ -73,6 +75,8 @@ export interface QueueRow {
   location: LocationFormState;
   /** At least one; new rows start as ['meal']. */
   purposes: VenuePurpose[];
+  /** Drinks / dessert types; [] = 未分类 (also for rows of drafts saved before types existed). */
+  treatTypes: TreatType[];
   geo: RowGeo;
   /** Values the importer wrote, so a retry only replaces fields the admin has not touched. */
   autofilled: { name?: string; mapUrl?: string };
@@ -125,6 +129,7 @@ export function newRow(line: string, id: string): QueueRow {
     tags: '',
     location: toLocationForm(null),
     purposes: ['meal'],
+    treatTypes: [],
     geo: idleGeo(),
     autofilled: {},
     status: problem ? 'failed' : 'queued',
@@ -228,6 +233,12 @@ export function editRowLocation(row: QueueRow, field: LocationField, value: stri
 export function setRowPurposes(row: QueueRow, purposes: VenuePurpose[]): QueueRow {
   if (row.status === 'imported') return row;
   return { ...row, purposes: normalizePurposes(purposes), commit: null };
+}
+
+/** Types of one row. Kept when the row is not a treat row (they are still sent, as in the form). */
+export function setRowTreatTypes(row: QueueRow, types: TreatType[]): QueueRow {
+  if (row.status === 'imported') return row;
+  return { ...row, treatTypes: normalizeTreatTypes(types), commit: null };
 }
 
 // ---------- Region lookup ----------
@@ -584,6 +595,35 @@ export function setPurposesSelected(rows: QueueRow[], info: Map<string, RowInfo>
   return { ok: true, rows: next, applied, unchanged: 0 };
 }
 
+/**
+ * Drinks / dessert types for the selected importable rows (never locked, imported or unselected
+ * ones). 'add' unions with each row's types; 'replace' sets them exactly ([] = 未分类). Rows that
+ * are not treat rows are left alone and counted as unchanged.
+ */
+export function setTreatTypesSelected(
+  rows: QueueRow[],
+  info: Map<string, RowInfo>,
+  types: TreatType[],
+  mode: 'add' | 'replace',
+): BatchFillResult {
+  const list = normalizeTreatTypes(types);
+  if (mode === 'add' && list.length === 0) return { ok: false, error: '请先选择要添加的类型' };
+  let applied = 0;
+  let unchanged = 0;
+  const next = rows.map((r) => {
+    if (!info.get(r.id)?.selected) return r;
+    const wanted = mode === 'add' ? normalizeTreatTypes([...r.treatTypes, ...list]) : list;
+    if (!r.purposes.includes('treat') || wanted.join() === r.treatTypes.join()) {
+      unchanged += 1;
+      return r;
+    }
+    applied += 1;
+    return setRowTreatTypes(r, wanted);
+  });
+  if (applied + unchanged === 0) return { ok: false, error: '还没有选中可导入的行' };
+  return { ok: true, rows: next, applied, unchanged };
+}
+
 // ---------- Commit ----------
 
 export function commitRows(state: QueueState, info: Map<string, RowInfo>): RestaurantImportRow[] {
@@ -598,6 +638,7 @@ export function commitRows(state: QueueState, info: Map<string, RowInfo>): Resta
       tags: splitTags(r.tags),
       location: locationPayload(r.location),
       purposes: r.purposes,
+      treatTypes: r.treatTypes,
     }));
 }
 

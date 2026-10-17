@@ -48,6 +48,7 @@ export function snapshotOfRestaurant(r: Restaurant): RestaurantSnapshot {
     links: r.links.map((l) => ({ ...l })),
     location: { ...r.location },
     purposes: [...r.purposes],
+    treatTypes: [...r.treatTypes],
   };
 }
 

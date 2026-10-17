@@ -255,6 +255,7 @@ describe('bulk import commit results', () => {
       tags: [],
       location: { country: '', countryCode: '', region: '', city: '', source: '' },
       purposes: ['meal'],
+      treatTypes: [],
     });
     const pending = buildPendingCommit(payload, 'idem-key-123');
     expect(JSON.parse(pending.body)).toEqual({ rows: payload });
@@ -312,7 +313,7 @@ describe('bulk import tab draft', () => {
     const [row] = paste(SHORT_A);
     const good = JSON.parse(serializeBulkDraft(state([row!])));
     const variants: unknown[] = [
-      { ...good, version: 3 },
+      { ...good, version: 4 },
       { ...good, rows: 'nope' },
       { ...good, rows: [{ ...row, id: 'bad id!' }] },
       { ...good, rows: [{ ...row, status: 'exploded' }] },

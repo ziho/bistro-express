@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { legacySections } from '../../shared/dish.js';
 import { legacyLink, splitTags } from '../../shared/restaurant.js';
+import { inferTreatTypes } from '../../shared/treatType.js';
+import { readStoredPurposes } from '../../shared/venue.js';
 
 interface Migration {
   version: number;
@@ -152,6 +154,27 @@ export function migrateVenueLocationPurpose(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS geo_cache_expires ON geo_cache(expires_at);
   `);
+}
+
+/**
+ * Drinks / dessert types of venues: one additive column (default '[]' = 未分类). Venues that
+ * already serve 'treat' get the types named exactly by their known tags (see inferTreatTypes);
+ * only treat_types_json is written. Meal-only venues stay untyped and are never turned into treat
+ * venues; tags, purposes, timestamps and stored plan snapshots are not touched.
+ * Safe to run more than once: only rows whose types are still '[]' are considered.
+ */
+export function migrateTreatTypes(db: Database.Database): void {
+  addColumnIfMissing(db, 'restaurants', 'treat_types_json', `TEXT NOT NULL DEFAULT '[]'`);
+  const rows = db
+    .prepare(`SELECT id, tags, purposes_json FROM restaurants WHERE treat_types_json = '[]'`)
+    .all() as { id: string; tags: string; purposes_json: string }[];
+  const update = db.prepare('UPDATE restaurants SET treat_types_json = ? WHERE id = ?');
+  for (const row of rows) {
+    if (!readStoredPurposes(parseTagArray(row.purposes_json)).includes('treat')) continue;
+    const tags = (parseTagArray(row.tags) ?? []).filter((t): t is string => typeof t === 'string');
+    const types = inferTreatTypes(tags);
+    if (types.length) update.run(JSON.stringify(types), row.id);
+  }
 }
 
 /**
@@ -347,6 +370,12 @@ const MIGRATIONS: Migration[] = [
     name: 'venue location, meal/treat purposes, plan purpose and region lookup cache',
     sql: '',
     up: migrateVenueLocationPurpose,
+  },
+  {
+    version: 8,
+    name: 'drinks / dessert venue types',
+    sql: '',
+    up: migrateTreatTypes,
   },
 ];
 

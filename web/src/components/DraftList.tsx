@@ -13,9 +13,9 @@ export function DraftList() {
     <section className="draft-list" aria-labelledby="drafts-title">
       <h2 id="drafts-title" className="section-title">
         <FilePen aria-hidden="true" />
-        本机草稿
+        还没定好的
       </h2>
-      <p className="muted small">草稿只保存在这台设备上，提交后才会同步。</p>
+      <p className="muted small">刚才拣到一半的都在这里。草稿记在这台设备上，确认后大家才看得到。</p>
       <ul>
         {drafts.map((d) => {
           const count = d.mode === 'home' ? d.dishIds.length : d.candidateIds.length;
@@ -23,15 +23,15 @@ export function DraftList() {
           return (
             <li key={d.key} className="draft-item">
               <Link to={href} className="draft-link">
-                <strong>{d.mealLabel || (outingKind(d) === 'treat' ? '未命名的安排' : '未命名的一餐')}</strong>
+                <strong>{d.mealLabel || (outingKind(d) === 'treat' ? '待定的小安排' : '待定的一餐')}</strong>
                 <span className="muted small">
-                  {formatDateLabel(d.date)} · {OUTING_LABEL[outingKind(d)]} · {d.planId ? '修改中' : '新计划'} · {count} 项
+                  {formatDateLabel(d.date)} · {OUTING_LABEL[outingKind(d)]} · {d.planId ? '修改中' : '新安排'} · {count} 项
                 </span>
               </Link>
               <button
                 type="button"
                 className="icon-btn"
-                aria-label={`删除草稿 ${d.mealLabel || '未命名的一餐'}`}
+                aria-label={`删除草稿 ${d.mealLabel || '待定的一餐'}`}
                 onClick={() => {
                   deleteDraft(d.key);
                   setDrafts((prev) => prev.filter((x) => x.key !== d.key));

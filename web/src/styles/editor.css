@@ -1,5 +1,6 @@
 .editor {
   min-width: 0;
+  scroll-margin-top: calc(var(--safe-top) + 72px);
 }
 .editor-head {
   display: flex;
@@ -13,86 +14,235 @@
   font-size: 1.5rem;
 }
 
-.editor-grid {
+/* ---------- Three steps: 定个日子 → 挑菜挑店 → 备注与确认 (same flow on every width) ---------- */
+
+/* Steps 1 and 3 (and the stepper) read best in a calm column; step 2 uses the full width. */
+.editor-narrow {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  min-width: 0;
+}
+.editor-step {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.editor-step-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.editor-step-head h2:focus {
+  outline: none;
+}
+.editor-step-head h2:focus-visible {
+  outline: 2px solid var(--tomato);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.editor-step-head p {
+  margin: var(--space-1) 0 0;
+}
+.editor-step-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.editor-step-head-row > div {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.editor-issue {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.editor-issue:focus {
+  outline: none;
+}
+.editor-picker {
+  min-width: 0;
+}
+.meta-form {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.meta-zone {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.meta-zone p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.note-field {
+  margin: 0;
+}
+
+/* Stepper: numbers + short labels, compact enough for 375px, clickable as a whole. */
+.editor-stepper {
+  margin-bottom: var(--space-4);
+}
+.editor-stepper ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.editor-stepper-btn {
+  width: 100%;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink-2);
+  text-align: left;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.editor-stepper-btn:disabled {
+  opacity: 0.6;
+}
+.editor-stepper-num {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  background: var(--cream-2);
+  font-weight: 750;
+  font-size: 0.85rem;
+}
+.editor-stepper-num svg {
+  width: 16px;
+  height: 16px;
+}
+.editor-stepper-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.editor-stepper li.is-current .editor-stepper-btn {
+  border-color: var(--tomato);
+  background: var(--coral-soft);
+  color: var(--ink);
+}
+.editor-stepper li.is-current .editor-stepper-num {
+  background: var(--tomato);
+  color: #fff;
+}
+.editor-stepper li.is-done .editor-stepper-num {
+  background: var(--leaf-soft);
+  color: var(--ok);
+}
+@media (max-width: 420px) {
+  .editor-stepper-btn {
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    text-align: center;
+    font-size: 0.8rem;
+    padding: 4px;
+  }
+}
+
+/* Step 2 on iPad / desktop: catalog + sticky summary. Keep in sync with EditorPage's media query. */
+.editor-pick {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
-.editor-picker {
-  min-width: 0;
-}
-.note-field {
-  margin-top: var(--space-5);
-}
-
-/* iPad (portrait and up) / small desktop: content + summary. Keep in sync with EditorPage's media query. */
 @media (min-width: 760px) {
-  .editor-grid {
-    grid-template-columns: minmax(0, 1fr) 290px;
-  }
-  .editor-meta {
-    grid-column: 1;
-  }
-  .editor-picker {
-    grid-column: 1;
+  .editor-pick {
+    grid-template-columns: minmax(0, 1fr) 300px;
   }
   .editor-summary {
-    grid-column: 2;
-    grid-row: 1 / span 2;
     position: sticky;
     top: 80px;
-    max-height: calc(100dvh - 96px);
+    max-height: calc(100dvh - 96px - 80px);
     overflow-y: auto;
   }
 }
-@media (min-width: 1000px) {
-  .editor-grid {
-    grid-template-columns: minmax(0, 1fr) 320px;
-  }
-}
-/* Desktop: meta/date navigation | content | summary */
-@media (min-width: 1200px) {
-  .editor-grid {
-    grid-template-columns: 280px minmax(0, 1fr) 320px;
-  }
-  .editor-meta {
-    grid-column: 1;
-    grid-row: 1;
-    position: sticky;
-    top: 80px;
-  }
-  .editor-picker {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .editor-summary {
-    grid-column: 3;
-    grid-row: 1;
+@media (min-width: 1100px) {
+  .editor-pick {
+    grid-template-columns: minmax(0, 1fr) 340px;
   }
 }
 
-/* Phone + narrow split view: sticky summary bar */
-@media (max-width: 759px) {
-  .editor {
-    padding-bottom: calc(96px + var(--safe-bottom));
-  }
-}
-.summary-bar {
+/* Actions: fixed to the bottom on phones (content keeps clear of it), sticky in-flow on wider screens. */
+.editor-actions {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   padding: var(--space-3) calc(var(--safe-right) + var(--space-4)) calc(var(--safe-bottom) + var(--space-3))
     calc(var(--safe-left) + var(--space-4));
   background: var(--paper);
   border-top: 1px solid var(--line-strong);
   box-shadow: 0 -8px 24px -16px rgba(43, 36, 32, 0.25);
 }
+.editor-actions-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.editor-actions-inner .btn {
+  min-height: var(--tap);
+}
+.editor-actions-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.editor-actions-inner .summary-bar-info + .editor-actions-main {
+  flex: 0 0 auto;
+}
+@media (max-width: 759px) {
+  .editor {
+    padding-bottom: calc(96px + var(--safe-bottom));
+  }
+}
+@media (min-width: 760px) {
+  .editor-actions {
+    position: sticky;
+    left: auto;
+    right: auto;
+    margin-top: var(--space-5);
+    padding: var(--space-3) 0 calc(var(--safe-bottom) + var(--space-3));
+    border-top: 1px solid var(--line);
+    background: var(--cream);
+    box-shadow: none;
+  }
+  .editor-actions.is-narrow {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+  .editor-actions-inner {
+    justify-content: flex-end;
+  }
+  .editor-actions-main {
+    flex: 0 0 auto;
+    min-width: 180px;
+  }
+}
+
 .summary-bar-info {
   flex: 1;
   min-width: 0;
@@ -179,8 +329,28 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
 }
-.summary-submit {
-  margin-top: var(--space-2);
+.summary-head-text {
+  min-width: 0;
+}
+.summary-issue {
+  overflow-wrap: anywhere;
+}
+.summary-item-name {
+  flex: 1 1 auto;
+}
+.summary-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.summary-item-actions .btn svg {
+  width: 16px;
+  height: 16px;
+}
+.summary-list li.is-chosen {
+  background: var(--butter-soft);
+  box-shadow: inset 0 0 0 1px var(--butter-strong);
 }
 
 .draw-box {
@@ -219,8 +389,48 @@
   overflow-wrap: anywhere;
 }
 
+/* Step 3: inline review, grouped by the step that can change it. */
+.review {
+  display: grid;
+  gap: var(--space-4);
+}
+.review-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.review-group-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.review-edit svg {
+  width: 16px;
+  height: 16px;
+}
+.review-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.review-items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.review-list > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
 .review-list {
-  margin: 0 0 var(--space-4);
+  margin: 0;
   display: grid;
   gap: var(--space-3);
 }

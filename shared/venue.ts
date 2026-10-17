@@ -27,21 +27,21 @@ export const PURPOSE_LABEL: Record<VenuePurpose, string> = {
 export type OutingKind = 'home' | 'restaurant' | 'treat';
 
 export const OUTING_LABEL: Record<OutingKind, string> = {
-  home: '在家吃',
-  restaurant: '去餐厅',
-  treat: '饮品甜品',
+  home: '屋企煮',
+  restaurant: '出街食',
+  treat: '饮番杯',
 };
 
 /** The three choices of the editor. */
 export const OUTING_CHOICE_LABEL: Record<OutingKind, string> = {
-  home: '在家吃',
-  restaurant: '去吃饭',
-  treat: '饮品甜品',
+  home: '屋企煮',
+  restaurant: '出街食',
+  treat: '饮番杯',
 };
 
 /** Treat outings get this name only when the label is still empty (a custom label is never replaced). */
 export const TREAT_DEFAULT_LABEL = '下午茶';
-export const TREAT_SUGGESTIONS = ['下午茶', '咖啡', '奶茶', '甜品', '宵夜甜点'] as const;
+export const TREAT_SUGGESTIONS = ['下午茶', '咖啡', '奶茶', '甜品', '宵夜糖水'] as const;
 
 export function outingKind(plan: { mode: PlanMode; purpose?: VenuePurpose | null }): OutingKind {
   if (plan.mode === 'home') return 'home';

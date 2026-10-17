@@ -108,10 +108,10 @@ export function PlanDetailPage() {
       });
       queryClient.setQueryData(keys.plan(p.id), updated);
       await queryClient.invalidateQueries({ queryKey: ['plans'] });
-      toast('计划已取消，会通知主厨', 'success');
+      toast('安排已取消，会发送通知', 'success');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'version_conflict') {
-        toast('这个计划刚在别处被改过，已刷新到最新版本', 'error');
+        toast('这次安排刚在别处改过，已换成最新内容', 'error');
         await queryClient.invalidateQueries({ queryKey: keys.plan(p.id) });
       } else {
         toast(err instanceof ApiError ? err.message : '取消失败', 'error');
@@ -134,15 +134,15 @@ export function PlanDetailPage() {
     <article className="plan-detail">
       <Link to="/" className="back-link">
         <ArrowLeft aria-hidden="true" />
-        返回计划
+        返回安排
       </Link>
 
       {justSaved && (
         <div className="saved-celebration" role="status">
           <PartyPopper aria-hidden="true" />
           <span>
-            {justSaved === 'updated' ? '修改已保存！' : '已保存！'}
-            {p.notification?.status === 'unconfigured' ? '通知渠道还没配置，主厨暂时收不到推送。' : '通知会在后台发送。'}
+            {justSaved === 'updated' ? '改好啦。' : '安排好啦，好吃的有着落了。'}
+            {p.notification?.status === 'unconfigured' ? '通知渠道还没配置，主厨暂时收不到推送。' : '通知正在安排发送。'}
           </span>
         </div>
       )}
@@ -230,7 +230,7 @@ export function PlanDetailPage() {
         </button>
       </div>
       <p className="muted small">
-        计划记录的是想吃什么，不代表已经吃过或去过。保存于 {new Date(p.updatedAt).toLocaleString('zh-CN')}
+        这里先记想吃的，还不算打卡记录。保存于 {new Date(p.updatedAt).toLocaleString('zh-CN')}
       </p>
 
       <Sheet

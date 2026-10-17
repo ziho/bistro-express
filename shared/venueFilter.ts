@@ -1,11 +1,13 @@
 import type { Restaurant, VenueLocation, VenuePurpose } from './types.js';
+import { matchesTreatTypes, type TreatTypeFilter } from './treatType.js';
 import { formatLocation, PURPOSE_LABEL } from './venue.js';
 
 /**
  * Pure venue filtering, shared by the guest picker and the admin list. All criteria combine with
  * AND; inside the tag criterion the mode decides ANY (default: 日料 OR 烧烤) or ALL (日料 AND 约会);
- * selected places combine with OR, and a parent place includes everything below it.
- * Choices (tags, places) are derived only from the stored catalog — no online lookup.
+ * selected places combine with OR, and a parent place includes everything below it; drinks /
+ * dessert types combine with ANY by default and only ever match treat venues.
+ * Choices (tags, places, types) are derived only from the stored catalog — no online lookup.
  */
 
 export type TagMode = 'any' | 'all';
@@ -18,6 +20,10 @@ export interface VenueFilter {
   places: string[];
   /** null = every purpose (admin list); the guest picker always passes the plan's purpose. */
   purpose: VenuePurpose | null;
+  /** Drinks / dessert types (or UNCLASSIFIED_TREAT); only treat venues can match a non-empty list. */
+  treatTypes: TreatTypeFilter[];
+  /** Inside the type criterion; 'any' unless a caller offers a choice. */
+  treatTypeMode: TagMode;
   onlySelected: boolean;
 }
 
@@ -27,8 +33,36 @@ export const emptyVenueFilter = (purpose: VenuePurpose | null = null): VenueFilt
   tagMode: 'any',
   places: [],
   purpose,
+  treatTypes: [],
+  treatTypeMode: 'any',
   onlySelected: false,
 });
+
+/** 清除全部: every criterion goes; the search text, the tag mode and (unless `purposeToo`) the purpose stay. */
+export const clearVenueCriteria = (f: VenueFilter, purposeToo = false): VenueFilter => ({
+  ...f,
+  tags: [],
+  places: [],
+  treatTypes: [],
+  onlySelected: false,
+  ...(purposeToo ? { purpose: null } : {}),
+});
+
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/** True when two filters select the same venues (used to decide whether a list goes back to page 1). */
+export function sameVenueFilter(a: VenueFilter, b: VenueFilter): boolean {
+  return (
+    a.q === b.q &&
+    a.tagMode === b.tagMode &&
+    a.purpose === b.purpose &&
+    a.treatTypeMode === b.treatTypeMode &&
+    a.onlySelected === b.onlySelected &&
+    sameList(a.tags, b.tags) &&
+    sameList(a.places, b.places) &&
+    sameList(a.treatTypes, b.treatTypes)
+  );
+}
 
 /** Scope of venues with no country, region or city at all. */
 export const UNKNOWN_PLACE = 'unknown';
@@ -106,6 +140,7 @@ export function venueMatches(r: Restaurant, f: VenueFilter, selected: ReadonlySe
     (!f.onlySelected || selected.has(r.id)) &&
     (f.places.length === 0 || f.places.some((key) => matchesPlace(r.location, key))) &&
     matchesTags(r.tags, f.tags, f.tagMode) &&
+    matchesTreatTypes(r, f.treatTypes, f.treatTypeMode) &&
     matchesQuery(f.q, venueSearchFields(r))
   );
 }
@@ -115,7 +150,7 @@ export function filterVenues<T extends Restaurant>(venues: readonly T[], f: Venu
 }
 
 /** How many criteria (besides the search text and the fixed purpose) are active. */
-export const activeFilterCount = (f: VenueFilter) => f.tags.length + f.places.length + (f.onlySelected ? 1 : 0);
+export const activeFilterCount = (f: VenueFilter) => f.tags.length + f.places.length + f.treatTypes.length + (f.onlySelected ? 1 : 0);
 
 // ---------- Choices derived from the catalog ----------
 

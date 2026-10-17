@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readMinutes, readStoredIngredients, readStoredSections } from '../../shared/dish.js';
 import { readStoredLinks } from '../../shared/restaurant.js';
+import { readStoredTreatTypes } from '../../shared/treatType.js';
 import type { Dish, Restaurant } from '../../shared/types.js';
 import { readStoredLocation, readStoredPurposes } from '../../shared/venue.js';
 import type { DB } from '../db/connection.js';
@@ -50,6 +51,7 @@ interface RestaurantRow {
   city: string;
   location_source: string;
   purposes_json: string;
+  treat_types_json: string;
   active: number;
   created_at: string;
   updated_at: string;
@@ -145,6 +147,7 @@ const RESTAURANT_COLUMNS = [
   'city',
   'location_source',
   'purposes_json',
+  'treat_types_json',
   'active',
 ] as const;
 
@@ -165,6 +168,7 @@ const restaurantValues = (input: RestaurantWrite) => [
   input.location.city,
   input.location.source,
   JSON.stringify(input.purposes),
+  JSON.stringify(input.treatTypes),
   input.active ? 1 : 0,
 ];
 
@@ -187,6 +191,7 @@ const toRestaurant = (r: RestaurantRow): Restaurant => ({
     source: r.location_source,
   }),
   purposes: readStoredPurposes(parseJson(r.purposes_json)),
+  treatTypes: readStoredTreatTypes(parseJson(r.treat_types_json)),
   active: r.active === 1,
   createdAt: r.created_at,
   updatedAt: r.updated_at,

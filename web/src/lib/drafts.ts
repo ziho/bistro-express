@@ -22,7 +22,20 @@ export interface Draft {
   sourcePlanId: string | null;
   /** Idempotency key reused while retrying the exact same submission. */
   pending: { key: string; fingerprint: string } | null;
+  /**
+   * Editor progress on this device (1 定个日子, 2 挑菜挑店, 3 备注与确认). UI-only: never part of
+   * the request body or its idempotency fingerprint. Drafts saved before it existed have none.
+   */
+  editorStep?: EditorStep;
   updatedAt: string;
+}
+
+export type EditorStep = 1 | 2 | 3;
+
+/** A stored step, clamped into 1–3; anything that is not a finite number counts as "no progress". */
+export function clampEditorStep(raw: unknown): EditorStep | undefined {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
+  return Math.min(3, Math.max(1, Math.round(raw))) as EditorStep;
 }
 
 const PREFIX = 'bx:draft:';
@@ -77,7 +90,9 @@ export function loadDraft(key: string): Draft | null {
     // A draft from before purposes existed keeps sending its old body shape, so a retry of its
     // pending submission still matches the original request (same idempotency fingerprint).
     const legacy = parsed.purpose === undefined || parsed.legacyBody === true;
-    return { ...parsed, purpose, ...(legacy ? { legacyBody: true } : {}) };
+    const { editorStep: rawStep, ...rest } = parsed;
+    const editorStep = clampEditorStep(rawStep);
+    return { ...rest, purpose, ...(legacy ? { legacyBody: true } : {}), ...(editorStep ? { editorStep } : {}) };
   } catch {
     return null;
   }

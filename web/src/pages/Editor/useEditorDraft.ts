@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { isValidDateString } from '../../../../shared/time';
 import type { Plan } from '../../../../shared/types';
-import { editDraftKey, emptyDraft, loadDraft, newDraftKey, saveDraft, type Draft } from '../../lib/drafts';
+import { editDraftKey, emptyDraft, loadDraft, newDraftKey, saveDraft, type Draft, type EditorStep } from '../../lib/drafts';
+import { resumeStep } from '../../lib/editorFlow';
 import { withOuting } from '../../lib/outing';
 
+/** A saved plan opens on its review step: everything is already filled in. */
 function draftFromPlan(plan: Plan): Draft {
   return {
     ...emptyDraft(editDraftKey(plan.id), plan.date),
@@ -20,6 +22,7 @@ function draftFromPlan(plan: Plan): Draft {
     candidateIds: plan.candidates.map((c) => c.id),
     selectedRestaurantId: plan.selectedRestaurant?.id ?? null,
     sourcePlanId: plan.sourcePlanId,
+    editorStep: 3,
   };
 }
 
@@ -40,7 +43,7 @@ export function useEditorDraft(opts: { planId?: string; plan?: Plan; today: stri
       if (!plan) return;
       const existing = loadDraft(editDraftKey(planId));
       if (existing) {
-        setDraft(existing);
+        setDraft({ ...existing, editorStep: resumeStep(existing) });
         setRestored(true);
         dirty.current = true;
       } else {
@@ -51,7 +54,8 @@ export function useEditorDraft(opts: { planId?: string; plan?: Plan; today: stri
     const key = params.get('draft');
     const existing = key ? loadDraft(key) : null;
     if (existing) {
-      setDraft(existing);
+      // Clones and repeats are stored without progress, so they start on step 1.
+      setDraft({ ...existing, editorStep: resumeStep(existing) });
       setRestored(true);
       dirty.current = true;
       return;
@@ -59,9 +63,9 @@ export function useEditorDraft(opts: { planId?: string; plan?: Plan; today: stri
     const requested = params.get('date');
     const date = requested && isValidDateString(requested) && requested >= today ? requested : today;
     const blank = emptyDraft(key && /^new-[\w-]+$/.test(key) ? key : newDraftKey(), date);
-    // 「喝点 / 吃点甜的」 on the home page opens a treat outing straight away.
+    // 「饮番杯」 on the home page opens a treat outing straight away.
     const fresh = params.get('purpose') === 'treat' ? withOuting(blank, 'treat') : blank;
-    setDraft(fresh);
+    setDraft({ ...fresh, editorStep: 1 });
     setParams({ draft: fresh.key }, { replace: true });
   }, [draft, planId, plan, params, setParams, today]);
 
@@ -96,11 +100,17 @@ export function useEditorDraft(opts: { planId?: string; plan?: Plan; today: stri
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
+  /** Step progress is a draft change too: prefilled outings must survive a refresh. */
+  const setStep = useCallback((editorStep: EditorStep) => {
+    if (latest.current && latest.current.editorStep !== editorStep) dirty.current = true;
+    setDraft((prev) => (prev && prev.editorStep !== editorStep ? { ...prev, editorStep } : prev));
+  }, []);
+
   const resetFromPlan = useCallback((p: Plan) => {
     dirty.current = false;
     setDraft(draftFromPlan(p));
     setRestored(false);
   }, []);
 
-  return { draft, update, restored, resetFromPlan, setRestored, discard };
+  return { draft, update, setStep, restored, resetFromPlan, setRestored, discard };
 }

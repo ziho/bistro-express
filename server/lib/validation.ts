@@ -171,9 +171,13 @@ const importRow = z.object({
     .optional()
     .transform((v) => (v?.trim() ? v.trim() : null)),
   tags,
-  /** Checked per row (parseLocation / parsePurposes); omitted = unknown location, ['meal']. */
+  /**
+   * Checked per row (parseLocation / parsePurposes / parseTreatTypes); omitted = unknown location,
+   * ['meal'], and treat types inferred from exact known tags (treat rows only).
+   */
   location: z.unknown().optional(),
   purposes: z.unknown().optional(),
+  treatTypes: z.unknown().optional(),
 });
 export type ImportRowInput = z.output<typeof importRow>;
 

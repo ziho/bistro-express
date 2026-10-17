@@ -8,7 +8,7 @@ import { Logo, OfflineBanner } from '../components/AppShell';
 import { TableForTwo } from '../components/Illustrations';
 import { Loading } from '../components/Loading';
 
-const WRONG_LINES = ['好像不是这一天哦，再想想？', '嗯…不太对，想想那个特别的日子', '差一点点！再试一次吧'];
+const WRONG_LINES = ['好像不是这天，再想想？', '暗号未对上，想想那个特别的日子', '不是这天，慢慢想，不着急'];
 
 function safeNext(next: string | null): string {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/gate')) return '/';
@@ -80,8 +80,8 @@ export function GatePage() {
       <div className="gate-card" key={shakeKey} data-shake={shakeKey > 0 ? 'true' : undefined}>
         <Logo />
         <TableForTwo className="gate-art" />
-        <h1 className="gate-title">欢迎光临，两个人的小馆</h1>
-        <p className="gate-sub">请输入只有我们知道的那个日期</p>
+        <h1 className="gate-title">入嚟坐，两个人的小馆</h1>
+        <p className="gate-sub">先对个暗号：只有我们知道的那个日子</p>
         <form onSubmit={submit} className="gate-form" noValidate>
           <label htmlFor="gate-date" className="field-label">
             暗号日期
@@ -99,7 +99,7 @@ export function GatePage() {
           />
           <button type="submit" className="btn btn-primary btn-block" disabled={busy || lockedUntil > Date.now()}>
             <DoorOpen aria-hidden="true" />
-            {busy ? '正在核对…' : '推门进去'}
+            {busy ? '对暗号中…' : '入嚟坐'}
           </button>
           <p id="gate-msg" className={`gate-msg gate-msg-${message?.tone ?? 'none'}`} role="alert">
             {message?.text ?? ''}

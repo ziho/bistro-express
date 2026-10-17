@@ -69,7 +69,7 @@ describe('migration 3: cuisine merged into tags', () => {
   it('merges each cuisine into tags once, keeping every restaurant, tag and note', async () => {
     env = await createTestEnv(undefined, { beforeOpen: seedV2 });
     const versions = env.ctx.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
+    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }]);
 
     const admin = await env.admin();
     const list = (await admin.get('/bistro/api/admin/restaurants')).body.data as Record<string, unknown>[];
@@ -126,6 +126,8 @@ describe('migration 3: cuisine merged into tags', () => {
       // Read-only normalization of a pre-migration-7 snapshot: unknown place, a meal venue.
       location: { country: '', countryCode: '', region: '', city: '', source: '' },
       purposes: ['meal'],
+      // Pre-migration-8 snapshot: no types (未分类), never filled in from the catalog.
+      treatTypes: [],
     };
     expect(plan.selectedRestaurant).toEqual(expected);
     expect(plan.candidates).toEqual([expected]);

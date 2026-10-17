@@ -64,7 +64,7 @@ export const DEFAULT_LINK_LABEL = '查看链接';
 /** How many of a restaurant's links are shown directly on its selection card (the rest live in 详情). */
 export const CARD_QUICK_LINKS = 2;
 
-export const MEAL_SUGGESTIONS = ['早午餐', '午餐', '晚餐', '下午茶', '夜宵'] as const;
+export const MEAL_SUGGESTIONS = ['早午餐', '午餐', '晚餐', '下午茶', '宵夜'] as const;
 
 /** Attempts per recipient device (each device retries independently). */
 export const NOTIFY_MAX_ATTEMPTS = 5;

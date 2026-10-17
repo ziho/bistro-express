@@ -18,10 +18,10 @@ const AGENDA_DAYS = 10;
 
 function greeting(): string {
   const h = new Date().getHours();
-  if (h < 10) return '早安，今天想吃点什么？';
-  if (h < 14) return '午饭时间到，想好吃什么了吗？';
-  if (h < 18) return '下午好，晚上想吃点什么？';
-  return '晚上好，来安排下一顿吧';
+  if (h < 10) return '早晨，今日食乜好？';
+  if (h < 14) return '到点开饭，食乜好？';
+  if (h < 18) return '今晚食乜？慢慢拣。';
+  return '食饱未？下一顿也安排上。';
 }
 
 export function HomePage() {
@@ -50,7 +50,7 @@ export function HomePage() {
             <Sparkles aria-hidden="true" /> {formatDateLabel(today)}
           </p>
           <h1>{greeting()}</h1>
-          <p className="muted">每一餐都单独安排：在家做点什么、一起出去吃，或者去喝点、吃点甜的。</p>
+          <p className="muted">屋企煮、出街食，或者饮番杯。把想吃的，慢慢排进日常。</p>
         </div>
         <TableForTwo className="hero-art" />
       </section>
@@ -60,7 +60,7 @@ export function HomePage() {
           <Cloche className="notice-art" />
           <div>
             <strong>菜单还是空的</strong>
-            <p className="small">等主厨在后台添加菜品和餐厅后，就可以来点餐啦。</p>
+            <p className="small">等主厨添几道拿手菜、收藏几家好店，就能开点啦。</p>
           </div>
         </div>
       )}
@@ -73,11 +73,11 @@ export function HomePage() {
             <div className="day-actions">
               <Link className="btn btn-primary" to={`/plans/new?date=${selected}`}>
                 <CalendarPlus aria-hidden="true" />
-                加一餐
+                安排一顿
               </Link>
               <Link className="btn btn-butter" to={`/plans/new?date=${selected}&purpose=treat`}>
                 <CupSoda aria-hidden="true" />
-                喝点 / 吃点甜的
+                饮番杯
               </Link>
             </div>
           </div>
@@ -85,12 +85,12 @@ export function HomePage() {
             <Loading />
           ) : plans.isError ? (
             <p className="error-text" role="alert">
-              计划加载失败：{plans.error.message}
+              安排加载失败：{plans.error.message}
             </p>
           ) : dayPlans.length === 0 ? (
             <div className="empty-day">
-              <p>这一天还没有安排。</p>
-              <p className="muted small">早午餐、午餐、晚餐，或者一杯奶茶、一块蛋糕…都可以分别安排。</p>
+              <p>这天还没节目，给好吃的留个位。</p>
+              <p className="muted small">一餐饭、一杯茶、一份糖水，都可以单独记一笔。</p>
             </div>
           ) : (
             <ul className="plan-list">
@@ -108,7 +108,7 @@ export function HomePage() {
             接下来
           </h2>
           {upcoming.length === 0 && !plans.isPending ? (
-            <p className="muted small">还没有即将到来的计划，挑个日子吧。</p>
+            <p className="muted small">还没约好下一顿，先挑个好日子。</p>
           ) : (
             <ol className="agenda-list">
               {upcoming.map(([date, list]) => (

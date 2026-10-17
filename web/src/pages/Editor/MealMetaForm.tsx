@@ -1,11 +1,17 @@
 import { Globe2, X } from 'lucide-react';
 import { MEAL_SUGGESTIONS, LIMITS } from '../../../../shared/constants';
-import { resolveLocalDateTime, TIME_ERROR_MESSAGES } from '../../../../shared/time';
 import { OUTING_CHOICE_LABEL, outingKind, TREAT_SUGGESTIONS, type OutingKind } from '../../../../shared/venue';
 import { OUTING_ICON } from '../../components/OutingIcon';
 import { viewerTimeZone, type Draft } from '../../lib/drafts';
+import { timeIsAmbiguous, timeProblem, type MetaErrors } from '../../lib/editorFlow';
 
 const OUTING_KINDS: OutingKind[] = ['home', 'restaurant', 'treat'];
+
+const OUTING_HINT: Record<OutingKind, string> = {
+  home: '在屋企煮，下一步挑菜。',
+  restaurant: '出去食饭，下一步挑几家候选店，再抽一家或直接选定。',
+  treat: '奶茶、咖啡、糖水、甜品都算，下一步只列出做饮品甜品的店。',
+};
 
 interface Props {
   draft: Draft;
@@ -13,30 +19,38 @@ interface Props {
   onChange: (patch: Partial<Draft>) => void;
   /** Switching outing may need a confirmation (dropping venues that do not fit), so the page decides. */
   onOutingChange: (kind: OutingKind) => void;
-  errors: Partial<Record<'date' | 'mealLabel' | 'localTime', string>>;
+  errors: MetaErrors;
+  disabled?: boolean;
 }
 
-export function timeProblem(draft: Draft): string | null {
-  if (!draft.localTime) return null;
-  const r = resolveLocalDateTime(draft.date, draft.localTime, draft.timeZone);
-  return r.ok ? null : TIME_ERROR_MESSAGES[r.reason];
-}
-
-export function timeIsAmbiguous(draft: Draft): boolean {
-  if (!draft.localTime) return false;
-  const r = resolveLocalDateTime(draft.date, draft.localTime, draft.timeZone);
-  return r.ok && r.ambiguous;
-}
-
-export function MealMetaForm({ draft, today, onChange, onOutingChange, errors }: Props) {
+/** Step 1: when, what to call it, and how to eat. */
+export function MealMetaForm({ draft, today, onChange, onOutingChange, errors, disabled }: Props) {
   const viewerZone = viewerTimeZone();
-  const zoneDiffers = draft.timeZone !== viewerZone;
+  const zoneDiffers = draft.timeZone !== viewerZone || Boolean(errors.timeZone);
   const timeError = errors.localTime ?? timeProblem(draft);
   const outing = outingKind(draft);
   const suggestions = outing === 'treat' ? TREAT_SUGGESTIONS : MEAL_SUGGESTIONS;
 
   return (
-    <div className="meta-form">
+    <fieldset className="meta-form" disabled={disabled}>
+      <fieldset className="field">
+        <legend className="field-label">这次点样食</legend>
+        <div className="segmented segmented-3">
+          {OUTING_KINDS.map((kind) => {
+            const Icon = OUTING_ICON[kind];
+            return (
+              <label key={kind} className="segmented-option">
+                <input type="radio" name="meal-mode" value={kind} checked={outing === kind} onChange={() => onOutingChange(kind)} />
+                <span>
+                  <Icon aria-hidden="true" />
+                  {OUTING_CHOICE_LABEL[kind]}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="muted small">{OUTING_HINT[outing]}</p>
+      </fieldset>
       <div className="field">
         <label className="field-label" htmlFor="meal-date">
           日期
@@ -60,7 +74,7 @@ export function MealMetaForm({ draft, today, onChange, onOutingChange, errors }:
 
       <div className="field">
         <label className="field-label" htmlFor="meal-label">
-          这一餐叫什么
+          给这次安排起个名
         </label>
         <input
           id="meal-label"
@@ -126,35 +140,29 @@ export function MealMetaForm({ draft, today, onChange, onOutingChange, errors }:
       {zoneDiffers && (
         <div className="notice notice-sky small">
           <Globe2 aria-hidden="true" />
-          <div>
+          <div className="meta-zone">
             <p>
               这一餐按原时区 <strong>{draft.timeZone}</strong> 记录，你当前在 <strong>{viewerZone}</strong>。
             </p>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange({ timeZone: viewerZone })}>
+            {errors.timeZone && (
+              <p id="meal-zone-err" className="field-error">
+                {errors.timeZone}
+              </p>
+            )}
+            <button
+              id="meal-zone"
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => onChange({ timeZone: viewerZone })}
+              aria-describedby={errors.timeZone ? 'meal-zone-err' : undefined}
+            >
               改用我当前的时区
             </button>
           </div>
         </div>
       )}
 
-      <fieldset className="field">
-        <legend className="field-label">安排什么</legend>
-        <div className="segmented segmented-3">
-          {OUTING_KINDS.map((kind) => {
-            const Icon = OUTING_ICON[kind];
-            return (
-              <label key={kind} className="segmented-option">
-                <input type="radio" name="meal-mode" value={kind} checked={outing === kind} onChange={() => onOutingChange(kind)} />
-                <span>
-                  <Icon aria-hidden="true" />
-                  {OUTING_CHOICE_LABEL[kind]}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        {outing === 'treat' && <p className="muted small">只显示标记为「饮品甜品」的店，比如奶茶、咖啡、甜品、蛋糕、面包店。</p>}
-      </fieldset>
-    </div>
+
+    </fieldset>
   );
 }

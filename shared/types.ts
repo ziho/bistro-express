@@ -1,6 +1,8 @@
 export type PlanMode = 'home' | 'restaurant';
 /** What a venue (and a restaurant-mode plan) is for: 去吃饭 or 饮品 / 甜品. Home plans are always 'meal'. */
 export type VenuePurpose = 'meal' | 'treat';
+/** Kind of a drinks / dessert venue (see shared/treatType.ts): 奶茶, 咖啡, 糖水／甜品, 雪糕, 蛋糕, 面包／烘焙, 其他. */
+export type TreatType = 'milk_tea' | 'coffee' | 'tong_sui' | 'ice_cream' | 'cake' | 'bakery' | 'other';
 export type PlanStatus = 'active' | 'cancelled';
 export type PlanEvent = 'created' | 'updated' | 'cancelled';
 
@@ -92,6 +94,11 @@ export interface Restaurant {
   location: VenueLocation;
   /** At least one; venues saved before migration 7 are ['meal']. */
   purposes: VenuePurpose[];
+  /**
+   * Drinks / dessert types, multi-select; [] = 未分类. Kept when the venue becomes meal-only, but
+   * only applied (filters, labels) while it serves 'treat'.
+   */
+  treatTypes: TreatType[];
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -132,6 +139,8 @@ export interface RestaurantSnapshot {
   location: VenueLocation;
   /** ['meal'] for snapshots saved before migration 7. */
   purposes: VenuePurpose[];
+  /** [] for snapshots saved before migration 8 (never filled in from the current catalog or inferred). */
+  treatTypes: TreatType[];
 }
 
 /** Per-recipient delivery state. 'skipped' = device disabled/removed or channel switched off. */
@@ -379,6 +388,8 @@ export interface RestaurantImportRow {
   /** Optional (older drafts omit them): blank location and ['meal']. */
   location?: VenueLocation;
   purposes?: VenuePurpose[];
+  /** Omitted: inferred from exact known tags for a treat venue; [] = 未分类. */
+  treatTypes?: TreatType[];
 }
 
 export type RestaurantImportResult =

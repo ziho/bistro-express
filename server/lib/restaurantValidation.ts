@@ -1,4 +1,5 @@
-import type { Restaurant, VenueLocation, VenuePurpose } from '../../shared/types.js';
+import { inferTreatTypes, isTreatType, normalizeTreatTypes, TREAT_TYPES } from '../../shared/treatType.js';
+import type { Restaurant, TreatType, VenueLocation, VenuePurpose } from '../../shared/types.js';
 import {
   countryNameZh,
   emptyLocation,
@@ -16,6 +17,7 @@ import { parseWith, restaurantInputSchema, type RestaurantInput } from './valida
 export interface RestaurantWrite extends RestaurantInput {
   location: VenueLocation;
   purposes: VenuePurpose[];
+  treatTypes: TreatType[];
 }
 
 const TEXT_FIELDS = ['country', 'region', 'city'] as const;
@@ -79,24 +81,52 @@ export function parsePurposes(raw: unknown, stored: readonly VenuePurpose[] | nu
   return purposes;
 }
 
+/**
+ * Drinks / dessert types. An explicit list is validated (unknown values are rejected, never
+ * dropped) and `[]` means 未分类. Omitted keeps `stored` on an update; for a new venue it is
+ * inferred from exact known tags, but only when the venue serves 'treat'.
+ */
+export function parseTreatTypes(
+  raw: unknown,
+  stored: readonly TreatType[] | null,
+  fresh: { purposes: readonly VenuePurpose[]; tags: readonly string[] },
+): TreatType[] {
+  if (raw === undefined) {
+    if (stored) return [...stored];
+    return fresh.purposes.includes('treat') ? inferTreatTypes(fresh.tags) : [];
+  }
+  if (!Array.isArray(raw) || raw.length > TREAT_TYPES.length * 2 || !raw.every(isTreatType)) {
+    throw badRequest('饮品甜品类型无效', { field: 'treatTypes' });
+  }
+  return normalizeTreatTypes(raw);
+}
+
 const field = (raw: unknown, key: string): unknown => (isObject(raw) ? raw[key] : undefined);
 
 /** New venue: only the name is required; location defaults to unknown and purposes to ['meal']. */
 export function parseRestaurantCreate(raw: unknown): RestaurantWrite {
   const base = parseWith(restaurantInputSchema, raw);
-  return { ...base, location: parseLocation(field(raw, 'location'), null), purposes: parsePurposes(field(raw, 'purposes'), null) };
+  const purposes = parsePurposes(field(raw, 'purposes'), null);
+  return {
+    ...base,
+    location: parseLocation(field(raw, 'location'), null),
+    purposes,
+    treatTypes: parseTreatTypes(field(raw, 'treatTypes'), null, { purposes, tags: base.tags }),
+  };
 }
 
 /**
- * Edit: the original fields are replaced as before. Location and purposes are only changed when
- * present in the body, so an older page that does not know them keeps the stored values (a treat
- * venue never silently turns back into a meal venue).
+ * Edit: the original fields are replaced as before. Location, purposes and treat types are only
+ * changed when present in the body, so an older page that does not know them keeps the stored
+ * values (a treat venue never silently turns back into a meal venue or loses its types).
  */
 export function parseRestaurantUpdate(raw: unknown, stored: Restaurant): RestaurantWrite {
   const base = parseWith(restaurantInputSchema, raw);
+  const purposes = parsePurposes(field(raw, 'purposes'), stored.purposes);
   return {
     ...base,
     location: parseLocation(field(raw, 'location'), stored.location),
-    purposes: parsePurposes(field(raw, 'purposes'), stored.purposes),
+    purposes,
+    treatTypes: parseTreatTypes(field(raw, 'treatTypes'), stored.treatTypes, { purposes, tags: base.tags }),
   };
 }

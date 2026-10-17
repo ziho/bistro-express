@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BULK_IMPORT } from '../../../../shared/constants';
-import type { MapLinkPreview, Restaurant, RestaurantImportResponse, VenuePurpose } from '../../../../shared/types';
+import type { MapLinkPreview, Restaurant, RestaurantImportResponse, TreatType, VenuePurpose } from '../../../../shared/types';
 import type { LocationField } from '../../lib/venueForm';
 import { api, ApiError, newIdempotencyKey } from '../../api/client';
 import { keys } from '../../api/queries';
@@ -22,6 +22,8 @@ import {
   queueGeo,
   setPurposesSelected,
   setRowPurposes,
+  setRowTreatTypes,
+  setTreatTypesSelected,
   type BatchFillResult,
   buildPendingCommit,
   commitRows,
@@ -249,6 +251,7 @@ export function useBulkImport() {
       editLocation: (id: string, field: LocationField, value: string) =>
         setState((s) => guard((r) => editRowLocation(r, field, value))(s, id)),
       setPurposes: (id: string, purposes: VenuePurpose[]) => setState((s) => guard((r) => setRowPurposes(r, purposes))(s, id)),
+      setTreatTypes: (id: string, types: TreatType[]) => setState((s) => guard((r) => setRowTreatTypes(r, types))(s, id)),
       retryGeo: (id: string) => {
         setState((s) => guard(queueGeo)(s, id));
         if (canRun) setRunning(true);
@@ -301,6 +304,15 @@ export function useBulkImport() {
     if (result.ok) {
       setState((s) => ({ ...s, rows: result.rows }));
       setAnnouncement(`已设置 ${result.applied} 行的用途`);
+    }
+    return result;
+  }, []);
+
+  const fillTreatTypes = useCallback((types: TreatType[], mode: 'add' | 'replace'): BatchFillResult => {
+    const result = setTreatTypesSelected(stateRef.current.rows, infoRef.current, types, mode);
+    if (result.ok) {
+      setState((s) => ({ ...s, rows: result.rows }));
+      setAnnouncement(`已设置 ${result.applied} 行的类型${result.unchanged ? `，${result.unchanged} 行未修改` : ''}`);
     }
     return result;
   }, []);
@@ -375,6 +387,7 @@ export function useBulkImport() {
     addBatchTags,
     fillLocation,
     fillPurposes,
+    fillTreatTypes,
     withGeo,
     setWithGeo,
     geoFailed: state.rows.filter(isGeoFailed).length,

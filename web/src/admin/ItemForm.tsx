@@ -1,7 +1,7 @@
 import { Fragment, useState, type FormEvent } from 'react';
 import { LIMITS } from '../../../shared/constants';
 import { splitTags } from '../../../shared/restaurant';
-import type { Dish, GeoOutcome, Restaurant, VenuePurpose } from '../../../shared/types';
+import type { Dish, GeoOutcome, Restaurant, TreatType, VenuePurpose } from '../../../shared/types';
 import {
   collectDishDetails,
   collectIngredients,
@@ -20,6 +20,7 @@ import { ImageUpload } from './ImageUpload';
 import { MapLinkImport } from './MapLinkImport';
 import { RestaurantLinksEditor } from './RestaurantLinksEditor';
 import { TagField } from './TagField';
+import { TreatTypeField } from './TreatTypeField';
 
 export type ItemKind = 'dish' | 'restaurant';
 export type CatalogItem = Dish | Restaurant;
@@ -139,6 +140,8 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
   const [locationErrors, setLocationErrors] = useState<LocationProblems>({});
   const [purposes, setPurposes] = useState<VenuePurpose[]>(() => venue?.purposes ?? ['meal']);
   const [purposeError, setPurposeError] = useState<string | undefined>();
+  // Kept (and sent) even while the venue is meal-only, so switching back restores the types.
+  const [treatTypes, setTreatTypes] = useState<TreatType[]>(() => venue?.treatTypes ?? []);
   const [geoIncoming, setGeoIncoming] = useState<{ outcome: GeoOutcome; at: number } | null>(null);
   const setValue = (key: string, value: string) => setValues((prev) => ({ ...prev, [key]: value }));
   const patchDish = (patch: Partial<DishFormState>) => {
@@ -225,6 +228,7 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
       // Sent in full, so a cleared field really clears it and 用途 is never left to a default.
       payload.location = locationPayload(location);
       payload.purposes = purposes;
+      payload.treatTypes = treatTypes;
     }
     // Every detail field is sent, so a cleared value really clears what was stored.
     onSubmit(dish ? { ...payload, ...dish.details } : payload);
@@ -278,6 +282,9 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
               options={locationOptions}
               problems={locationErrors}
               purposeError={purposeError}
+              afterPurposes={
+                purposes.includes('treat') && <TreatTypeField value={treatTypes} onChange={setTreatTypes} tags={splitTags(values.tags)} />
+              }
             />
           )}
           {f.key === TAGS_AFTER[kind] && tagField}

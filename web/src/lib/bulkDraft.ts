@@ -1,5 +1,6 @@
 import { BULK_IMPORT, LIMITS, MAP_LINK_INPUT_MAX } from '../../../shared/constants';
-import type { RestaurantDuplicate, VenuePurpose } from '../../../shared/types';
+import { isTreatType, normalizeTreatTypes, TREAT_TYPES } from '../../../shared/treatType';
+import type { RestaurantDuplicate, TreatType, VenuePurpose } from '../../../shared/types';
 import { isCountryCode, normalizePurposes, VENUE_PURPOSES } from '../../../shared/venue';
 import { idleGeo, type CommitIssue, type GeoStatus, type PendingCommit, type QueueRow, type QueueState, type RowGeo, type RowPreview, type RowStatus } from './bulkQueue';
 import { LOCATION_FIELDS, toLocationForm, type LocationFormState } from './venueForm';
@@ -11,11 +12,12 @@ import { LOCATION_FIELDS, toLocationForm, type LocationFormState } from './venue
  */
 export const BULK_DRAFT_KEY = 'bx:bulk-import';
 /**
- * 2 = rows carry location, purposes and region-lookup state. Version 1 drafts are still read: their
- * rows get an unknown location and ['meal'], and an unanswered batch keeps its exact body and key.
+ * 2 = rows carry location, purposes and region-lookup state; 3 = rows carry drinks / dessert types.
+ * Older drafts are still read: their rows get an unknown location, ['meal'] and no types (未分类),
+ * and an unanswered batch keeps its exact body and key (it is resent byte-for-byte).
  */
-export const BULK_DRAFT_VERSION = 2;
-const READABLE_VERSIONS = new Set([1, 2]);
+export const BULK_DRAFT_VERSION = 3;
+const READABLE_VERSIONS = new Set([1, 2, 3]);
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const KEY_RE = /^[A-Za-z0-9_-]{8,100}$/;
@@ -67,8 +69,9 @@ function readRow(v: unknown): QueueRow | null {
   if ((v.status === 'imported') !== (imported !== null)) return null;
   const location = readLocation(v.location);
   const purposes = readPurposes(v.purposes);
+  const treatTypes = readTreatTypes(v.treatTypes);
   const geo = readGeo(v.geo);
-  if (!location || !purposes || !geo) return null;
+  if (!location || !purposes || !treatTypes || !geo) return null;
   return {
     id: v.id,
     line: v.line as string,
@@ -78,6 +81,7 @@ function readRow(v: unknown): QueueRow | null {
     tags: v.tags as string,
     location,
     purposes,
+    treatTypes,
     geo,
     autofilled: { ...(auto.name !== undefined && { name: auto.name as string }), ...(auto.mapUrl !== undefined && { mapUrl: auto.mapUrl as string }) },
     // A preview cut off by the reload is simply waiting again.
@@ -113,6 +117,13 @@ function readPurposes(v: unknown): VenuePurpose[] | undefined {
   if (v === undefined) return ['meal'];
   if (!Array.isArray(v) || v.length > 4 || !v.every((p) => VENUE_PURPOSES.includes(p as VenuePurpose))) return undefined;
   return normalizePurposes(v);
+}
+
+/** Missing (drafts before version 3) = no types; anything but a short list of known types is malformed. */
+function readTreatTypes(v: unknown): TreatType[] | undefined {
+  if (v === undefined) return [];
+  if (!Array.isArray(v) || v.length > TREAT_TYPES.length || !v.every(isTreatType)) return undefined;
+  return normalizeTreatTypes(v);
 }
 
 function readGeo(v: unknown): RowGeo | undefined {

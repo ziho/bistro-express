@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ListPlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { keys } from '../api/queries';
@@ -9,15 +9,18 @@ import { dishSummaryLines, SectionLabels } from '../components/DishBits';
 import { Cloche } from '../components/Illustrations';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
-import { LocationLine, PurposeBadges, TagList } from '../components/RestaurantBits';
+import { LocationLine, PurposeBadges, TagList, TreatTypeBadges } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { dishSectionOptions } from '../lib/dishes';
 import { restaurantSearchFields } from '../lib/restaurants';
 import type { Restaurant } from '../../../shared/types';
-import { emptyVenueFilter, filterVenues, type VenueFilter } from '../../../shared/venueFilter';
+import { UNCLASSIFIED_TREAT_LABEL } from '../../../shared/treatType';
+import { activeFilterCount, emptyVenueFilter, filterVenues, sameVenueFilter, type VenueFilter } from '../../../shared/venueFilter';
 import { VenueFilters } from '../components/VenueFilters';
 import { ItemForm, type CatalogItem, type ItemKind } from './ItemForm';
+import { ListPager, usePageFocus } from './ListPager';
+import { changeFilter, changePage, clampPage, pageSlice, SHOP_PAGE_SIZE, type PagedFilter } from '../lib/pagination';
 import { venueLocationOptions } from '../lib/venueForm';
 
 const TEXT = {
@@ -68,6 +71,8 @@ function ItemSummary({ item }: { item: CatalogItem }) {
       {item.review && <span className="small admin-item-review">{item.review}</span>}
       <span className="admin-item-line">
         <PurposeBadges purposes={item.purposes} />
+        <TreatTypeBadges purposes={item.purposes} treatTypes={item.treatTypes} />
+        {item.purposes.includes('treat') && item.treatTypes.length === 0 && <span className="muted small">类型：{UNCLASSIFIED_TREAT_LABEL}</span>}
       </span>
       <LocationLine location={item.location} className="small muted" />
       {item.tags.length > 0 ? <TagList tags={item.tags} className="tag-list-compact" /> : <span className="muted small">还没有分类标签</span>}
@@ -83,7 +88,10 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const [q, setQ] = useState('');
   const [tag, setTag] = useState('');
   const [section, setSection] = useState('');
-  const [venueFilter, setVenueFilter] = useState<VenueFilter>(() => emptyVenueFilter(null));
+  // Filter and page change together, so a new filter is on page 1 in the same render.
+  const [venueList, setVenueList] = useState<PagedFilter<VenueFilter>>(() => ({ filter: emptyVenueFilter(null), page: 1 }));
+  const venueFilter = venueList.filter;
+  const setVenueFilter = (next: VenueFilter) => setVenueList((s) => changeFilter(s, next, sameVenueFilter));
   const [editing, setEditing] = useState<CatalogItem | 'new' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<CatalogItem | null>(null);
@@ -131,14 +139,30 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const needle = q.trim().toLowerCase();
   const restaurants = useMemo(() => items.filter((i): i is Restaurant => 'review' in i), [items]);
   const locationOptions = useMemo(() => venueLocationOptions(restaurants), [restaurants]);
-  const visibleVenueIds = useMemo(() => new Set(filterVenues(restaurants, venueFilter).map((r) => r.id)), [restaurants, venueFilter]);
-  const visible = kind === 'restaurant' ? items.filter((i) => visibleVenueIds.has(i.id)) : items.filter(
+  // Every shop is filtered first; only the matches are cut into pages.
+  const matchingVenues = useMemo(() => filterVenues(restaurants, venueFilter), [restaurants, venueFilter]);
+  const venuePage = pageSlice(matchingVenues, venueList.page, SHOP_PAGE_SIZE);
+  const pageFocus = usePageFocus<HTMLDivElement>(venuePage.page);
+  const visible: CatalogItem[] = kind === 'restaurant' ? venuePage.items : items.filter(
     (i) =>
       (!section || ('sections' in i && i.sections.includes(section))) &&
       (!tag || i.tags.includes(tag)) &&
       (!needle || t.searchFields(i).some((f) => f.toLowerCase().includes(needle))),
   );
   const activeCount = items.filter((i) => i.active).length;
+
+  // A deletion (or refresh) that empties the final page lands on the new last page.
+  useEffect(() => {
+    if (venuePage.page !== venueList.page) setVenueList((s) => changePage(s, venuePage.page));
+  }, [venuePage.page, venueList.page]);
+
+  const goToPage = (page: number) => {
+    const next = clampPage(page, matchingVenues.length, SHOP_PAGE_SIZE);
+    if (next === venuePage.page) return;
+    pageFocus.request();
+    setVenueList((s) => changePage(s, next));
+  };
+  const hasVenueCriteria = venueFilter.q.trim() !== '' || activeFilterCount(venueFilter) > 0 || venueFilter.purpose !== null;
 
   const openEditor = (item: CatalogItem | 'new') => {
     setFormError(null);
@@ -175,7 +199,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             <li>
               {kind === 'dish'
                 ? '可以选几个菜单分区（如「配饭菜」「汤羹」）、加些标签（如「快手」「下饭」）；主料、耗时和采购提醒都能以后再补。'
-                : '选好用途（吃饭 / 饮品甜品，可以都选），写一句话点评，加几个标签（例如「川菜」「奶茶」「约会」），可以填国家、省/州和城市，点餐时都能筛选。'}
+                : '选好用途（吃饭 / 饮品甜品，可以都选）。饮品甜品店可多选奶茶、糖水等类型；标签用来记菜系或特色，例如「川菜」「约会」「外带」。国家、省/州和城市也能筛选。'}
             </li>
             <li>暂时不想被选到的，可以随时「下架」，历史记录不受影响。</li>
             {kind === 'restaurant' && <li>收藏了很多 Google 地图链接？用「批量导入」一次粘贴最多 100 个。</li>}
@@ -191,7 +215,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
       ) : (
         <>
           {kind === 'restaurant' ? (
-            <VenueFilters venues={restaurants} value={venueFilter} onChange={setVenueFilter} placeholder={t.searchHint} purposeChoice />
+            <VenueFilters venues={restaurants} value={venueFilter} onChange={setVenueFilter} placeholder={t.searchHint} purposeChoice typeChoice />
           ) : (
             <div className="filters">
               <div className="search-box">
@@ -228,41 +252,67 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
               )}
             </div>
           )}
-          <ul className="admin-list">
-            {visible.map((item) => {
-              // Text-first: no placeholder thumbnail when there is no real photo.
-              const showThumb = item.imageAssetId !== null;
-              return (
-                <li key={item.id} className={`admin-item card ${item.active ? '' : 'is-inactive'} ${showThumb ? '' : 'no-thumb'}`}>
-                  {showThumb && <ItemImage assetId={item.imageAssetId} name={item.name} kind={kind} className="admin-thumb" />}
-                  <div className="admin-item-text">
-                    <strong>{item.name}</strong>
-                    <ItemSummary item={item} />
-                  </div>
-                  <label className="switch-row compact">
-                    <input
-                      type="checkbox"
-                      role="switch"
-                      checked={item.active}
-                      onChange={() => toggle.mutate(item)}
-                      aria-label={`${item.name} ${item.active ? '上架中' : '已下架'}`}
-                    />
-                    <span className="switch" aria-hidden="true" />
-                    <span className="small">{item.active ? '上架' : '下架'}</span>
-                  </label>
-                  <div className="admin-item-actions">
-                    <button type="button" className="icon-btn" aria-label={`编辑 ${item.name}`} onClick={() => openEditor(item)}>
-                      <Pencil aria-hidden="true" />
+          <div
+            ref={pageFocus.target}
+            className="list-page-region"
+            tabIndex={-1}
+            role={kind === 'restaurant' ? 'region' : undefined}
+            aria-label={kind === 'restaurant' ? `店铺列表，第 ${venuePage.page} / ${venuePage.totalPages} 页` : undefined}
+          >
+            <ul className="admin-list">
+              {visible.map((item) => {
+                // Text-first: no placeholder thumbnail when there is no real photo.
+                const showThumb = item.imageAssetId !== null;
+                return (
+                  <li key={item.id} className={`admin-item card ${item.active ? '' : 'is-inactive'} ${showThumb ? '' : 'no-thumb'}`}>
+                    {showThumb && <ItemImage assetId={item.imageAssetId} name={item.name} kind={kind} className="admin-thumb" />}
+                    <div className="admin-item-text">
+                      <strong>{item.name}</strong>
+                      <ItemSummary item={item} />
+                    </div>
+                    <label className="switch-row compact">
+                      <input
+                        type="checkbox"
+                        role="switch"
+                        checked={item.active}
+                        onChange={() => toggle.mutate(item)}
+                        aria-label={`${item.name} ${item.active ? '上架中' : '已下架'}`}
+                      />
+                      <span className="switch" aria-hidden="true" />
+                      <span className="small">{item.active ? '上架' : '下架'}</span>
+                    </label>
+                    <div className="admin-item-actions">
+                      <button type="button" className="icon-btn" aria-label={`编辑 ${item.name}`} onClick={() => openEditor(item)}>
+                        <Pencil aria-hidden="true" />
+                      </button>
+                      <button type="button" className="icon-btn" aria-label={`删除 ${item.name}`} onClick={() => setDeleting(item)}>
+                        <Trash2 aria-hidden="true" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          {kind === 'restaurant' ? (
+            <>
+              {venuePage.total === 0 && (
+                <div className="empty-filter">
+                  <p className="muted">
+                    {hasVenueCriteria ? `${items.length} 家店铺里没有符合当前搜索和筛选的，换个关键词或减少条件试试。` : `没有符合条件的${t.noun}。`}
+                  </p>
+                  {hasVenueCriteria && (
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setVenueFilter(emptyVenueFilter(null))}>
+                      清除搜索和筛选
                     </button>
-                    <button type="button" className="icon-btn" aria-label={`删除 ${item.name}`} onClick={() => setDeleting(item)}>
-                      <Trash2 aria-hidden="true" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          {visible.length === 0 && <p className="muted">没有符合条件的{t.noun}。</p>}
+                  )}
+                </div>
+              )}
+              {venuePage.total > 0 && <ListPager slice={venuePage} label="店铺列表分页" unit={t.unit} onGo={goToPage} />}
+            </>
+          ) : (
+            visible.length === 0 && <p className="muted">没有符合条件的{t.noun}。</p>
+          )}
         </>
       )}
 

@@ -51,6 +51,7 @@ function venue(id: string, tags: string[], location: VenueLocation, purposes: Re
     note: '',
     location,
     purposes,
+    treatTypes: [],
     active: true,
     createdAt: '',
     updatedAt: '',
@@ -110,7 +111,8 @@ describe('shared venue filters', () => {
 
   it('remembered filters are versioned and validated; anything odd is ignored', () => {
     const good = JSON.stringify({ version: 1, treat: { tags: ['奶茶'], tagMode: 'all', places: [UNKNOWN_PLACE, 'bogus'] } });
-    expect(parseRemembered(good, 'treat')).toEqual({ tags: ['奶茶'], tagMode: 'all', places: [UNKNOWN_PLACE] });
+    // Saved before treat types existed: read as no type criterion.
+    expect(parseRemembered(good, 'treat')).toEqual({ tags: ['奶茶'], tagMode: 'all', places: [UNKNOWN_PLACE], treatTypes: [] });
     expect(parseRemembered(good, 'meal')).toBeNull();
     expect(parseRemembered(JSON.stringify({ version: 2, treat: { tags: [], tagMode: 'any', places: [] } }), 'treat')).toBeNull();
     expect(parseRemembered('{oops', 'treat')).toBeNull();

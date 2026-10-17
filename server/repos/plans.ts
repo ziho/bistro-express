@@ -2,6 +2,7 @@ import { readDishSnapshots } from '../../shared/dish.js';
 import type { DishSnapshot, Plan, PlanMode, PlanStatus, RestaurantSnapshot, VenuePurpose } from '../../shared/types.js';
 import { readStoredLocation, readStoredPurposes } from '../../shared/venue.js';
 import { legacyLink, readStoredLinks, splitTags } from '../../shared/restaurant.js';
+import { readStoredTreatTypes } from '../../shared/treatType.js';
 import type { DB } from '../db/connection.js';
 
 interface PlanRow {
@@ -81,6 +82,8 @@ function toRestaurantSnapshot(raw: unknown): RestaurantSnapshot | null {
     // Snapshots saved before migration 7 have neither: unknown location, a meal venue.
     location: readStoredLocation(s.location),
     purposes: readStoredPurposes(s.purposes),
+    // Snapshots saved before migration 8 have none: 未分类, never filled in from the live catalog.
+    treatTypes: readStoredTreatTypes(s.treatTypes),
   };
 }
 

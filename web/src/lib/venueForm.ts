@@ -1,4 +1,5 @@
-import type { LocationSuggestion, Restaurant, VenueLocation, VenuePurpose } from '../../../shared/types';
+import { normalizeTreatTypes } from '../../../shared/treatType';
+import type { LocationSuggestion, Restaurant, TreatType, VenueLocation, VenuePurpose } from '../../../shared/types';
 import { hasUnsafeText, LOCATION_LIMITS, normalizeLocationText, normalizePurposes } from '../../../shared/venue';
 import { mergeAutofill, type AutofillMerge } from './mapImport';
 
@@ -87,6 +88,9 @@ export function locationPayload(s: LocationFormState): VenueLocation {
 
 export const togglePurpose = (list: readonly VenuePurpose[], p: VenuePurpose): VenuePurpose[] =>
   normalizePurposes(list.includes(p) ? list.filter((x) => x !== p) : [...list, p]);
+
+export const toggleTreatType = (list: readonly TreatType[], t: TreatType): TreatType[] =>
+  normalizeTreatTypes(list.includes(t) ? list.filter((x) => x !== t) : [...list, t]);
 
 /** Location values already used by venues, offered for reuse in forms (no global place list). */
 export function venueLocationOptions(venues: readonly Restaurant[]): Record<LocationField, string[]> {

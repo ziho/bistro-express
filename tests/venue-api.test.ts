@@ -109,7 +109,7 @@ describe('drinks / dessert outings', () => {
     const msg = env.provider.sent.at(-1)!;
     expect(msg.title).toContain('饮品甜品');
     expect(msg.title).not.toContain('用餐');
-    expect(msg.body).toContain('饮品甜品：奶茶店');
+    expect(msg.body).toContain('饮番杯：奶茶店');
     expect(msg.body).toContain('地区：加拿大 · British Columbia · Burnaby');
 
     const ics = await guest.get(`/bistro/api/plans/${plan.id}/calendar.ics`);

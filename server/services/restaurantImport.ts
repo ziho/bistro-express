@@ -5,7 +5,7 @@ import type { RestaurantDuplicate, RestaurantImportResponse, RestaurantImportRes
 import type { DB } from '../db/connection.js';
 import { sha256 } from '../lib/crypto.js';
 import { conflict, HttpError } from '../lib/errors.js';
-import { parseLocation, parsePurposes, type RestaurantWrite } from '../lib/restaurantValidation.js';
+import { parseLocation, parsePurposes, parseTreatTypes, type RestaurantWrite } from '../lib/restaurantValidation.js';
 import { restaurantInputSchema, type ImportRowInput } from '../lib/validation.js';
 import type { CatalogRepo } from '../repos/catalog.js';
 import type { IdempotencyRepo } from '../repos/misc.js';
@@ -55,7 +55,13 @@ function prepareRow(row: ImportRowInput): Prepared {
     return { ok: false, message: issue?.message ?? '这一行无效', field: issue?.path.join('.') || null };
   }
   try {
-    const input = { ...parsed.data, location: parseLocation(row.location, null), purposes: parsePurposes(row.purposes, null) };
+    const purposes = parsePurposes(row.purposes, null);
+    const input = {
+      ...parsed.data,
+      location: parseLocation(row.location, null),
+      purposes,
+      treatTypes: parseTreatTypes(row.treatTypes, null, { purposes, tags: parsed.data.tags }),
+    };
     return { ok: true, input, keys: linkKeys([mapUrl, canonical.url, row.sourceUrl]) };
   } catch (err) {
     if (!(err instanceof HttpError)) throw err;

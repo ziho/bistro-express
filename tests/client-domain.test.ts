@@ -69,6 +69,7 @@ const snapshot: RestaurantSnapshot = {
   links: [],
   location: { country: '', countryCode: '', region: '', city: '', source: '' },
   purposes: ['meal'],
+  treatTypes: [],
 };
 
 const restaurant = (patch: Partial<Restaurant> = {}): Restaurant => ({
@@ -84,6 +85,7 @@ const restaurant = (patch: Partial<Restaurant> = {}): Restaurant => ({
   note: '',
   location: { country: '', countryCode: '', region: '', city: '', source: '' },
   purposes: ['meal'],
+  treatTypes: [],
   active: true,
   createdAt: '',
   updatedAt: '',
