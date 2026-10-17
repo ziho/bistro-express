@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { LIMITS } from '../../../shared/constants.js';
 import { badRequest, conflict, HttpError, notFound } from '../../lib/errors.js';
-import { dishInputSchema, parseWith, restaurantInputSchema, UUID_RE } from '../../lib/validation.js';
+import { parseDishCreate, parseDishUpdate } from '../../lib/dishValidation.js';
+import { parseWith, restaurantInputSchema, UUID_RE } from '../../lib/validation.js';
 import { processUpload } from '../../media/process.js';
 import { ok, readJson, requireAdminListener } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
@@ -35,7 +36,7 @@ function catalogRoutes() {
   r.get('/dishes', (c) => ok(c, c.get('app').repos.catalog.listDishes(false)));
 
   r.post('/dishes', async (c) => {
-    const input = parseWith(dishInputSchema, (await readJson(c)).value);
+    const input = parseDishCreate((await readJson(c)).value);
     ensureImage(c, input.imageAssetId);
     const app = c.get('app');
     return ok(c, app.repos.catalog.createDish(input, app.clock()), 201);
@@ -43,9 +44,13 @@ function catalogRoutes() {
 
   r.put('/dishes/:id', async (c) => {
     const id = itemId(c);
-    const input = parseWith(dishInputSchema, (await readJson(c)).value);
-    ensureImage(c, input.imageAssetId);
     const app = c.get('app');
+    const { value } = await readJson(c);
+    // Fields an older client omits keep their stored values, so the current dish is needed first.
+    const stored = app.repos.catalog.getDish(id);
+    if (!stored) throw notFound('这道菜不存在');
+    const input = parseDishUpdate(value, stored);
+    ensureImage(c, input.imageAssetId);
     const dish = app.repos.catalog.updateDish(id, input, app.clock());
     if (!dish) throw notFound('这道菜不存在');
     return ok(c, dish);

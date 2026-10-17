@@ -4,12 +4,15 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { keys } from '../api/queries';
+import { dishSearchFields } from '../../../shared/dish';
+import { dishSummaryLines, SectionLabels } from '../components/DishBits';
 import { Cloche } from '../components/Illustrations';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
 import { TagList } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
+import { dishSectionOptions } from '../lib/dishes';
 import { restaurantSearchFields } from '../lib/restaurants';
 import { ItemForm, type CatalogItem, type ItemKind } from './ItemForm';
 
@@ -19,8 +22,8 @@ const TEXT = {
     noun: '菜品',
     unit: '道',
     add: '添加菜品',
-    searchHint: '搜索菜品名、分类或标签',
-    searchFields: (i: CatalogItem) => [i.name, 'category' in i ? i.category : '', ...i.tags],
+    searchHint: '搜索菜名、分区、标签、介绍或主料',
+    searchFields: (i: CatalogItem) => ('review' in i ? [i.name, ...i.tags] : dishSearchFields(i)),
   },
   restaurant: {
     path: '/admin/restaurants',
@@ -43,8 +46,18 @@ function BulkImportLink() {
 
 function ItemSummary({ item }: { item: CatalogItem }) {
   if (!('review' in item)) {
-    const line = [item.category, ...item.tags.map((x) => `#${x}`)].filter(Boolean).join(' · ');
-    return <span className="muted small">{line || '未分类'}</span>;
+    const { ingredients, facts } = dishSummaryLines(item);
+    const tags = item.tags.map((x) => `#${x}`).join(' ');
+    if (!item.sections.length && !ingredients && !facts && !tags) {
+      return <span className="muted small">还没有分区、标签或主料</span>;
+    }
+    return (
+      <>
+        <SectionLabels sections={item.sections} />
+        {ingredients && <span className="small admin-item-line">{ingredients}</span>}
+        {(facts || tags) && <span className="muted small admin-item-line">{[facts, tags].filter(Boolean).join(' · ')}</span>}
+      </>
+    );
   }
   return (
     <>
@@ -61,6 +74,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const list = useQuery({ queryKey: ['admin', kind], queryFn: () => api<CatalogItem[]>('GET', t.path) });
   const [q, setQ] = useState('');
   const [tag, setTag] = useState('');
+  const [section, setSection] = useState('');
   const [editing, setEditing] = useState<CatalogItem | 'new' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<CatalogItem | null>(null);
@@ -104,9 +118,11 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
 
   const items = list.data ?? [];
   const allTags = useMemo(() => [...new Set(items.flatMap((i) => i.tags))].sort(), [items]);
+  const allSections = useMemo(() => dishSectionOptions(items.flatMap((i) => ('review' in i ? [] : [i]))), [items]);
   const needle = q.trim().toLowerCase();
   const visible = items.filter(
     (i) =>
+      (!section || ('sections' in i && i.sections.includes(section))) &&
       (!tag || i.tags.includes(tag)) &&
       (!needle || t.searchFields(i).some((f) => f.toLowerCase().includes(needle))),
   );
@@ -146,7 +162,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             <li>点「{t.add}」，填写名字（必填），可以拍照上传。</li>
             <li>
               {kind === 'dish'
-                ? '用分类和标签方便搜索，例如「快手」「下饭」「约会」。'
+                ? '可以选几个菜单分区（如「配饭菜」「汤羹」）、加些标签（如「快手」「下饭」）；主料、耗时和采购提醒都能以后再补。'
                 : '写一句话点评，再加几个分类标签（例如「川菜」「火锅」「约会」），点餐时可以按标签筛选。'}
             </li>
             <li>暂时不想被选到的，可以随时「下架」，历史记录不受影响。</li>
@@ -170,11 +186,24 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
               </label>
               <input id="admin-search" type="search" className="input" placeholder={t.searchHint} value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
-            {allTags.length > 0 && (
-              <div className="chip-scroller" role="group" aria-label="按标签筛选">
-                <button type="button" className="chip" aria-pressed={!tag} onClick={() => setTag('')}>
+            {allTags.length + allSections.length > 0 && (
+              <div className="chip-scroller" role="group" aria-label={kind === 'dish' ? '按菜单分区和标签筛选' : '按标签筛选'}>
+                <button
+                  type="button"
+                  className="chip"
+                  aria-pressed={!tag && !section}
+                  onClick={() => {
+                    setTag('');
+                    setSection('');
+                  }}
+                >
                   全部
                 </button>
+                {allSections.map((s) => (
+                  <button key={`s-${s}`} type="button" className="chip" aria-pressed={section === s} onClick={() => setSection(section === s ? '' : s)}>
+                    {s}
+                  </button>
+                ))}
                 {allTags.map((tg) => (
                   <button key={tg} type="button" className="chip chip-tag" aria-pressed={tag === tg} onClick={() => setTag(tag === tg ? '' : tg)}>
                     #{tg}
@@ -185,8 +214,8 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
           </div>
           <ul className="admin-list">
             {visible.map((item) => {
-              // Restaurants are text-first: no placeholder thumbnail when there is no real photo.
-              const showThumb = kind === 'dish' || item.imageAssetId !== null;
+              // Text-first: no placeholder thumbnail when there is no real photo.
+              const showThumb = item.imageAssetId !== null;
               return (
                 <li key={item.id} className={`admin-item card ${item.active ? '' : 'is-inactive'} ${showThumb ? '' : 'no-thumb'}`}>
                   {showThumb && <ItemImage assetId={item.imageAssetId} name={item.name} kind={kind} className="admin-thumb" />}
@@ -244,6 +273,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             busy={save.isPending}
             serverError={formError}
             tagSuggestions={allTags}
+            sectionSuggestions={allSections}
             onSubmit={(payload) => {
               setFormError(null);
               save.mutate(payload);

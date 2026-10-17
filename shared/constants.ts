@@ -34,6 +34,30 @@ export const LIMITS = {
   thumbEdge: 480,
 } as const;
 
+/** Home-cooked dish details (菜单分区、主料、耗时、份量、采购提醒). Shared by the server schema and the admin form. */
+export const DISH_LIMITS = {
+  /** Menu sections per dish. */
+  sections: 8,
+  /** One section label; same as the legacy single category, so every old category stays valid. */
+  section: LIMITS.shortText,
+  /** Main-ingredient rows per dish. */
+  ingredients: 20,
+  ingredientName: 40,
+  /** Free text such as 半盒 / 一把 / 约300g / 适量 (no unit conversion). */
+  ingredientQuantity: 60,
+  /** Per-ingredient purchase reminder, e.g. 去骨鸡腿 / 嫩豆腐 / 常买品牌. */
+  purchaseNote: 160,
+  /** 份量, e.g. 一盘（两人分享） / 一人份. */
+  servingText: 60,
+  /** Overall purchase reminder for the dish. */
+  shoppingNote: 300,
+  /** Upper bound of 总耗时 / 动手时间, in whole minutes (one day). */
+  maxMinutes: 1440,
+} as const;
+
+/** Suggested menu sections. Optional and multi-select; custom sections (incl. old categories) work the same way. */
+export const SUGGESTED_MENU_SECTIONS = ['配饭菜', '饭面简餐', '汤羹', '小食甜品'] as const;
+
 /** Button text for a restaurant's external link when no custom label is set. */
 export const DEFAULT_LINK_LABEL = '查看链接';
 

@@ -59,8 +59,8 @@ export default function AdminApp() {
       <Route index element={<AdminWelcome />} />
       <Route element={<AdminLayout />}>
         <Route path="overview" element={<AdminOverview />} />
-        <Route path="dishes" element={<CatalogAdmin kind="dish" />} />
-        <Route path="restaurants" element={<CatalogAdmin kind="restaurant" />} />
+        <Route path="dishes" element={<CatalogAdmin key="dish" kind="dish" />} />
+        <Route path="restaurants" element={<CatalogAdmin key="restaurant" kind="restaurant" />} />
         <Route path="restaurants/import" element={<BulkImportPage />} />
         <Route path="plans" element={<PlansAdmin />} />
         <Route path="notifications" element={<NotificationsAdmin />} />

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
+import { legacySections } from '../../shared/dish.js';
 import { legacyLink, splitTags } from '../../shared/restaurant.js';
 
 interface Migration {
@@ -96,6 +97,34 @@ export function migrateRestaurantLinks(db: Database.Database): void {
     .all() as { id: string; link_url: string; link_label: string | null }[];
   const update = db.prepare('UPDATE restaurants SET links_json = ? WHERE id = ?');
   for (const row of rows) update.run(JSON.stringify(legacyLink(row.link_url, row.link_label)), row.id);
+}
+
+/**
+ * Adds the home-cooked dish details (menu sections, main ingredients, times, serving, purchase
+ * note) as additive columns with empty defaults, and copies each dish's non-blank legacy
+ * category into `sections_json` as exactly one section (trimmed, never split or remapped).
+ * The legacy `category` column is kept (no table rewrite); the catalog repo keeps it equal to the
+ * first section on every write. Timestamps, tags, descriptions, photos, recipe links and stored
+ * plan snapshots are not touched.
+ * Safe to run more than once: only rows whose sections are still empty and whose category is
+ * still non-blank are converted, and clearing sections in the app also blanks the category, so a
+ * cleared section never comes back.
+ */
+export function migrateDishDetails(db: Database.Database): void {
+  addColumnIfMissing(db, 'dishes', 'sections_json', `TEXT NOT NULL DEFAULT '[]'`);
+  addColumnIfMissing(db, 'dishes', 'ingredients_json', `TEXT NOT NULL DEFAULT '[]'`);
+  addColumnIfMissing(db, 'dishes', 'total_minutes', 'INTEGER');
+  addColumnIfMissing(db, 'dishes', 'active_minutes', 'INTEGER');
+  addColumnIfMissing(db, 'dishes', 'serving_text', `TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing(db, 'dishes', 'shopping_note', `TEXT NOT NULL DEFAULT ''`);
+  const rows = db
+    .prepare(`SELECT id, category FROM dishes WHERE TRIM(category) <> '' AND sections_json = '[]'`)
+    .all() as { id: string; category: string }[];
+  const update = db.prepare('UPDATE dishes SET sections_json = ? WHERE id = ?');
+  for (const row of rows) {
+    const sections = legacySections(row.category);
+    if (sections.length) update.run(JSON.stringify(sections), row.id);
+  }
 }
 
 /**
@@ -263,6 +292,12 @@ const MIGRATIONS: Migration[] = [
     name: 'restaurant multiple external links',
     sql: '',
     up: migrateRestaurantLinks,
+  },
+  {
+    version: 5,
+    name: 'home-cooked dish sections, main ingredients, times, serving and purchase notes',
+    sql: '',
+    up: migrateDishDetails,
   },
 ];
 

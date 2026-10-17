@@ -1,3 +1,4 @@
+import { readDishSnapshots } from '../../shared/dish.js';
 import type { DishSnapshot, Plan, PlanMode, PlanStatus, RestaurantSnapshot } from '../../shared/types.js';
 import { legacyLink, readStoredLinks, splitTags } from '../../shared/restaurant.js';
 import type { DB } from '../db/connection.js';
@@ -93,7 +94,7 @@ const toPlan = (r: PlanRow): StoredPlan => ({
   instant: r.instant,
   mode: r.mode,
   note: r.note,
-  dishes: parseJson<DishSnapshot[]>(r.dishes_json, []),
+  dishes: readDishSnapshots(parseJson<unknown>(r.dishes_json, [])),
   candidates: toRestaurantSnapshots(parseJson<unknown>(r.candidates_json, [])),
   selectedRestaurant: toRestaurantSnapshot(parseJson<unknown>(r.selected_json, null)),
   sourcePlanId: r.source_plan_id,

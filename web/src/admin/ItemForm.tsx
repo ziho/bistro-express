@@ -2,7 +2,18 @@ import { Fragment, useState, type FormEvent } from 'react';
 import { LIMITS } from '../../../shared/constants';
 import { splitTags } from '../../../shared/restaurant';
 import type { Dish, Restaurant } from '../../../shared/types';
+import {
+  collectDishDetails,
+  collectIngredients,
+  toDishFormState,
+  type DishFieldErrors,
+  type DishFormState,
+  type IngredientRow,
+  type IngredientRowError,
+} from '../lib/dishForm';
 import { collectLinks, toLinkRows, type LinkRow, type LinkRowError } from '../lib/linkRows';
+import { DishDetailsFields } from './dish/DishDetailsFields';
+import { SectionField } from './dish/SectionField';
 import { ImageUpload } from './ImageUpload';
 import { MapLinkImport } from './MapLinkImport';
 import { RestaurantLinksEditor } from './RestaurantLinksEditor';
@@ -27,7 +38,6 @@ interface FieldSpec {
 const FIELDS: Record<ItemKind, FieldSpec[]> = {
   dish: [
     { key: 'name', label: '菜名', max: LIMITS.name, required: true, placeholder: '比如：番茄炒蛋' },
-    { key: 'category', label: '分类', max: LIMITS.shortText, placeholder: '比如：家常、汤、甜品' },
     { key: 'description', label: '介绍', max: LIMITS.description, rows: 3, placeholder: '口味、份量、小贴士…' },
     { key: 'recipeUrl', label: '做法链接', max: LIMITS.url, type: 'url', placeholder: 'https://…' },
   ],
@@ -50,8 +60,16 @@ const FIELDS: Record<ItemKind, FieldSpec[]> = {
 
 /** The tag field is rendered right after this field. */
 const TAGS_AFTER: Record<ItemKind, string> = { dish: 'recipeUrl', restaurant: 'review' };
+/** The dish's menu sections are rendered right after this field. */
+const SECTIONS_AFTER = 'name';
 /** The restaurant's links editor is rendered right after this field. */
 const LINKS_AFTER = 'address';
+
+const asDish = (item: CatalogItem | null): Dish | null => (item && !('review' in item) ? item : null);
+
+/** The optional details start open when the dish already has any of them, so nothing saved is hidden. */
+const hasSavedDetails = (d: Dish | null) =>
+  Boolean(d && (d.ingredients.length || d.totalMinutes !== null || d.activeMinutes !== null || d.servingText || d.shoppingNote));
 
 export type FormValues = Record<string, string> & { tags: string };
 
@@ -92,17 +110,46 @@ interface Props {
   serverError: string | null;
   /** Tags already used in this catalog, offered for reuse. */
   tagSuggestions?: string[];
+  /** Menu sections already used by dishes (incl. old categories), offered for reuse. */
+  sectionSuggestions?: string[];
   onSubmit: (payload: Record<string, unknown>) => void;
 }
 
-export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], onSubmit }: Props) {
+export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], sectionSuggestions = [], onSubmit }: Props) {
   const [values, setValues] = useState<FormValues>(() => toFormValues(kind, item));
   const [imageAssetId, setImageAssetId] = useState<string | null>(item?.imageAssetId ?? null);
   const [active, setActive] = useState(item?.active ?? true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [linkRows, setLinkRows] = useState<LinkRow[]>(() => toLinkRows(item && 'links' in item ? item.links : []));
   const [linkErrors, setLinkErrors] = useState<Record<string, LinkRowError>>({});
+  const [dishState, setDishState] = useState<DishFormState>(() => toDishFormState(asDish(item)));
+  const [dishErrors, setDishErrors] = useState<DishFieldErrors>({});
+  const [ingredientErrors, setIngredientErrors] = useState<Record<string, IngredientRowError>>({});
+  const [detailsOpen, setDetailsOpen] = useState(() => hasSavedDetails(asDish(item)));
   const setValue = (key: string, value: string) => setValues((prev) => ({ ...prev, [key]: value }));
+  const patchDish = (patch: Partial<DishFormState>) => {
+    setDishState((prev) => ({ ...prev, ...patch }));
+    setDishErrors((prev) => {
+      const next = { ...prev };
+      for (const key of ['sections', 'totalMinutes', 'activeMinutes', 'servingText', 'shoppingNote'] as const) {
+        if (key in patch) delete next[key];
+      }
+      if ('totalMinutes' in patch || 'activeMinutes' in patch) {
+        delete next.totalMinutes;
+        delete next.activeMinutes;
+      }
+      return next;
+    });
+  };
+
+  const updateIngredientRows = (rows: IngredientRow[]) => {
+    patchDish({ ingredientRows: rows });
+    // Recheck rows that already show an error as they are edited; don't flag new blank rows.
+    setIngredientErrors((previous) => {
+      const current = collectIngredients(rows).errors;
+      return Object.fromEntries(Object.keys(previous).flatMap((key) => (current[key] ? [[key, current[key]]] : [])));
+    });
+  };
 
   const updateLinkRows = (rows: LinkRow[]) => {
     setLinkRows(rows);
@@ -130,16 +177,32 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], o
     const tagError = tagsError(tags);
     if (tagError) nextErrors.tags = tagError;
     const links = kind === 'restaurant' ? collectLinks(linkRows) : null;
+    const dish = kind === 'dish' ? collectDishDetails(dishState) : null;
     setErrors(nextErrors);
     setLinkErrors(links?.errors ?? {});
-    if (Object.keys(nextErrors).length || (links && Object.keys(links.errors).length)) return;
+    setDishErrors(dish?.errors ?? {});
+    setIngredientErrors(dish?.ingredientErrors ?? {});
+    const detailErrors = dish ? Object.keys({ ...dish.errors, ...dish.ingredientErrors }).filter((k) => k !== 'sections') : [];
+    if (detailErrors.length) setDetailsOpen(true);
+    if (
+      Object.keys(nextErrors).length ||
+      (links && Object.keys(links.errors).length) ||
+      (dish && (detailErrors.length || dish.errors.sections))
+    ) {
+      // Wait for inline errors and any expanded details to render, then reveal the first field.
+      requestAnimationFrame(() => {
+        document.getElementById('item-form')?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+      });
+      return;
+    }
     const payload: Record<string, unknown> = { imageAssetId, active, tags };
     for (const f of FIELDS[kind]) {
       const v = values[f.key]?.trim() ?? '';
       payload[f.key] = f.type ? v || null : v;
     }
     if (links) payload.links = links.links;
-    onSubmit(payload);
+    // Every detail field is sent, so a cleared value really clears what was stored.
+    onSubmit(dish ? { ...payload, ...dish.details } : payload);
   };
 
   const tagField = (
@@ -164,7 +227,26 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], o
       {FIELDS[kind].map((f) => (
         <Fragment key={f.key}>
           <TextField spec={f} value={values[f.key] ?? ''} error={errors[f.key]} onChange={(v) => setValue(f.key, v)} />
+          {kind === 'dish' && f.key === SECTIONS_AFTER && (
+            <SectionField
+              value={dishState.sections}
+              existing={sectionSuggestions}
+              error={dishErrors.sections}
+              onChange={(sections) => patchDish({ sections })}
+            />
+          )}
           {f.key === TAGS_AFTER[kind] && tagField}
+          {kind === 'dish' && f.key === TAGS_AFTER.dish && (
+            <DishDetailsFields
+              state={dishState}
+              errors={dishErrors}
+              ingredientErrors={ingredientErrors}
+              open={detailsOpen}
+              onToggle={setDetailsOpen}
+              onChange={patchDish}
+              onIngredientsChange={updateIngredientRows}
+            />
+          )}
           {kind === 'restaurant' && f.key === LINKS_AFTER && (
             <RestaurantLinksEditor rows={linkRows} errors={linkErrors} onChange={updateLinkRows} />
           )}
@@ -195,6 +277,7 @@ function TextField({ spec: f, value, error, onChange }: { spec: FieldSpec; value
     placeholder: f.placeholder,
     value,
     'aria-invalid': error ? true : undefined,
+    'aria-required': f.required ? true : undefined,
     'aria-describedby': describedBy || undefined,
     onChange: (e: { target: { value: string } }) => onChange(e.target.value),
   };

@@ -1,10 +1,12 @@
-import { Check, ExternalLink, Info, Plus } from 'lucide-react';
+import { Check, Info, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Dish } from '../../../../shared/types';
+import { DishInfo, dishSummaryLines, SectionLabels } from '../../components/DishBits';
 import { EmptyPlate } from '../../components/Illustrations';
 import { ItemImage } from '../../components/ItemImage';
 import { Sheet } from '../../components/Sheet';
-import { CatalogFilters, emptyFilter, matchesQuery, type FilterState } from './CatalogFilters';
+import { dishSectionOptions, filterDishes } from '../../lib/dishes';
+import { CatalogFilters, emptyFilter, type FilterState } from './CatalogFilters';
 
 interface Props {
   dishes: Dish[];
@@ -18,16 +20,10 @@ export function DishPicker({ dishes, selectedIds, onToggle }: Props) {
   const [filter, setFilter] = useState<FilterState>(emptyFilter);
   const [detail, setDetail] = useState<Dish | null>(null);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const categories = useMemo(() => uniqueSorted(dishes.map((d) => d.category)), [dishes]);
+  const sections = useMemo(() => dishSectionOptions(dishes), [dishes]);
   const tags = useMemo(() => uniqueSorted(dishes.flatMap((d) => d.tags)), [dishes]);
 
-  const visible = dishes.filter(
-    (d) =>
-      (!filter.group || d.category === filter.group) &&
-      (!filter.tag || d.tags.includes(filter.tag)) &&
-      (!filter.onlySelected || selected.has(d.id)) &&
-      matchesQuery(filter.q, [d.name, d.category, d.description, ...d.tags]),
-  );
+  const visible = filterDishes(dishes, filter, selected);
 
   if (dishes.length === 0) {
     return (
@@ -44,11 +40,11 @@ export function DishPicker({ dishes, selectedIds, onToggle }: Props) {
       <CatalogFilters
         value={filter}
         onChange={setFilter}
-        groups={categories}
+        groups={sections}
         tags={tags}
-        groupLabel="按分类和标签筛选"
+        groupLabel="按菜单分区和标签筛选"
         selectedCount={selected.size}
-        placeholder="搜菜名、分类或标签"
+        placeholder="搜菜名、分区、标签或主料"
       />
       <p className="sr-only" aria-live="polite">
         找到 {visible.length} 道菜
@@ -56,43 +52,23 @@ export function DishPicker({ dishes, selectedIds, onToggle }: Props) {
       {visible.length === 0 ? (
         <p className="muted empty-filter">没有符合条件的菜，换个关键词试试。</p>
       ) : (
-        <ul className="card-grid">
-          {visible.map((d) => {
-            const isOn = selected.has(d.id);
-            return (
-              <li key={d.id} className={`food-card ${isOn ? 'is-selected' : ''}`}>
-                <button type="button" className="food-card-main" aria-pressed={isOn} onClick={() => onToggle(d.id)}>
-                  <ItemImage assetId={d.imageAssetId} name={d.name} />
-                  <span className="food-card-text">
-                    <span className="food-card-name">{d.name}</span>
-                    {d.category && <span className="food-card-meta">{d.category}</span>}
-                  </span>
-                  <span className="food-card-check" aria-hidden="true">
-                    {isOn ? <Check /> : <Plus />}
-                  </span>
-                  <span className="sr-only">{isOn ? '已选，点击取消' : '点击选择'}</span>
-                </button>
-                <button type="button" className="food-card-info" onClick={() => setDetail(d)} aria-label={`${d.name} 详情`}>
-                  <Info aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
+        <ul className="dish-grid">
+          {visible.map((d) => (
+            <DishCard
+              key={d.id}
+              dish={d}
+              selected={selected.has(d.id)}
+              onToggle={() => onToggle(d.id)}
+              onDetail={() => setDetail(d)}
+            />
+          ))}
         </ul>
       )}
 
       <Sheet open={detail !== null} onClose={() => setDetail(null)} title={detail?.name ?? ''}>
         {detail && (
           <div className="detail">
-            <ItemImage assetId={detail.imageAssetId} name={detail.name} variant="full" className="detail-image" />
-            <p className="muted">{[detail.category, ...detail.tags.map((t) => `#${t}`)].filter(Boolean).join(' · ')}</p>
-            {detail.description && <p className="detail-desc">{detail.description}</p>}
-            {detail.recipeUrl && (
-              <a className="btn btn-ghost" href={detail.recipeUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink aria-hidden="true" />
-                查看做法
-              </a>
-            )}
+            <DishInfo dish={detail} />
             <button
               type="button"
               className={`btn ${selected.has(detail.id) ? 'btn-ghost' : 'btn-primary'} btn-block`}
@@ -107,5 +83,42 @@ export function DishPicker({ dishes, selectedIds, onToggle }: Props) {
         )}
       </Sheet>
     </div>
+  );
+}
+
+interface CardProps {
+  dish: Dish;
+  selected: boolean;
+  onToggle: () => void;
+  onDetail: () => void;
+}
+
+/**
+ * Compact text-first card. The whole text area toggles the dish; 详情 is a separate button.
+ * A small thumbnail appears only when the dish has a photo.
+ */
+function DishCard({ dish: d, selected, onToggle, onDetail }: CardProps) {
+  const { ingredients, facts } = dishSummaryLines(d);
+  return (
+    <li className={`dish-card ${selected ? 'is-selected' : ''}`}>
+      <button type="button" className="dish-card-main" aria-pressed={selected} onClick={onToggle}>
+        <span className="dish-card-check" aria-hidden="true">
+          {selected ? <Check /> : <Plus />}
+        </span>
+        {d.imageAssetId && <ItemImage as="span" assetId={d.imageAssetId} name={d.name} className="dish-card-photo" />}
+        <span className="dish-card-text">
+          <span className="dish-card-name">
+            {d.name}
+          </span>
+          <SectionLabels sections={d.sections} as="span" />
+          {ingredients && <span className="dish-card-line">{ingredients}</span>}
+          {facts && <span className="dish-card-line dish-card-facts">{facts}</span>}
+        </span>
+        <span className="sr-only">{selected ? '，已选，点击取消' : '，点击加入这一餐'}</span>
+      </button>
+      <button type="button" className="dish-card-info" aria-label={`${d.name} 详情`} onClick={onDetail}>
+        <Info aria-hidden="true" />
+      </button>
+    </li>
   );
 }

@@ -11,6 +11,7 @@ import './styles/base.css';
 import './styles/layout.css';
 import './styles/components.css';
 import './styles/editor.css';
+import './styles/dishes.css';
 import './styles/admin.css';
 import './styles/bulk-import.css';
 

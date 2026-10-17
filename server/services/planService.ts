@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { isPastDate, isValidDateString, isValidTimeZone, resolveLocalDateTime, TIME_ERROR_MESSAGES } from '../../shared/time.js';
+import { snapshotOfDish } from '../../shared/dish.js';
 import type { DishSnapshot, Plan, PlanEvent, RestaurantSnapshot } from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
 import { sha256, shortCode } from '../lib/crypto.js';
@@ -67,10 +68,8 @@ export function createPlanService(deps: PlanServiceDeps) {
       if (unavailable.length) {
         throw unprocessable('unavailable_items', '有菜品已经下架，请移除后再提交', { dishIds: unavailable });
       }
-      const dishes: DishSnapshot[] = ids.map((id) => {
-        const d = found.get(id)!;
-        return { id: d.id, name: d.name, category: d.category, imageAssetId: d.imageAssetId };
-      });
+      // Frozen at save time: later catalog edits never change this plan.
+      const dishes: DishSnapshot[] = ids.map((id) => snapshotOfDish(found.get(id)!));
       return { dishes, candidates: [], selectedRestaurant: null };
     }
     const ids = unique(input.candidateIds);

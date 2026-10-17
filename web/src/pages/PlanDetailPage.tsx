@@ -3,9 +3,11 @@ import { ArrowLeft, Ban, Clock, Globe2, Home, PartyPopper, Pencil, Repeat2, Stor
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { formatDateLabel } from '../../../shared/time';
-import type { Plan, RestaurantSnapshot } from '../../../shared/types';
+import { hasDishExtras } from '../../../shared/dish';
+import type { DishSnapshot, Plan, RestaurantSnapshot } from '../../../shared/types';
 import { api, ApiError, newIdempotencyKey } from '../api/client';
 import { keys, useCatalog, usePlan } from '../api/queries';
+import { DishInfo, dishSummaryLines, SectionLabels } from '../components/DishBits';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
 import { NotificationBadge, SavedBadge } from '../components/NotificationBadge';
@@ -36,6 +38,36 @@ function ChosenRestaurant({ restaurant: r }: { restaurant: RestaurantSnapshot })
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * One dish as frozen in the plan: text-first, a small photo only when there is one. Recorded
+ * ingredients, purchase notes, description and recipe link sit behind a per-dish disclosure.
+ */
+function PlanDishRow({ dish: d }: { dish: DishSnapshot }) {
+  const { ingredients, facts } = dishSummaryLines(d);
+  const hasMore = hasDishExtras(d);
+  return (
+    <li className="plan-dish">
+      <div className="plan-dish-head">
+        {d.imageAssetId && <ItemImage assetId={d.imageAssetId} name={d.name} className="plan-dish-photo" />}
+        <div className="plan-dish-text">
+          <h3 className="plan-dish-name">{d.name}</h3>
+          <SectionLabels sections={d.sections} />
+          {ingredients && <p className="plan-dish-line">{ingredients}</p>}
+          {facts && <p className="plan-dish-line muted">{facts}</p>}
+        </div>
+      </div>
+      {hasMore && (
+        <details className="plan-dish-more">
+          <summary>
+            查看详情<span className="sr-only">：{d.name}</span>
+          </summary>
+          <DishInfo dish={d} heading="h4" compact />
+        </details>
+      )}
+    </li>
   );
 }
 
@@ -148,15 +180,9 @@ export function PlanDetailPage() {
           <h2 id="dishes-title" className="section-title">
             想吃的菜（{p.dishes.length}）
           </h2>
-          <ul className="snapshot-grid">
-            {p.dishes.map((d) => (
-              <li key={d.id} className="snapshot-item">
-                <ItemImage assetId={d.imageAssetId} name={d.name} />
-                <span>
-                  <strong>{d.name}</strong>
-                  {d.category && <span className="muted small block">{d.category}</span>}
-                </span>
-              </li>
+          <ul className="plan-dish-list">
+            {p.dishes.map((d, index) => (
+              <PlanDishRow key={`${index}-${d.id}`} dish={d} />
             ))}
           </ul>
         </section>

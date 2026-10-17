@@ -1,0 +1,432 @@
+/* ---------- Home-cooked dishes: menu sections, text-first cards, details ---------- */
+
+/* Read-only menu section labels (菜单分区); a thin tomato outline keeps them apart from #tags. */
+.section-labels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.section-label {
+  max-width: 100%;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--coral-soft);
+  background: var(--paper);
+  color: var(--tomato-dark);
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* Chips whose text comes from data (custom sections): wrap instead of overflowing. */
+.chip-wrap {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+  line-height: 1.3;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.chip-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Dish cards (text-first picker) ---------- */
+.dish-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  align-items: start;
+  gap: var(--space-3);
+}
+.dish-card {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.dish-card.is-selected {
+  border-color: var(--tomato);
+  box-shadow: 0 0 0 1px var(--tomato), 0 0 0 5px var(--coral-soft);
+}
+@media (hover: hover) {
+  .dish-card:not(.is-selected):hover {
+    border-color: var(--line-strong);
+  }
+}
+.dish-card-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 56px;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-1) var(--space-3) var(--space-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.dish-card-main:active {
+  background: var(--cream);
+}
+.dish-card-check {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--paper);
+}
+.dish-card-check svg {
+  width: 16px;
+  height: 16px;
+}
+.dish-card.is-selected .dish-card-check {
+  background: var(--tomato);
+  border-color: var(--tomato);
+  color: #fff;
+  animation: pop var(--dur) var(--ease);
+}
+.dish-card-photo {
+  display: block;
+  flex: none;
+  width: 56px;
+  aspect-ratio: 1;
+  border-radius: 10px;
+}
+.dish-card-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.dish-card-name {
+  font-size: 1.02rem;
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.dish-card-line {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.dish-card-facts {
+  color: var(--muted);
+}
+.dish-card-info {
+  flex: none;
+  width: var(--tap);
+  height: var(--tap);
+  margin: 6px 6px 0 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  touch-action: manipulation;
+}
+.dish-card-info:active {
+  background: var(--cream-2);
+}
+@media (hover: hover) {
+  .dish-card-info:hover {
+    background: var(--cream-2);
+  }
+}
+.dish-card-info svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- Dish details (sheet and saved plan) ---------- */
+.detail-facts-wide > div {
+  grid-template-columns: 5em minmax(0, 1fr);
+}
+.dish-ingredients {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.dish-ingredients > li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+.dish-ingredient-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--space-3);
+  min-width: 0;
+}
+.dish-ingredient-name {
+  min-width: 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.dish-ingredient-qty {
+  min-width: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.dish-ingredient-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+/* Saved plan: compact dish rows, details behind a per-dish disclosure. */
+.plan-dish-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.plan-dish {
+  min-width: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+.plan-dish:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.plan-dish:last-child {
+  padding-bottom: 0;
+}
+.plan-dish-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.plan-dish-photo {
+  flex: none;
+  width: 56px;
+  aspect-ratio: 1;
+  border-radius: 10px;
+}
+.plan-dish-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.plan-dish-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.plan-dish-line {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.plan-dish-line.muted {
+  color: var(--muted);
+}
+.plan-dish-more {
+  margin-top: var(--space-2);
+}
+.plan-dish-more > summary,
+.dish-more-summary {
+  display: flex;
+  align-items: center;
+  gap: 4px var(--space-2);
+  min-height: var(--tap);
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.plan-dish-more > summary::-webkit-details-marker,
+.dish-more-summary::-webkit-details-marker {
+  display: none;
+}
+.plan-dish-more > summary::before,
+.dish-more-summary::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 4px 0 2px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-fast);
+}
+.plan-dish-more[open] > summary::before,
+.dish-more[open] > .dish-more-summary::before {
+  transform: rotate(45deg);
+}
+.plan-dish-more > summary {
+  display: inline-flex;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  color: var(--tomato-dark);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.plan-dish-more > .dish-info {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-dish-more > summary::before,
+  .dish-more-summary::before {
+    transition: none;
+  }
+}
+
+/* ---------- Admin dish form ---------- */
+.section-custom {
+  display: grid;
+  gap: 4px;
+  margin-top: var(--space-1);
+}
+.section-custom .input-with-action > .input {
+  flex: 1;
+  min-width: 0;
+}
+.section-custom .input-with-action > .btn {
+  flex: none;
+}
+
+.dish-more {
+  margin: 0 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.dish-more-summary {
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-weight: 650;
+}
+.dish-more[open] > .dish-more-summary {
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.dish-more-body {
+  padding: var(--space-3);
+}
+.dish-time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  column-gap: var(--space-3);
+}
+.dish-time-grid > .field {
+  margin-bottom: var(--space-2);
+}
+.dish-time-hint {
+  margin: 0 0 var(--space-4);
+}
+
+/* Ingredient rows: stacked on phones, name + quantity side by side once there is room. */
+.ingredient-list {
+  container-type: inline-size;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.ingredient-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name remove'
+    'quantity quantity'
+    'note note';
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+}
+.ingredient-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.ingredient-field .links-editor-label {
+  line-height: 1.4;
+}
+.ingredient-name {
+  grid-area: name;
+}
+.ingredient-quantity {
+  grid-area: quantity;
+}
+.ingredient-purchaseNote {
+  grid-area: note;
+}
+.ingredient-remove {
+  grid-area: remove;
+  /* Line up with the input below the label. */
+  margin-top: calc(0.85rem * 1.4 + 6px);
+  color: var(--danger);
+}
+@container (min-width: 400px) {
+  .ingredient-row {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto;
+    grid-template-areas:
+      'name quantity remove'
+      'note note note';
+  }
+}
+.ingredient-add {
+  justify-self: start;
+}
+
+/* Admin list summary lines. */
+.admin-item-text > .section-labels {
+  margin: 4px 0 2px;
+}
+.admin-item-line {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}

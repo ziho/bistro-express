@@ -10,10 +10,36 @@ export type NotificationStatus =
   | 'superseded'
   | 'unconfigured';
 
-export interface Dish {
+/** One main-ingredient row of a home-cooked dish (主料). Quantity and note are free text. */
+export interface DishIngredient {
+  name: string;
+  /** e.g. 半盒 / 一把 / 约300g / 适量; '' when not recorded. */
+  quantity: string;
+  /** Row-specific purchase reminder, e.g. 去骨鸡腿; '' when not recorded. */
+  purchaseNote: string;
+}
+
+/** Optional cooking / purchase details shared by a dish and its plan snapshot. */
+export interface DishDetails {
+  /** Menu sections (菜单分区), multi-select, in display order. */
+  sections: string[];
+  /** Main ingredients, not a complete ingredient list. */
+  ingredients: DishIngredient[];
+  /** 总耗时 in minutes, 0..1440; null when not recorded (0 is a real value). */
+  totalMinutes: number | null;
+  /** 动手时间 in minutes, 0..1440, never more than totalMinutes; null when not recorded. */
+  activeMinutes: number | null;
+  /** 份量, e.g. 一盘（两人分享）; '' when not recorded. */
+  servingText: string;
+  /** Overall purchase reminder; '' when not recorded. */
+  shoppingNote: string;
+}
+
+export interface Dish extends DishDetails {
   id: string;
   name: string;
   imageAssetId: string | null;
+  /** @deprecated Older clients only: the first menu section, or '' when there is none. */
   category: string;
   tags: string[];
   description: string;
@@ -52,12 +78,20 @@ export interface Restaurant {
   updatedAt: string;
 }
 
-/** Frozen copy of a dish at the time a plan was saved. */
-export interface DishSnapshot {
+/**
+ * Frozen copy of a dish at the time a plan was saved. Snapshots stored before the dish details
+ * existed only have id/name/category/imageAssetId; they are normalized on read (see
+ * readDishSnapshot): the old category becomes the one section and every other field is empty.
+ */
+export interface DishSnapshot extends DishDetails {
   id: string;
   name: string;
+  /** @deprecated The first section, or '' when there is none. */
   category: string;
   imageAssetId: string | null;
+  tags: string[];
+  description: string;
+  recipeUrl: string | null;
 }
 
 /**

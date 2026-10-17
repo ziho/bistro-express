@@ -1,17 +1,28 @@
 import { randomUUID } from 'node:crypto';
+import { readMinutes, readStoredIngredients, readStoredSections } from '../../shared/dish.js';
 import { readStoredLinks } from '../../shared/restaurant.js';
 import type { Dish, Restaurant } from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
-import type { DishInput, RestaurantInput } from '../lib/validation.js';
+import type { DishWrite } from '../lib/dishValidation.js';
+import type { RestaurantInput } from '../lib/validation.js';
 
+/**
+ * The legacy `category` column is no longer read: migration 5 copied it into sections_json, and
+ * every write keeps it equal to the first section (or '') so a rollback still sees a category.
+ */
 interface DishRow {
   id: string;
   name: string;
   image_asset_id: string | null;
-  category: string;
+  sections_json: string;
   tags: string;
   description: string;
   recipe_url: string | null;
+  ingredients_json: string;
+  total_minutes: number | null;
+  active_minutes: number | null;
+  serving_text: string;
+  shopping_note: string;
   active: number;
   created_at: string;
   updated_at: string;
@@ -54,18 +65,61 @@ function parseTags(raw: string): string[] {
   }
 }
 
-const toDish = (r: DishRow): Dish => ({
-  id: r.id,
-  name: r.name,
-  imageAssetId: r.image_asset_id,
-  category: r.category,
-  tags: parseTags(r.tags),
-  description: r.description,
-  recipeUrl: r.recipe_url,
-  active: r.active === 1,
-  createdAt: r.created_at,
-  updatedAt: r.updated_at,
-});
+function toDish(r: DishRow): Dish {
+  const sections = readStoredSections(parseJson(r.sections_json));
+  return {
+    id: r.id,
+    name: r.name,
+    imageAssetId: r.image_asset_id,
+    category: sections[0] ?? '',
+    sections,
+    tags: parseTags(r.tags),
+    description: r.description,
+    recipeUrl: r.recipe_url,
+    ingredients: readStoredIngredients(parseJson(r.ingredients_json)),
+    totalMinutes: readMinutes(r.total_minutes),
+    activeMinutes: readMinutes(r.active_minutes),
+    servingText: r.serving_text,
+    shoppingNote: r.shopping_note,
+    active: r.active === 1,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+/** Written dish columns; `category` mirrors the first section for older readers. */
+const DISH_COLUMNS = [
+  'name',
+  'image_asset_id',
+  'category',
+  'sections_json',
+  'tags',
+  'description',
+  'recipe_url',
+  'ingredients_json',
+  'total_minutes',
+  'active_minutes',
+  'serving_text',
+  'shopping_note',
+  'active',
+] as const;
+
+/** Values for DISH_COLUMNS, in the same order. */
+const dishValues = (input: DishWrite) => [
+  input.name,
+  input.imageAssetId,
+  input.sections[0] ?? '',
+  JSON.stringify(input.sections),
+  JSON.stringify(input.tags),
+  input.description,
+  input.recipeUrl,
+  JSON.stringify(input.ingredients),
+  input.totalMinutes,
+  input.activeMinutes,
+  input.servingText,
+  input.shoppingNote,
+  input.active ? 1 : 0,
+];
 
 const toRestaurant = (r: RestaurantRow): Restaurant => ({
   id: r.id,
@@ -107,44 +161,24 @@ export function createCatalogRepo(db: DB) {
       return rows.map(toDish);
     },
 
-    createDish(input: DishInput, now: Date): Dish {
+    createDish(input: DishWrite, now: Date): Dish {
       const id = randomUUID();
       const ts = now.toISOString();
-      db.prepare(
-        `INSERT INTO dishes (id, name, image_asset_id, category, tags, description, recipe_url, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
+      const columns = ['id', ...DISH_COLUMNS, 'created_at', 'updated_at'];
+      db.prepare(`INSERT INTO dishes (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`).run(
         id,
-        input.name,
-        input.imageAssetId,
-        input.category,
-        JSON.stringify(input.tags),
-        input.description,
-        input.recipeUrl,
-        input.active ? 1 : 0,
+        ...dishValues(input),
         ts,
         ts,
       );
       return this.getDish(id)!;
     },
 
-    updateDish(id: string, input: DishInput, now: Date): Dish | null {
+    updateDish(id: string, input: DishWrite, now: Date): Dish | null {
+      const assignments = [...DISH_COLUMNS, 'updated_at'].map((c) => `${c} = ?`).join(', ');
       const result = db
-        .prepare(
-          `UPDATE dishes SET name = ?, image_asset_id = ?, category = ?, tags = ?, description = ?, recipe_url = ?,
-           active = ?, updated_at = ? WHERE id = ?`,
-        )
-        .run(
-          input.name,
-          input.imageAssetId,
-          input.category,
-          JSON.stringify(input.tags),
-          input.description,
-          input.recipeUrl,
-          input.active ? 1 : 0,
-          now.toISOString(),
-          id,
-        );
+        .prepare(`UPDATE dishes SET ${assignments} WHERE id = ?`)
+        .run(...dishValues(input), now.toISOString(), id);
       return result.changes ? this.getDish(id) : null;
     },
 

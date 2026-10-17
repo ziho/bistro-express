@@ -16,38 +16,27 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
-const text = (max: number) => z.string().trim().max(max, `不能超过 ${max} 个字`);
+export const text = (max: number) => z.string().trim().max(max, `不能超过 ${max} 个字`);
 
-const optionalUrl = z
+export const optionalUrl = z
   .union([z.string().trim().max(LIMITS.url), z.null()])
   .optional()
   .transform((v) => (v ? v : null))
   .refine((v) => v === null || isHttpUrl(v), '链接必须以 http:// 或 https:// 开头');
 
 /** Single-line text: line breaks and runs of spaces collapse to one space. */
-const singleLine = (max: number) => text(max).transform((v) => v.replace(/\s+/g, ' '));
+export const singleLine = (max: number) => text(max).transform((v) => v.replace(/\s+/g, ' '));
 
-const tags = z
+export const tags = z
   .array(z.string().trim().min(1).max(LIMITS.tag, `标签不能超过 ${LIMITS.tag} 个字`))
   .max(LIMITS.tags, `最多 ${LIMITS.tags} 个标签`)
   .default([])
   .transform((list) => [...new Set(list)]);
 
-const assetId = z
+export const assetId = z
   .union([z.string().regex(ASSET_ID_RE, '图片编号无效'), z.null()])
   .optional()
   .transform((v) => v ?? null);
-
-export const dishInputSchema = z.object({
-  name: text(LIMITS.name).min(1, '请填写菜名'),
-  imageAssetId: assetId,
-  category: text(LIMITS.shortText).default(''),
-  tags,
-  description: text(LIMITS.description).default(''),
-  recipeUrl: optionalUrl,
-  active: z.boolean().default(true),
-});
-export type DishInput = z.infer<typeof dishInputSchema>;
 
 /**
  * One editor row. A row with neither name nor URL is an unused row and is dropped; a name
