@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { CalendarHeart, History, LogOut, Settings2, WifiOff } from 'lucide-react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { NavLink, useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { useSession } from '../api/queries';
 import { clearAllLocalData } from '../lib/drafts';
 import { pantryStore } from '../lib/pantryStore';
 import { useOnline } from '../lib/hooks';
 import { useToast } from './Toast';
+import { MotionOutlet } from './MotionOutlet';
 
 export function Logo() {
   return (
@@ -89,7 +90,7 @@ export function AppShell() {
       </header>
       <OfflineBanner />
       <main id="main" className="main">
-        <Outlet />
+        <MotionOutlet />
       </main>
     </div>
   );

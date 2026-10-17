@@ -2,15 +2,21 @@ import { useQuery } from '@tanstack/react-query';
 import { Bell, CalendarDays, ChevronRight, Settings, Store, Utensils, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { isPastDate } from '../../../shared/time';
-import type { AdminNotification, BarkSettingsView, Dish, Plan, Restaurant } from '../../../shared/types';
+import { NOTIFICATION_HISTORY } from '../../../shared/constants';
+import { historyQuery } from '../../../shared/notificationHistory';
+import type { BarkSettingsView, Dish, NotificationPage, Plan, Restaurant } from '../../../shared/types';
 import { api } from '../api/client';
 
 /* Same query keys as the management pages, so their caches are shared. */
 const useRestaurants = () => useQuery({ queryKey: ['admin', 'restaurant'], queryFn: () => api<Restaurant[]>('GET', '/admin/restaurants') });
 const useDishes = () => useQuery({ queryKey: ['admin', 'dish'], queryFn: () => api<Dish[]>('GET', '/admin/dishes') });
 const usePlans = () => useQuery({ queryKey: ['admin', 'plans'], queryFn: () => api<Plan[]>('GET', '/admin/plans') });
-const useNotifications = () =>
-  useQuery({ queryKey: ['admin', 'notifications'], queryFn: () => api<AdminNotification[]>('GET', '/admin/notifications') });
+/** Smallest page: only the global held count is needed. Own key, same ['admin', 'notifications'] prefix. */
+const useNotificationSummary = () =>
+  useQuery({
+    queryKey: ['admin', 'notifications', 'summary'],
+    queryFn: () => api<NotificationPage>('GET', `/admin/notifications?${historyQuery(1, 1)}`),
+  });
 const useBark = () => useQuery({ queryKey: ['admin', 'bark'], queryFn: () => api<BarkSettingsView>('GET', '/admin/settings/bark') });
 
 interface TileProps {
@@ -51,10 +57,6 @@ function planStatus(plans: Plan[] | undefined): string | null {
   return upcoming ? `即将到来 ${upcoming} 个` : '暂时没有即将到来的计划';
 }
 
-function heldCount(log: AdminNotification[] | undefined): number | null {
-  return log ? log.filter((n) => n.status === 'failed' || n.status === 'unconfigured').length : null;
-}
-
 function barkStatus(bark: BarkSettingsView | undefined): string | null {
   if (!bark) return null;
   if (!bark.enabled) return '未启用';
@@ -67,9 +69,9 @@ export function AdminOverview() {
   const restaurants = useRestaurants();
   const dishes = useDishes();
   const plans = usePlans();
-  const notifications = useNotifications();
+  const notifications = useNotificationSummary();
   const bark = useBark();
-  const held = heldCount(notifications.data);
+  const held = notifications.data?.held ?? null;
 
   return (
     <div className="admin-page">
@@ -101,7 +103,7 @@ export function AdminOverview() {
           Icon={Bell}
           status={held === null ? null : held ? `${held} 条待处理` : '暂无待重试通知'}
           attention={Boolean(held)}
-          description="每次保存计划后的推送记录，可以重试。"
+          description={`最近 ${NOTIFICATION_HISTORY.retentionDays} 天的推送记录，可以重试。`}
         />
         <Tile
           to="/admin/settings"

@@ -69,6 +69,21 @@ export const MEAL_SUGGESTIONS = ['早午餐', '午餐', '晚餐', '下午茶', '
 /** Attempts per recipient device (each device retries independently). */
 export const NOTIFY_MAX_ATTEMPTS = 5;
 
+/**
+ * Admin notification history. Records (and their per-device rows) older than the rolling
+ * window — by notification creation time — are deleted permanently and never sent or retried.
+ */
+export const NOTIFICATION_HISTORY = {
+  retentionDays: 14,
+  retentionMs: 14 * 24 * 60 * 60_000,
+  defaultPageSize: 10,
+  maxPageSize: 50,
+  /** Largest accepted `page` query value; larger pages beyond the data clamp to the last page. */
+  maxPage: 100_000,
+  /** Size of the legacy no-query list (older admin tabs). */
+  legacyLimit: 200,
+} as const;
+
 export const BARK_LIMITS = {
   maxDevices: 10,
   label: 30,

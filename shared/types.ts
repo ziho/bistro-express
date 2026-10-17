@@ -271,6 +271,21 @@ export interface AdminNotification extends NotificationSummary {
   deliveries: AdminDelivery[];
 }
 
+/** One page of the admin notification history (only the retained recent window). */
+export interface NotificationPage {
+  items: AdminNotification[];
+  /** Page actually returned: a page past the end is clamped to the last page (1 when empty). */
+  page: number;
+  pageSize: number;
+  /** Retained records across all pages. */
+  total: number;
+  /** At least 1, even when there are no records. */
+  totalPages: number;
+  /** Failed or unconfigured records across all retained pages (what 「重试全部」 targets). */
+  held: number;
+  retentionDays: number;
+}
+
 export interface LatLng {
   lat: number;
   lng: number;

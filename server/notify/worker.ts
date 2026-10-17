@@ -30,10 +30,15 @@ export class NotificationWorker {
 
   constructor(private readonly deps: WorkerDeps) {}
 
+  /**
+   * Recovers rows a crash left in 'sending', then deletes expired history before the first
+   * delivery pass, so a recovered record older than the retention window is never re-sent.
+   */
   start(): void {
     this.started = true;
     const recovered = this.deps.repo.resetInFlight(this.deps.clock());
     if (recovered) this.deps.log?.(`notify: re-queued ${recovered} in-flight message(s)`);
+    this.purgeExpired();
     this.timer = setInterval(() => this.kick(), this.deps.pollMs ?? 5000);
     this.timer.unref();
     this.kick();
@@ -44,6 +49,13 @@ export class NotificationWorker {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     return this.running ?? Promise.resolve();
+  }
+
+  /** Deletes notification history older than the retention window (startup and hourly maintenance). */
+  purgeExpired(): number {
+    const removed = this.deps.repo.purgeExpired(this.deps.clock());
+    if (removed) this.deps.log?.(`notify: deleted ${removed} expired notification record(s)`);
+    return removed;
   }
 
   /** Trigger a delivery pass soon (after a commit). Safe to call often; no-op until started. */

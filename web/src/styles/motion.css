@@ -1,0 +1,148 @@
+/* Motion follows the input: brisk pointer feedback, immediate keyboard interaction.
+ * Curves from Emil Kowalski's design-eng / Apple-design guides. No motion library. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease: var(--ease-out);
+}
+.motion-outlet { min-width: 0; }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.switch::after { transition: transform 240ms var(--ease-out); }
+.filter-toggle > svg:last-child { transition: transform 200ms var(--ease-out); }
+
+/* A single moving selection surface makes the mode change legible. Existing
+ * checked backgrounds are retained as a fallback on browsers without :has(). */
+@supports selector(:has(*)) {
+  .segmented { position: relative; isolation: isolate; }
+  .segmented::before {
+    content: '';
+    position: absolute;
+    inset: 4px auto 4px 4px;
+    width: calc((100% - 16px) / 2);
+    border-radius: 12px;
+    background: var(--paper);
+    box-shadow: 0 1px 3px rgba(43, 36, 32, 0.14);
+    transform: translateX(0);
+    transition: transform 260ms var(--ease-drawer);
+    pointer-events: none;
+  }
+  .segmented-3::before { width: calc((100% - 24px) / 3); }
+  .segmented:has(> .segmented-option:nth-child(2) input:checked)::before {
+    transform: translateX(calc(100% + 8px));
+  }
+  .segmented:has(> .segmented-option:nth-child(3) input:checked)::before {
+    transform: translateX(calc(200% + 16px));
+  }
+  .segmented-option { z-index: 1; min-width: 0; }
+  .segmented .segmented-option input:checked + span {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/* Native dialog close() restores focus immediately. The retained visual surface
+ * may finish its exit in the top layer, without holding the modal open. */
+.sheet:not([open]), .sheet:not([open])::backdrop { pointer-events: none; }
+.sheet[open] { animation: sheet-in 260ms var(--ease-out); }
+@media (max-width: 599px) {
+  .sheet[open] { animation: drawer-in 280ms var(--ease-drawer); }
+}
+@supports (transition-behavior: allow-discrete) and (overlay: auto) {
+  .sheet {
+    --sheet-from: translateY(10px) scale(0.98);
+    opacity: 0;
+    transform: var(--sheet-from);
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out),
+      display 160ms allow-discrete,
+      overlay 160ms allow-discrete;
+  }
+  .sheet[open] {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    transition-duration: 260ms;
+    transition-timing-function: var(--ease-drawer);
+  }
+  .sheet::backdrop {
+    opacity: 0;
+    transition: opacity 160ms var(--ease-out), display 160ms allow-discrete, overlay 160ms allow-discrete;
+  }
+  .sheet[open]::backdrop { opacity: 1; transition-duration: 260ms; }
+  @starting-style {
+    .sheet[open] { opacity: 0; transform: var(--sheet-from); }
+    .sheet[open]::backdrop { opacity: 0; }
+  }
+  @media (max-width: 599px) {
+    .sheet { --sheet-from: translateY(15%); }
+  }
+}
+
+.toast {
+  animation: toast-in 220ms var(--ease-out);
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+}
+.toast[data-leaving] {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  transition-duration: 160ms;
+}
+@supports (transition-behavior: allow-discrete) {
+  .toast { animation: none; }
+  @starting-style {
+    .toast { opacity: 0; transform: translateY(12px) scale(0.98); }
+  }
+}
+.notification-page-content { animation: notification-page-fade 120ms var(--ease-out); }
+@keyframes notification-page-fade { from { opacity: 0.7; } to { opacity: 1; } }
+.filter-panel {
+  animation: panel-feedback 160ms var(--ease-out);
+}
+.rest-card.is-selected .rest-card-select svg {
+  animation: choice-feedback 160ms var(--ease-out);
+}
+@keyframes panel-feedback {
+  from { opacity: 0.65; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes choice-feedback {
+  from { opacity: 0.4; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .overview-tile, .plan-card {
+    transition: transform 180ms var(--ease-out), border-color 150ms ease;
+  }
+  .overview-tile:hover, .plan-card:hover { transform: translateY(-2px); }
+}
+
+/* No animation waits on the keyboard path. This also disables legacy keyframe
+ * entry effects on interactive surfaces, without stopping loading indicators. */
+:root[data-motion-input='keyboard'] :is(.sheet, .toast, .filter-panel, .rest-card-select svg, .notification-page-content),
+:root[data-motion-input='keyboard'] .sheet::backdrop,
+:root[data-motion-input='keyboard'] .segmented::before,
+:root[data-motion-input='keyboard'] .switch::after,
+:root[data-motion-input='keyboard'] :is(.segmented-option span, .switch, .chip, .btn, .icon-btn, .cal-day) {
+  animation: none !important;
+  transition-duration: 0ms !important;
+}
+:root[data-motion-input='keyboard'] :is(.btn, .icon-btn, .chip):active,
+:root[data-motion-input='keyboard'] .segmented-option input:active + span {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .sheet[open], .toast, .toast[data-leaving], .filter-panel, .notification-page-content,
+  .rest-card.is-selected .rest-card-select svg {
+    animation: none !important;
+    transform: none !important;
+  }
+  .sheet, .sheet::backdrop, .toast {
+    transition-duration: 80ms !important;
+  }
+  .btn:active:not(:disabled), .icon-btn:active, .chip:active,
+  .segmented-option input:active + span { transform: none; }
+  .overview-tile:hover, .plan-card:hover { transform: none; }
+}

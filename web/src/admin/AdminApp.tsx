@@ -1,5 +1,6 @@
 import { Bell, CalendarDays, LayoutGrid, Settings, Store, Utensils } from 'lucide-react';
-import { Navigate, NavLink, Outlet, Route, Routes } from 'react-router';
+import { Navigate, NavLink, Route, Routes } from 'react-router';
+import { MotionOutlet } from '../components/MotionOutlet';
 import { Logo, OfflineBanner } from '../components/AppShell';
 import { AdminOverview } from './AdminOverview';
 import { AdminWelcome } from './AdminWelcome';
@@ -47,7 +48,7 @@ function AdminLayout() {
         ))}
       </nav>
       <main id="admin-main" className="main admin-main">
-        <Outlet />
+        <MotionOutlet />
       </main>
     </div>
   );

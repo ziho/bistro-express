@@ -10,6 +10,7 @@ import { ok, readJson, requireAdminListener } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
 import { barkSettingsRoutes } from './barkSettings.js';
 import { mapLinkRoutes } from './mapLink.js';
+import { notificationRoutes } from './notifications.js';
 import { restaurantImportRoutes } from './restaurantImport.js';
 
 function itemId(c: Ctx): string {
@@ -139,39 +140,6 @@ function mediaRoutes() {
       return ok(c, { id, width, height, sourceType }, 201);
     },
   );
-  return r;
-}
-
-function notificationRoutes() {
-  const r = new Hono<HonoEnv>();
-
-  r.get('/plans', (c) => ok(c, c.get('app').planService.list({})));
-
-  r.get('/notifications', (c) => ok(c, c.get('app').repos.notifications.list(200)));
-
-  r.post('/notifications/retry-held', (c) => {
-    const app = c.get('app');
-    const count = app.repos.notifications.retryAllHeld(app.clock(), app.provider.listRecipients());
-    if (count) app.worker.kick();
-    return ok(c, { requeued: count });
-  });
-
-  r.post('/notifications/:id/retry', (c) => {
-    const app = c.get('app');
-    const id = c.req.param('id');
-    if (!UUID_RE.test(id)) throw notFound();
-    const result = app.repos.notifications.retry(id, app.clock(), app.provider.listRecipients());
-    if (result === 'missing') throw notFound('通知记录不存在');
-    if (result === 'stale') throw conflict('stale', '这条通知已被更新的版本取代，无需重试');
-    if (result === 'not_retryable') throw conflict('not_retryable', '只有发送失败或未送达的通知可以重试');
-    if (result === 'unconfigured') throw conflict('unconfigured', '推送还未启用，或没有启用的设备');
-    if (result === 'nothing_to_retry') {
-      throw conflict('nothing_to_retry', '没有可重试的设备：未送达的设备已停用或删除，已送达的设备不会重复推送');
-    }
-    app.worker.kick();
-    return ok(c, { requeued: true });
-  });
-
   return r;
 }
 

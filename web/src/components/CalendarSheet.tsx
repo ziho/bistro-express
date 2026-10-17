@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
   clampDate,
   compareMonth,
@@ -14,6 +14,7 @@ import {
   type CalendarKey,
 } from '../lib/calendar';
 import { Sheet } from './Sheet';
+import { animateFeedback } from '../lib/motion';
 
 interface Props {
   open: boolean;
@@ -62,6 +63,20 @@ function CalendarBody({ today, value, markedDates, onSelect }: Omit<Props, 'open
   const moveDomFocus = useRef(true); // focus the selected day when the sheet opens
   const view = monthOf(focus);
   const todayMonth = monthOf(today);
+  const monthKey = view.year * 12 + view.month;
+  const previousMonth = useRef(monthKey);
+  useLayoutEffect(() => {
+    const before = previousMonth.current;
+    previousMonth.current = monthKey;
+    if (before === monthKey) return;
+    const direction = monthKey > before ? 1 : -1;
+    const effect = animateFeedback(gridRef.current, [
+      { opacity: 0.6, transform: `translateX(${direction * 8}px)` },
+      { opacity: 1, transform: 'translateX(0)' },
+    ], { duration: 150 });
+    return () => effect?.cancel();
+  }, [monthKey]);
+
 
   useEffect(() => {
     if (!moveDomFocus.current) return;

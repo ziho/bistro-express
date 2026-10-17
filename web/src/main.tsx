@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router';
 import { BASE_PATH } from '../../shared/constants';
 import { ApiError } from './api/client';
 import { App } from './App';
+import { installMotionPreferences } from './lib/motion';
 import { ToastProvider } from './components/Toast';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -17,6 +18,10 @@ import './styles/bulk-import.css';
 import './styles/shopping.css';
 import './styles/pantry.css';
 import './styles/venues.css';
+import './styles/notifications.css';
+import './styles/motion.css';
+
+installMotionPreferences();
 
 const queryClient = new QueryClient({
   defaultOptions: {

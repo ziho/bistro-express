@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type { AdminNotification, NotificationStatus, NotificationSummary, PlanEvent } from '../../shared/types.js';
+import { NOTIFICATION_HISTORY } from '../../shared/constants.js';
+import type {
+  AdminNotification,
+  NotificationPage,
+  NotificationStatus,
+  NotificationSummary,
+  PlanEvent,
+} from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
 import { aggregateDeliveries, countDeliveries } from '../notify/aggregate.js';
 import type { Recipient } from '../notify/types.js';
@@ -33,7 +40,18 @@ export interface OutboxMessage {
   url: string;
 }
 
-export type RetryResult = 'ok' | 'missing' | 'not_retryable' | 'stale' | 'unconfigured' | 'nothing_to_retry';
+export type RetryResult = 'ok' | 'missing' | 'expired' | 'not_retryable' | 'stale' | 'unconfigured' | 'nothing_to_retry';
+
+type AdminRow = NotificationRow & { plan_short_id: string };
+
+/**
+ * Oldest creation time still inside the rolling retention window. A record is retained while
+ * `created_at >= cutoff` and expired (never sent, retried or listed, then deleted) when strictly
+ * older. Timestamps are always stored with `toISOString()`, so string comparison is exact.
+ */
+export const retentionCutoff = (now: Date): string => new Date(now.getTime() - NOTIFICATION_HISTORY.retentionMs).toISOString();
+
+const HELD = `status IN ('failed', 'unconfigured')`;
 
 const toSummary = (r: NotificationRow, deliveries: Delivery[] | undefined): NotificationSummary => ({
   id: r.id,
@@ -76,6 +94,7 @@ export function createNotificationRepo(db: DB) {
   function retry(id: string, now: Date, recipients: Recipient[]): RetryResult {
     const row = getRow(id);
     if (!row) return 'missing';
+    if (row.created_at < retentionCutoff(now)) return 'expired';
     if (row.status !== 'failed' && row.status !== 'unconfigured') return 'not_retryable';
     if (!isLatestForPlan(id, row.plan_id)) return 'stale';
     return db.transaction((): RetryResult => {
@@ -106,6 +125,28 @@ export function createNotificationRepo(db: DB) {
       return 'ok';
     })();
   }
+
+  function toAdmin(rows: AdminRow[]): AdminNotification[] {
+    const byId = deliveries.forNotifications(rows.map((r) => r.id));
+    return rows.map((r) => {
+      const targets = byId.get(r.id) ?? [];
+      return {
+        ...toSummary(r, targets),
+        planId: r.plan_id,
+        planShortId: r.plan_short_id,
+        provider: r.provider,
+        title: r.title,
+        body: r.body,
+        nextAttemptAt: r.next_attempt_at,
+        sentAt: r.sent_at,
+        createdAt: r.created_at,
+        deliveries: targets.map(({ notificationId: _ignored, ...d }) => d),
+      };
+    });
+  }
+
+  const selectAdmin = `SELECT n.*, p.short_id AS plan_short_id FROM notifications n JOIN plans p ON p.id = n.plan_id
+    WHERE n.created_at >= ? ORDER BY n.created_at DESC, n.rowid DESC LIMIT ? OFFSET ?`;
 
   return {
     deliveries,
@@ -187,10 +228,10 @@ export function createNotificationRepo(db: DB) {
       return db.transaction(() => {
         const rows = db
           .prepare(
-            `SELECT * FROM notifications WHERE status = 'pending' AND next_attempt_at <= ?
+            `SELECT * FROM notifications WHERE status = 'pending' AND next_attempt_at <= ? AND created_at >= ?
              ORDER BY next_attempt_at ASC LIMIT ?`,
           )
-          .all(ts, limit) as NotificationRow[];
+          .all(ts, retentionCutoff(now), limit) as NotificationRow[];
         const mark = db.prepare(`UPDATE notifications SET status = 'sending', updated_at = ? WHERE id = ?`);
         for (const row of rows) mark.run(ts, row.id);
         return rows.map((r) => ({
@@ -234,38 +275,69 @@ export function createNotificationRepo(db: DB) {
       })();
     },
 
+    /** Every held record in the retained window, not just one page of the history. */
     retryAllHeld(now: Date, recipients: Recipient[]): number {
       const ids = (
-        db.prepare(`SELECT id FROM notifications WHERE status IN ('failed', 'unconfigured')`).all() as { id: string }[]
+        db.prepare(`SELECT id FROM notifications WHERE ${HELD} AND created_at >= ?`).all(retentionCutoff(now)) as {
+          id: string;
+        }[]
       ).map((r) => r.id);
       let count = 0;
       for (const id of ids) if (retry(id, now, recipients) === 'ok') count += 1;
       return count;
     },
 
-    list(limit: number): AdminNotification[] {
-      const rows = db
-        .prepare(
-          `SELECT n.*, p.short_id AS plan_short_id FROM notifications n JOIN plans p ON p.id = n.plan_id
-           ORDER BY n.created_at DESC, n.rowid DESC LIMIT ?`,
-        )
-        .all(limit) as (NotificationRow & { plan_short_id: string })[];
-      const byId = deliveries.forNotifications(rows.map((r) => r.id));
-      return rows.map((r) => {
-        const targets = byId.get(r.id) ?? [];
+    /**
+     * Legacy unpaginated list (older admin tabs), newest first. With `now` only the retained
+     * window is listed; the HTTP route always passes it.
+     */
+    list(limit: number, now?: Date): AdminNotification[] {
+      const cutoff = now ? retentionCutoff(now) : '';
+      return toAdmin(db.prepare(selectAdmin).all(cutoff, limit, 0) as AdminRow[]);
+    },
+
+    /**
+     * One page of the retained history, newest first with a stable tie-break on insertion order.
+     * Counts and rows are read in one transaction, so the totals always match the returned page.
+     */
+    listPage(page: number, pageSize: number, now: Date): NotificationPage {
+      const cutoff = retentionCutoff(now);
+      return db.transaction((): NotificationPage => {
+        const counts = db
+          .prepare(
+            `SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN ${HELD} THEN 1 ELSE 0 END), 0) AS held
+             FROM notifications WHERE created_at >= ?`,
+          )
+          .get(cutoff) as { total: number; held: number };
+        const totalPages = Math.max(1, Math.ceil(counts.total / pageSize));
+        const current = Math.min(page, totalPages);
+        const rows = db.prepare(selectAdmin).all(cutoff, pageSize, (current - 1) * pageSize) as AdminRow[];
         return {
-          ...toSummary(r, targets),
-          planId: r.plan_id,
-          planShortId: r.plan_short_id,
-          provider: r.provider,
-          title: r.title,
-          body: r.body,
-          nextAttemptAt: r.next_attempt_at,
-          sentAt: r.sent_at,
-          createdAt: r.created_at,
-          deliveries: targets.map(({ notificationId: _ignored, ...d }) => d),
+          items: toAdmin(rows),
+          page: current,
+          pageSize,
+          total: counts.total,
+          totalPages,
+          held: counts.held,
+          retentionDays: NOTIFICATION_HISTORY.retentionDays,
         };
-      });
+      })();
+    },
+
+    /**
+     * Permanently deletes records created strictly before the retention cutoff together with
+     * their per-device rows (deleted explicitly first: that foreign key has no ON DELETE CASCADE).
+     * Plans, devices and settings are untouched; such a plan just shows no notification anymore.
+     * A record that is being sent right now is skipped and removed by a later pass.
+     */
+    purgeExpired(now: Date): number {
+      const expired = `SELECT n.id FROM notifications n WHERE n.created_at < ? AND n.status <> 'sending'
+        AND NOT EXISTS (SELECT 1 FROM notification_deliveries d WHERE d.notification_id = n.id AND d.status = 'sending')`;
+      const cutoff = retentionCutoff(now);
+      return db.transaction(() => {
+        db.prepare(`DELETE FROM notification_deliveries WHERE notification_id IN (${expired})`).run(cutoff);
+        return db.prepare(`DELETE FROM notifications WHERE id IN (${expired})`).run(cutoff).changes;
+      })();
     },
   };
 }

@@ -117,10 +117,11 @@ function seedLegacyNotifications(db: Database.Database) {
     `INSERT INTO notifications (id, plan_id, plan_version, event, provider, status, attempts, last_error, title, body, url,
      created_at, updated_at, sent_at) VALUES (?, ?, ?, ?, 'bark', ?, ?, ?, ?, 'body', 'https://public.test/x', ?, ?, ?)`,
   );
+  // Inside the 14-day notification retention window of the default test clock (2030-01-15T12:00Z).
   insert.run('aaaaaaaa-0000-4000-8000-000000000001', LEGACY_PLAN_ID, 1, 'created', 'sent', 1, null, '旧通知 v1',
-    '2030-01-01T00:00:00Z', '2030-01-01T00:00:00Z', '2030-01-01T00:00:05Z');
+    '2030-01-10T00:00:00.000Z', '2030-01-10T00:00:00.000Z', '2030-01-10T00:00:05.000Z');
   insert.run('aaaaaaaa-0000-4000-8000-000000000002', LEGACY_PLAN_ID, 2, 'updated', 'failed', 5, 'Bark 网络错误', '旧通知 v2',
-    '2030-01-02T00:00:00Z', '2030-01-02T00:00:00Z', null);
+    '2030-01-11T00:00:00.000Z', '2030-01-11T00:00:00.000Z', null);
 }
 
 describe('migration from the single-key Bark settings', () => {
@@ -146,7 +147,7 @@ describe('migration from the single-key Bark settings', () => {
       ['旧通知 v2', 'failed'],
       ['旧通知 v1', 'sent'],
     ]);
-    expect(log[1]).toMatchObject({ attempts: 1, sentAt: '2030-01-01T00:00:05Z', delivery: null, deliveries: [] });
+    expect(log[1]).toMatchObject({ attempts: 1, sentAt: '2030-01-10T00:00:05.000Z', delivery: null, deliveries: [] });
 
     // The held legacy failure can be retried and goes to the migrated device.
     expect((await admin.post(`/bistro/api/admin/notifications/${log[0].id}/retry`)).status).toBe(200);
@@ -166,7 +167,7 @@ describe('migration from the single-key Bark settings', () => {
       beforeOpen: (dir) =>
         seedV1(dir, JSON.stringify({ enabled: true, serverUrl: 'https://bark.example.com', deviceKey: KEY }), (db) => {
           seedLegacyNotifications(db);
-          db.prepare(`UPDATE notifications SET status = 'pending', next_attempt_at = '2030-01-02T00:00:00Z' WHERE plan_version = 2`).run();
+          db.prepare(`UPDATE notifications SET status = 'pending', next_attempt_at = '2030-01-11T00:00:00.000Z' WHERE plan_version = 2`).run();
         }),
     });
     await env.ctx.worker.drain();
