@@ -6,7 +6,10 @@ import { createAuthLimiter, RateLimiter, type AuthLimiter } from './lib/rateLimi
 import { createBarkProvider, type FetchLike } from './notify/bark.js';
 import type { NotificationProvider } from './notify/types.js';
 import { NotificationWorker } from './notify/worker.js';
+import { createGeocoder } from './geo/service.js';
+import { realQueueClock, type QueueClock } from './geo/queue.js';
 import { createBarkDeviceRepo } from './repos/barkDevices.js';
+import { createGeoCacheRepo } from './repos/geoCache.js';
 import { createCatalogRepo } from './repos/catalog.js';
 import { createIdempotencyRepo, createMediaRepo, createSettingsRepo } from './repos/misc.js';
 import { createNotificationRepo } from './repos/notifications.js';
@@ -27,6 +30,8 @@ export interface ContextOptions {
    * Tests inject a fake so nothing ever leaves the machine.
    */
   fetch?: FetchLike;
+  /** Region lookup (地区识别) only: its own outbound fetch and a fake clock for its rate-limited queue. */
+  geo?: { fetch?: FetchLike; queueClock?: QueueClock };
   log?: (msg: string) => void;
 }
 
@@ -45,6 +50,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     idempotency: createIdempotencyRepo(db),
     barkDevices: createBarkDeviceRepo(db),
     shopping: createShoppingRepo(db),
+    geoCache: createGeoCacheRepo(db),
   };
   const provider = opts.provider
     ? opts.provider(repos.settings)
@@ -70,6 +76,16 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     clock,
   });
   const restaurantImporter = createRestaurantImporter({ db, catalog: repos.catalog, idempotency: repos.idempotency, clock });
+  const geocoder = createGeocoder({
+    settings: repos.settings,
+    cache: repos.geoCache,
+    defaults: config.geocoder ?? null,
+    fetch: opts.geo?.fetch ?? outboundFetch,
+    clock,
+    queueClock: opts.geo?.queueClock ?? realQueueClock,
+    userAgent: `BistroExpress/1.0 (+${config.publicBaseUrl})`,
+    log,
+  });
   const nowMs = () => clock().getTime();
   const limiters: { gate: AuthLimiter; mapLink: RateLimiter } = {
     gate: createAuthLimiter({
@@ -96,6 +112,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     planService,
     shoppingService,
     restaurantImporter,
+    geocoder,
     limiters,
     outboundFetch,
     mediaDir: path.join(config.dataDir, 'media'),

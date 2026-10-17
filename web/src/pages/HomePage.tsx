@@ -1,7 +1,8 @@
-import { CalendarPlus, Sparkles } from 'lucide-react';
+import { CalendarPlus, CupSoda, Sparkles } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { addDays, formatDateLabel, isValidDateString } from '../../../shared/time';
+import { OUTING_LABEL } from '../../../shared/venue';
 import { useCatalog, usePlans } from '../api/queries';
 import { DateStrip } from '../components/DateStrip';
 import { DraftList } from '../components/DraftList';
@@ -49,7 +50,7 @@ export function HomePage() {
             <Sparkles aria-hidden="true" /> {formatDateLabel(today)}
           </p>
           <h1>{greeting()}</h1>
-          <p className="muted">每一餐都单独安排：在家做点什么，或者一起出去吃。</p>
+          <p className="muted">每一餐都单独安排：在家做点什么、一起出去吃，或者去喝点、吃点甜的。</p>
         </div>
         <TableForTwo className="hero-art" />
       </section>
@@ -69,10 +70,16 @@ export function HomePage() {
           <DateStrip today={today} value={selected} onChange={select} markedDates={marked} />
           <div className="day-head">
             <h2 id="day-title">{selected === today ? `今天 · ${formatDateLabel(selected)}` : shortDateLabel(selected, today)}</h2>
-            <Link className="btn btn-primary" to={`/plans/new?date=${selected}`}>
-              <CalendarPlus aria-hidden="true" />
-              加一餐
-            </Link>
+            <div className="day-actions">
+              <Link className="btn btn-primary" to={`/plans/new?date=${selected}`}>
+                <CalendarPlus aria-hidden="true" />
+                加一餐
+              </Link>
+              <Link className="btn btn-butter" to={`/plans/new?date=${selected}&purpose=treat`}>
+                <CupSoda aria-hidden="true" />
+                喝点 / 吃点甜的
+              </Link>
+            </div>
           </div>
           {plans.isPending ? (
             <Loading />
@@ -83,7 +90,7 @@ export function HomePage() {
           ) : dayPlans.length === 0 ? (
             <div className="empty-day">
               <p>这一天还没有安排。</p>
-              <p className="muted small">早午餐、午餐、晚餐…想吃几顿都可以分别安排。</p>
+              <p className="muted small">早午餐、午餐、晚餐，或者一杯奶茶、一块蛋糕…都可以分别安排。</p>
             </div>
           ) : (
             <ul className="plan-list">
@@ -118,7 +125,8 @@ export function HomePage() {
                         .filter((p) => p.status === 'active')
                         .map((p) => {
                           const t = planDisplay(p).time;
-                          return `${p.mealLabel}${t ? ` ${t}` : ''}`;
+                          // A drinks / dessert stop is named as such, never counted as a meal.
+                          return `${p.mealLabel}${p.purpose === 'treat' ? `（${OUTING_LABEL.treat}）` : ''}${t ? ` ${t}` : ''}`;
                         })
                         .join(' · ')}
                     </span>

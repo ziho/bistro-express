@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { isPastDate, isValidDateString, isValidTimeZone, resolveLocalDateTime, TIME_ERROR_MESSAGES } from '../../shared/time.js';
 import { snapshotOfDish } from '../../shared/dish.js';
-import type { DishSnapshot, Plan, PlanEvent, RestaurantSnapshot } from '../../shared/types.js';
+import type { DishSnapshot, Plan, PlanEvent, Restaurant, RestaurantSnapshot, VenuePurpose } from '../../shared/types.js';
+import { PURPOSE_LABEL } from '../../shared/venue.js';
 import type { DB } from '../db/connection.js';
 import { shortCode } from '../lib/crypto.js';
 import { badRequest, conflict, notFound, unprocessable } from '../lib/errors.js';
@@ -33,6 +34,39 @@ export type { IdempotentRequest } from './idempotent.js';
 
 const unique = (ids: string[]) => [...new Set(ids)];
 
+/** Frozen at save time, including where the venue is and what it is for. */
+export function snapshotOfRestaurant(r: Restaurant): RestaurantSnapshot {
+  return {
+    id: r.id,
+    name: r.name,
+    imageAssetId: r.imageAssetId,
+    review: r.review,
+    tags: [...r.tags],
+    budgetText: r.budgetText,
+    address: r.address,
+    mapUrl: r.mapUrl,
+    links: r.links.map((l) => ({ ...l })),
+    location: { ...r.location },
+    purposes: [...r.purposes],
+  };
+}
+
+/**
+ * Home plans are always meals (an explicit 'treat' is rejected). A restaurant plan takes the
+ * requested purpose; when an older client omits it, a new plan is a meal and an edited plan keeps
+ * its saved purpose, so a treat outing never silently turns into a meal.
+ */
+export function resolvePurpose(input: PlanInputParsed, stored: { mode: string; purpose: VenuePurpose } | null): VenuePurpose {
+  if (input.mode === 'home') {
+    if (input.purpose === 'treat') {
+      throw unprocessable('invalid_purpose', '在家吃只能是正餐；喝点、吃点甜的请选择「饮品甜品」', { field: 'purpose' });
+    }
+    return 'meal';
+  }
+  if (input.purpose) return input.purpose;
+  return stored?.mode === 'restaurant' ? stored.purpose : 'meal';
+}
+
 export function createPlanService(deps: PlanServiceDeps) {
   const { db, plans, catalog, notifications, idempotency, clock } = deps;
 
@@ -58,7 +92,7 @@ export function createPlanService(deps: PlanServiceDeps) {
     return { localTime: input.localTime, instant: resolved.instant };
   }
 
-  function resolveItems(input: PlanInputParsed): Pick<PlanWrite, 'dishes' | 'candidates' | 'selectedRestaurant'> {
+  function resolveItems(input: PlanInputParsed, purpose: VenuePurpose): Pick<PlanWrite, 'dishes' | 'candidates' | 'selectedRestaurant'> {
     if (input.mode === 'home') {
       const ids = unique(input.dishIds);
       if (ids.length === 0) throw unprocessable('no_items', '请至少选一道菜', { field: 'dishIds' });
@@ -78,36 +112,32 @@ export function createPlanService(deps: PlanServiceDeps) {
     if (unavailable.length) {
       throw unprocessable('unavailable_items', '有餐厅已经下架，请移除后再提交', { restaurantIds: unavailable });
     }
+    const incompatible = ids.filter((id) => !found.get(id)!.purposes.includes(purpose));
+    if (incompatible.length) {
+      throw unprocessable('incompatible_purpose', `有店铺不适合「${PURPOSE_LABEL[purpose]}」，请移除后再提交`, {
+        restaurantIds: incompatible,
+        purpose,
+      });
+    }
     if (!input.selectedRestaurantId || !ids.includes(input.selectedRestaurantId)) {
       throw unprocessable('invalid_selection', '请先从候选中确定一家餐厅', { field: 'selectedRestaurantId' });
     }
-    const candidates: RestaurantSnapshot[] = ids.map((id) => {
-      const r = found.get(id)!;
-      return {
-        id: r.id,
-        name: r.name,
-        imageAssetId: r.imageAssetId,
-        review: r.review,
-        tags: [...r.tags],
-        budgetText: r.budgetText,
-        address: r.address,
-        mapUrl: r.mapUrl,
-        links: r.links.map((l) => ({ ...l })),
-      };
-    });
+    const candidates: RestaurantSnapshot[] = ids.map((id) => snapshotOfRestaurant(found.get(id)!));
     const selectedRestaurant = candidates.find((c) => c.id === input.selectedRestaurantId)!;
     return { dishes: [], candidates, selectedRestaurant };
   }
 
-  function buildWrite(input: PlanInputParsed, now: Date): PlanWrite {
+  function buildWrite(input: PlanInputParsed, now: Date, stored: StoredPlan | null): PlanWrite {
+    const purpose = resolvePurpose(input, stored);
     return {
       date: input.date,
       mealLabel: input.mealLabel,
       timeZone: input.timeZone,
       mode: input.mode,
+      purpose,
       note: input.note,
       ...resolveTiming(input, now),
-      ...resolveItems(input),
+      ...resolveItems(input, purpose),
     };
   }
 
@@ -169,7 +199,7 @@ export function createPlanService(deps: PlanServiceDeps) {
 
     create(input: PlanInputParsed, req: IdempotentRequest): StoredResponse {
       return idempotent(req, (now) => {
-        const write = buildWrite(input, now);
+        const write = buildWrite(input, now, null);
         const sourcePlanId = input.sourcePlanId && plans.get(input.sourcePlanId) ? input.sourcePlanId : null;
         const id = randomUUID();
         plans.insert({ id, shortId: nextShortId(), sourcePlanId, ...write }, now);
@@ -180,8 +210,8 @@ export function createPlanService(deps: PlanServiceDeps) {
 
     update(id: string, input: PlanInputParsed, expectedVersion: number, req: IdempotentRequest): StoredResponse {
       return idempotent(req, (now) => {
-        loadEditable(id, expectedVersion, now);
-        const write = buildWrite(input, now);
+        const current = loadEditable(id, expectedVersion, now);
+        const write = buildWrite(input, now, current);
         if (!plans.update(id, expectedVersion, write, now)) {
           throw conflict('version_conflict', '这个计划已在别处被修改', { current: withNotification(plans.get(id)!) });
         }

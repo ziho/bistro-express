@@ -1,7 +1,7 @@
 import { Fragment, useState, type FormEvent } from 'react';
 import { LIMITS } from '../../../shared/constants';
 import { splitTags } from '../../../shared/restaurant';
-import type { Dish, Restaurant } from '../../../shared/types';
+import type { Dish, GeoOutcome, Restaurant, VenuePurpose } from '../../../shared/types';
 import {
   collectDishDetails,
   collectIngredients,
@@ -12,6 +12,8 @@ import {
   type IngredientRowError,
 } from '../lib/dishForm';
 import { collectLinks, toLinkRows, type LinkRow, type LinkRowError } from '../lib/linkRows';
+import { locationPayload, locationProblems, toLocationForm, type LocationFormState, type LocationProblems } from '../lib/venueForm';
+import { VenueLocationFields, type LocationOptions } from './VenueLocationFields';
 import { DishDetailsFields } from './dish/DishDetailsFields';
 import { SectionField } from './dish/SectionField';
 import { ImageUpload } from './ImageUpload';
@@ -42,7 +44,7 @@ const FIELDS: Record<ItemKind, FieldSpec[]> = {
     { key: 'recipeUrl', label: '做法链接', max: LIMITS.url, type: 'url', placeholder: 'https://…' },
   ],
   restaurant: [
-    { key: 'name', label: '餐厅名', max: LIMITS.name, required: true, placeholder: '比如：街角小酒馆' },
+    { key: 'name', label: '店名', max: LIMITS.name, required: true, placeholder: '比如：街角小酒馆、楼下奶茶店' },
     {
       key: 'review',
       label: '一句话点评',
@@ -64,6 +66,8 @@ const TAGS_AFTER: Record<ItemKind, string> = { dish: 'recipeUrl', restaurant: 'r
 const SECTIONS_AFTER = 'name';
 /** The restaurant's links editor is rendered right after this field. */
 const LINKS_AFTER = 'address';
+/** The venue's purposes and location are rendered right after this field. */
+const LOCATION_AFTER = 'name';
 
 const asDish = (item: CatalogItem | null): Dish | null => (item && !('review' in item) ? item : null);
 
@@ -112,10 +116,14 @@ interface Props {
   tagSuggestions?: string[];
   /** Menu sections already used by dishes (incl. old categories), offered for reuse. */
   sectionSuggestions?: string[];
+  /** Countries / regions / cities already used by venues, offered for reuse (no global dictionary). */
+  locationOptions?: LocationOptions;
   onSubmit: (payload: Record<string, unknown>) => void;
 }
 
-export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], sectionSuggestions = [], onSubmit }: Props) {
+const NO_OPTIONS: LocationOptions = { country: [], region: [], city: [] };
+
+export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], sectionSuggestions = [], locationOptions = NO_OPTIONS, onSubmit }: Props) {
   const [values, setValues] = useState<FormValues>(() => toFormValues(kind, item));
   const [imageAssetId, setImageAssetId] = useState<string | null>(item?.imageAssetId ?? null);
   const [active, setActive] = useState(item?.active ?? true);
@@ -126,6 +134,12 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
   const [dishErrors, setDishErrors] = useState<DishFieldErrors>({});
   const [ingredientErrors, setIngredientErrors] = useState<Record<string, IngredientRowError>>({});
   const [detailsOpen, setDetailsOpen] = useState(() => hasSavedDetails(asDish(item)));
+  const venue = item && 'review' in item ? item : null;
+  const [location, setLocation] = useState<LocationFormState>(() => toLocationForm(venue?.location));
+  const [locationErrors, setLocationErrors] = useState<LocationProblems>({});
+  const [purposes, setPurposes] = useState<VenuePurpose[]>(() => venue?.purposes ?? ['meal']);
+  const [purposeError, setPurposeError] = useState<string | undefined>();
+  const [geoIncoming, setGeoIncoming] = useState<{ outcome: GeoOutcome; at: number } | null>(null);
   const setValue = (key: string, value: string) => setValues((prev) => ({ ...prev, [key]: value }));
   const patchDish = (patch: Partial<DishFormState>) => {
     setDishState((prev) => ({ ...prev, ...patch }));
@@ -178,6 +192,10 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
     if (tagError) nextErrors.tags = tagError;
     const links = kind === 'restaurant' ? collectLinks(linkRows) : null;
     const dish = kind === 'dish' ? collectDishDetails(dishState) : null;
+    const locErrors = kind === 'restaurant' ? locationProblems(location) : {};
+    const purposeProblem = kind === 'restaurant' && purposes.length === 0 ? '请至少选择一种用途' : undefined;
+    setLocationErrors(locErrors);
+    setPurposeError(purposeProblem);
     setErrors(nextErrors);
     setLinkErrors(links?.errors ?? {});
     setDishErrors(dish?.errors ?? {});
@@ -186,6 +204,8 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
     if (detailErrors.length) setDetailsOpen(true);
     if (
       Object.keys(nextErrors).length ||
+      Object.keys(locErrors).length ||
+      purposeProblem ||
       (links && Object.keys(links.errors).length) ||
       (dish && (detailErrors.length || dish.errors.sections))
     ) {
@@ -201,6 +221,11 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
       payload[f.key] = f.type ? v || null : v;
     }
     if (links) payload.links = links.links;
+    if (kind === 'restaurant') {
+      // Sent in full, so a cleared field really clears it and 用途 is never left to a default.
+      payload.location = locationPayload(location);
+      payload.purposes = purposes;
+    }
     // Every detail field is sent, so a cleared value really clears what was stored.
     onSubmit(dish ? { ...payload, ...dish.details } : payload);
   };
@@ -221,6 +246,7 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
         <MapLinkImport
           current={{ name: values.name ?? '', mapUrl: values.mapUrl ?? '' }}
           onApply={(updates) => setValues((prev) => ({ ...prev, ...updates }))}
+          onGeo={(outcome) => setGeoIncoming({ outcome, at: Date.now() })}
         />
       )}
       <ImageUpload assetId={imageAssetId} onChange={setImageAssetId} />
@@ -233,6 +259,25 @@ export function ItemForm({ kind, item, busy, serverError, tagSuggestions = [], s
               existing={sectionSuggestions}
               error={dishErrors.sections}
               onChange={(sections) => patchDish({ sections })}
+            />
+          )}
+          {kind === 'restaurant' && f.key === LOCATION_AFTER && (
+            <VenueLocationFields
+              state={location}
+              onChange={(next) => {
+                setLocation(next);
+                setLocationErrors({});
+              }}
+              purposes={purposes}
+              onPurposes={(next) => {
+                setPurposes(next);
+                setPurposeError(undefined);
+              }}
+              mapUrl={values.mapUrl ?? ''}
+              incoming={geoIncoming}
+              options={locationOptions}
+              problems={locationErrors}
+              purposeError={purposeError}
             />
           )}
           {f.key === TAGS_AFTER[kind] && tagField}

@@ -12,7 +12,7 @@ import { PlansAdmin } from './PlansAdmin';
 const TABS = [
   { to: 'overview', label: '概览', Icon: LayoutGrid },
   { to: 'dishes', label: '菜品', Icon: Utensils },
-  { to: 'restaurants', label: '餐厅', Icon: Store },
+  { to: 'restaurants', label: '店铺', Icon: Store },
   { to: 'plans', label: '计划', Icon: CalendarDays },
   { to: 'notifications', label: '通知', Icon: Bell },
   { to: 'settings', label: '推送设置', Icon: Settings },

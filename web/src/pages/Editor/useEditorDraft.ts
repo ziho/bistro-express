@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { isValidDateString } from '../../../../shared/time';
 import type { Plan } from '../../../../shared/types';
 import { editDraftKey, emptyDraft, loadDraft, newDraftKey, saveDraft, type Draft } from '../../lib/drafts';
+import { withOuting } from '../../lib/outing';
 
 function draftFromPlan(plan: Plan): Draft {
   return {
@@ -13,6 +14,7 @@ function draftFromPlan(plan: Plan): Draft {
     localTime: plan.localTime ?? '',
     timeZone: plan.timeZone,
     mode: plan.mode,
+    purpose: plan.purpose === 'treat' ? 'treat' : 'meal',
     note: plan.note,
     dishIds: plan.dishes.map((d) => d.id),
     candidateIds: plan.candidates.map((c) => c.id),
@@ -56,7 +58,9 @@ export function useEditorDraft(opts: { planId?: string; plan?: Plan; today: stri
     }
     const requested = params.get('date');
     const date = requested && isValidDateString(requested) && requested >= today ? requested : today;
-    const fresh = emptyDraft(key && /^new-[\w-]+$/.test(key) ? key : newDraftKey(), date);
+    const blank = emptyDraft(key && /^new-[\w-]+$/.test(key) ? key : newDraftKey(), date);
+    // 「喝点 / 吃点甜的」 on the home page opens a treat outing straight away.
+    const fresh = params.get('purpose') === 'treat' ? withOuting(blank, 'treat') : blank;
     setDraft(fresh);
     setParams({ draft: fresh.key }, { replace: true });
   }, [draft, planId, plan, params, setParams, today]);

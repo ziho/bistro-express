@@ -1,4 +1,4 @@
-import type { PlanInput, PlanMode } from '../../../shared/types';
+import type { PlanInput, PlanMode, VenuePurpose } from '../../../shared/types';
 
 /** Local-only meal drafts. Never synced; cleared on successful save and on logout. */
 export interface Draft {
@@ -10,6 +10,10 @@ export interface Draft {
   localTime: string;
   timeZone: string;
   mode: PlanMode;
+  /** 'treat' = 喝点 / 吃点甜的 (restaurant mode only). Drafts saved before it existed are meals. */
+  purpose: VenuePurpose;
+  /** Saved by an older version (no purpose): a meal purpose is left out of the request, as before. */
+  legacyBody?: true;
   note: string;
   dishIds: string[];
   candidateIds: string[];
@@ -52,6 +56,7 @@ export function emptyDraft(key: string, date: string): Draft {
     localTime: '',
     timeZone: viewerTimeZone(),
     mode: 'home',
+    purpose: 'meal',
     note: '',
     dishIds: [],
     candidateIds: [],
@@ -67,7 +72,12 @@ export function loadDraft(key: string): Draft | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Draft;
-    return parsed && parsed.key === key ? parsed : null;
+    if (!parsed || parsed.key !== key) return null;
+    const purpose: VenuePurpose = parsed.purpose === 'treat' ? 'treat' : 'meal';
+    // A draft from before purposes existed keeps sending its old body shape, so a retry of its
+    // pending submission still matches the original request (same idempotency fingerprint).
+    const legacy = parsed.purpose === undefined || parsed.legacyBody === true;
+    return { ...parsed, purpose, ...(legacy ? { legacyBody: true } : {}) };
   } catch {
     return null;
   }
@@ -111,12 +121,14 @@ export function clearAllLocalData(): void {
 }
 
 export function draftToInput(d: Draft): PlanInput {
+  const purpose: VenuePurpose = d.mode === 'restaurant' ? d.purpose : 'meal';
   return {
     date: d.date,
     mealLabel: d.mealLabel.trim(),
     localTime: d.localTime || null,
     timeZone: d.timeZone,
     mode: d.mode,
+    ...(d.legacyBody && purpose === 'meal' ? {} : { purpose }),
     note: d.note.trim(),
     dishIds: d.mode === 'home' ? d.dishIds : [],
     candidateIds: d.mode === 'restaurant' ? d.candidateIds : [],

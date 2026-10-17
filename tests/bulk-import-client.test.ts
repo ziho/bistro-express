@@ -247,7 +247,15 @@ describe('bulk import commit results', () => {
     const s0 = state(rows);
     const payload = commitRows(s0, analyzeQueue(s0, []));
     expect(payload.map((r) => r.clientId)).toEqual(rows.map((r) => r.id));
-    expect(payload[0]).toEqual({ clientId: a!.id, name: 'Katsu San Richmond', mapUrl: KATSU, sourceUrl: KATSU, tags: [] });
+    expect(payload[0]).toEqual({
+      clientId: a!.id,
+      name: 'Katsu San Richmond',
+      mapUrl: KATSU,
+      sourceUrl: KATSU,
+      tags: [],
+      location: { country: '', countryCode: '', region: '', city: '', source: '' },
+      purposes: ['meal'],
+    });
     const pending = buildPendingCommit(payload, 'idem-key-123');
     expect(JSON.parse(pending.body)).toEqual({ rows: payload });
 
@@ -304,7 +312,7 @@ describe('bulk import tab draft', () => {
     const [row] = paste(SHORT_A);
     const good = JSON.parse(serializeBulkDraft(state([row!])));
     const variants: unknown[] = [
-      { ...good, version: 2 },
+      { ...good, version: 3 },
       { ...good, rows: 'nope' },
       { ...good, rows: [{ ...row, id: 'bad id!' }] },
       { ...good, rows: [{ ...row, status: 'exploded' }] },

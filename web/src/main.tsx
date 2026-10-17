@@ -16,6 +16,7 @@ import './styles/admin.css';
 import './styles/bulk-import.css';
 import './styles/shopping.css';
 import './styles/pantry.css';
+import './styles/venues.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -4,8 +4,9 @@ import { classifyMapsUrl, parseMapsUrl } from '../../shared/mapsUrl.js';
 import type { RestaurantDuplicate, RestaurantImportResponse, RestaurantImportResult } from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
 import { sha256 } from '../lib/crypto.js';
-import { conflict } from '../lib/errors.js';
-import { restaurantInputSchema, type ImportRowInput, type RestaurantInput } from '../lib/validation.js';
+import { conflict, HttpError } from '../lib/errors.js';
+import { parseLocation, parsePurposes, type RestaurantWrite } from '../lib/restaurantValidation.js';
+import { restaurantInputSchema, type ImportRowInput } from '../lib/validation.js';
 import type { CatalogRepo } from '../repos/catalog.js';
 import type { IdempotencyRepo } from '../repos/misc.js';
 import type { IdempotentRequest } from './planService.js';
@@ -18,7 +19,7 @@ export interface RestaurantImportDeps {
 }
 
 type Prepared =
-  | { ok: true; input: RestaurantInput; keys: Set<string> }
+  | { ok: true; input: RestaurantWrite; keys: Set<string> }
   | { ok: false; message: string; field: string | null };
 
 /** A restaurant a new row may duplicate: saved before, or created earlier in this request. */
@@ -53,7 +54,14 @@ function prepareRow(row: ImportRowInput): Prepared {
     const issue = parsed.error.issues[0];
     return { ok: false, message: issue?.message ?? '这一行无效', field: issue?.path.join('.') || null };
   }
-  return { ok: true, input: parsed.data, keys: linkKeys([mapUrl, canonical.url, row.sourceUrl]) };
+  try {
+    const input = { ...parsed.data, location: parseLocation(row.location, null), purposes: parsePurposes(row.purposes, null) };
+    return { ok: true, input, keys: linkKeys([mapUrl, canonical.url, row.sourceUrl]) };
+  } catch (err) {
+    if (!(err instanceof HttpError)) throw err;
+    const field = (err.details as { field?: string } | undefined)?.field ?? null;
+    return { ok: false, message: err.message, field };
+  }
 }
 
 function duplicatesOf(keys: Set<string>, anchors: Anchor[]): RestaurantDuplicate[] {

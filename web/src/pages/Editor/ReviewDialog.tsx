@@ -1,6 +1,7 @@
 import { CheckCircle2, Globe2 } from 'lucide-react';
 import { formatDateLabel, resolveLocalDateTime } from '../../../../shared/time';
 import type { Catalog } from '../../../../shared/types';
+import { formatLocation, OUTING_LABEL, outingKind } from '../../../../shared/venue';
 import { Sheet } from '../../components/Sheet';
 import { viewerTimeZone, type Draft } from '../../lib/drafts';
 
@@ -75,9 +76,12 @@ export function ReviewDialog({ open, draft, catalog, isEdit, busy, error, onClos
         ) : (
           <>
             <div>
-              <dt>去餐厅</dt>
+              <dt>{OUTING_LABEL[outingKind(draft)]}</dt>
               <dd>
                 <strong>{selected?.name}</strong>
+                {selected && formatLocation(selected.location) && (
+                  <span className="muted small block">{formatLocation(selected.location)}</span>
+                )}
               </dd>
             </div>
             {candidates.length > 1 && (

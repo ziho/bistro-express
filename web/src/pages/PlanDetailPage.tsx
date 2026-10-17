@@ -1,17 +1,19 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Ban, Clock, Globe2, Home, PartyPopper, Pencil, Repeat2, Store } from 'lucide-react';
+import { ArrowLeft, Ban, Clock, Globe2, PartyPopper, Pencil, Repeat2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { formatDateLabel } from '../../../shared/time';
 import { hasDishExtras } from '../../../shared/dish';
 import type { DishSnapshot, Plan, RestaurantSnapshot } from '../../../shared/types';
+import { OUTING_LABEL, outingKind } from '../../../shared/venue';
+import { OutingIcon, outingClass } from '../components/OutingIcon';
 import { api, ApiError, newIdempotencyKey } from '../api/client';
 import { keys, useCatalog, usePlan } from '../api/queries';
 import { DishInfo, dishSummaryLines, SectionLabels } from '../components/DishBits';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
 import { NotificationBadge, SavedBadge } from '../components/NotificationBadge';
-import { MapLinkButton, RestaurantLinkRows, TagList } from '../components/RestaurantBits';
+import { LocationLine, MapLinkButton, RestaurantLinkRows, TagList } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { saveDraft } from '../lib/drafts';
@@ -30,6 +32,7 @@ function ChosenRestaurant({ restaurant: r }: { restaurant: RestaurantSnapshot })
       <div className="chosen-text">
         <strong className="chosen-name">{r.name}</strong>
         {r.review && <p className="chosen-review">{r.review}</p>}
+        <LocationLine location={r.location} className="small" />
         <TagList tags={r.tags} />
         {meta && <p className="muted small">{meta}</p>}
         <RestaurantLinkRows links={r.links} name={r.name} />
@@ -145,8 +148,8 @@ export function PlanDetailPage() {
       )}
 
       <header className="plan-detail-head card">
-        <div className={`plan-detail-mode mode-${p.mode}`} aria-hidden="true">
-          {p.mode === 'home' ? <Home /> : <Store />}
+        <div className={`plan-detail-mode ${outingClass(p)}`} aria-hidden="true">
+          <OutingIcon plan={p} />
         </div>
         <div className="plan-detail-title">
           <p className="muted small">
@@ -154,7 +157,7 @@ export function PlanDetailPage() {
           </p>
           <h1>
             {p.mealLabel}
-            <span className="muted"> · {p.mode === 'home' ? '在家吃' : '去餐厅'}</span>
+            <span className="muted"> · {OUTING_LABEL[outingKind(p)]}</span>
           </h1>
           <p className="plan-detail-when">
             {formatDateLabel(view.date)}
@@ -191,7 +194,7 @@ export function PlanDetailPage() {
       ) : (
         <section className="card" aria-labelledby="rest-title">
           <h2 id="rest-title" className="section-title">
-            选中的餐厅
+            {outingKind(p) === 'treat' ? '选中的店' : '选中的餐厅'}
           </h2>
           {p.selectedRestaurant && <ChosenRestaurant restaurant={p.selectedRestaurant} />}
           {p.candidates.length > 1 && (

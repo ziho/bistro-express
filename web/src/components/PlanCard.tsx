@@ -1,16 +1,18 @@
-import { ChevronRight, Clock, Home, Store } from 'lucide-react';
+import { ChevronRight, Clock } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Plan } from '../../../shared/types';
+import { OUTING_LABEL, outingKind } from '../../../shared/venue';
 import { planDisplay, planItemsText } from '../lib/planView';
 import { NotificationBadge, SavedBadge } from './NotificationBadge';
+import { OutingIcon, outingClass } from './OutingIcon';
 
 export function PlanCard({ plan, showDate = false }: { plan: Plan; showDate?: boolean }) {
   const view = planDisplay(plan);
   const cancelled = plan.status === 'cancelled';
   return (
     <Link to={`/plans/${plan.id}`} className={`plan-card ${cancelled ? 'is-cancelled' : ''}`}>
-      <div className={`plan-card-icon mode-${plan.mode}`} aria-hidden="true">
-        {plan.mode === 'home' ? <Home /> : <Store />}
+      <div className={`plan-card-icon ${outingClass(plan)}`} aria-hidden="true">
+        <OutingIcon plan={plan} />
       </div>
       <div className="plan-card-body">
         <div className="plan-card-title">
@@ -22,7 +24,11 @@ export function PlanCard({ plan, showDate = false }: { plan: Plan; showDate?: bo
               {view.time}
             </span>
           )}
-          <span className="sr-only">{plan.mode === 'home' ? '在家吃' : '去餐厅'}</span>
+          {outingKind(plan) === 'treat' ? (
+            <span className="badge badge-treat">{OUTING_LABEL.treat}</span>
+          ) : (
+            <span className="sr-only">{OUTING_LABEL[outingKind(plan)]}</span>
+          )}
         </div>
         <p className="plan-card-items">{planItemsText(plan)}</p>
         {view.originDetail && <p className="plan-card-origin">{view.originDetail}</p>}

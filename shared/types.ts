@@ -1,4 +1,6 @@
 export type PlanMode = 'home' | 'restaurant';
+/** What a venue (and a restaurant-mode plan) is for: 去吃饭 or 饮品 / 甜品. Home plans are always 'meal'. */
+export type VenuePurpose = 'meal' | 'treat';
 export type PlanStatus = 'active' | 'cancelled';
 export type PlanEvent = 'created' | 'updated' | 'cancelled';
 
@@ -57,6 +59,20 @@ export interface RestaurantLink {
   url: string;
 }
 
+/**
+ * Where a venue is, as free text (all optional). `country` is shown as written (usually Chinese,
+ * e.g. 加拿大); `region` (state / province) and `city` are English when known, otherwise local.
+ * `countryCode` is an upper-case ISO 3166-1 alpha-2 code, or '' when unknown / typed by hand.
+ */
+export interface VenueLocation {
+  country: string;
+  countryCode: string;
+  region: string;
+  city: string;
+  /** 'osm' = values as suggested by the OpenStreetMap lookup; 'manual' = typed/edited; '' = nothing recorded. */
+  source: 'osm' | 'manual' | '';
+}
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -73,6 +89,9 @@ export interface Restaurant {
   links: RestaurantLink[];
   /** Longer free-form note (备注). */
   note: string;
+  location: VenueLocation;
+  /** At least one; venues saved before migration 7 are ['meal']. */
+  purposes: VenuePurpose[];
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -109,6 +128,10 @@ export interface RestaurantSnapshot {
   address: string;
   mapUrl: string | null;
   links: RestaurantLink[];
+  /** Empty for snapshots saved before migration 7 (never filled in from the current catalog). */
+  location: VenueLocation;
+  /** ['meal'] for snapshots saved before migration 7. */
+  purposes: VenuePurpose[];
 }
 
 /** Per-recipient delivery state. 'skipped' = device disabled/removed or channel switched off. */
@@ -152,6 +175,8 @@ export interface Plan {
   timeZone: string;
   instant: string | null;
   mode: PlanMode;
+  /** 'treat' = a drinks / dessert outing (restaurant mode only); everything else is 'meal'. */
+  purpose: VenuePurpose;
   note: string;
   dishes: DishSnapshot[];
   candidates: RestaurantSnapshot[];
@@ -169,6 +194,8 @@ export interface PlanInput {
   localTime: string | null;
   timeZone: string;
   mode: PlanMode;
+  /** Optional for older clients: omitted on create means 'meal', omitted on update keeps the saved purpose. */
+  purpose?: VenuePurpose;
   note: string;
   dishIds: string[];
   candidateIds: string[];
@@ -276,6 +303,45 @@ export interface MapLinkPreview {
   };
   duplicates: RestaurantDuplicate[];
   notes: string[];
+  /** Region suggestion; only present when the request asked for it (geo: true). */
+  geo?: GeoOutcome;
+}
+
+/** A region suggested by the reverse lookup of a link's own place point. Only fields the provider returned. */
+export interface LocationSuggestion {
+  country: string;
+  countryCode: string;
+  region: string;
+  city: string;
+  /** The provider's own country name (English), kept when no Chinese name is known. */
+  providerCountry: string;
+  attribution: string;
+  attributionUrl: string;
+}
+
+/**
+ * Result of the optional region lookup. A failed lookup never fails the link preview itself.
+ * - suggested: values to offer (never applied over manual input without confirmation)
+ * - no_point: the link has no reliable place coordinates (search / camera / ID only) — fill in by hand
+ * - not_found: the provider has no country / region / city for that point
+ * - unavailable: network, timeout, busy or provider error — may be retried later by hand
+ * - disabled: the lookup is switched off in 推送设置 → 地区识别
+ */
+export type GeoOutcome =
+  | { status: 'suggested'; suggestion: LocationSuggestion; cached: boolean }
+  | { status: 'no_point' | 'not_found' | 'unavailable' | 'disabled'; message: string };
+
+export interface GeoSettingsView {
+  enabled: boolean;
+  baseUrl: string;
+  defaultBaseUrl: string;
+  /** true when nothing has been saved yet and the built-in defaults apply. */
+  isDefault: boolean;
+  policyUrl: string;
+  attribution: string;
+  attributionUrl: string;
+  minIntervalMs: number;
+  cacheDays: number;
 }
 
 /** An existing restaurant whose saved map link points at the same place. */
@@ -295,6 +361,9 @@ export interface RestaurantImportRow {
   /** The pasted link, so saved short links are recognised as duplicates. */
   sourceUrl: string | null;
   tags: string[];
+  /** Optional (older drafts omit them): blank location and ['meal']. */
+  location?: VenueLocation;
+  purposes?: VenuePurpose[];
 }
 
 export type RestaurantImportResult =

@@ -1,5 +1,6 @@
 import { readDishSnapshots } from '../../shared/dish.js';
-import type { DishSnapshot, Plan, PlanMode, PlanStatus, RestaurantSnapshot } from '../../shared/types.js';
+import type { DishSnapshot, Plan, PlanMode, PlanStatus, RestaurantSnapshot, VenuePurpose } from '../../shared/types.js';
+import { readStoredLocation, readStoredPurposes } from '../../shared/venue.js';
 import { legacyLink, readStoredLinks, splitTags } from '../../shared/restaurant.js';
 import type { DB } from '../db/connection.js';
 
@@ -14,6 +15,7 @@ interface PlanRow {
   time_zone: string;
   instant: string | null;
   mode: PlanMode;
+  purpose: string | null;
   note: string;
   dishes_json: string;
   candidates_json: string;
@@ -34,6 +36,7 @@ export interface PlanWrite {
   timeZone: string;
   instant: string | null;
   mode: PlanMode;
+  purpose: VenuePurpose;
   note: string;
   dishes: DishSnapshot[];
   candidates: RestaurantSnapshot[];
@@ -75,6 +78,9 @@ function toRestaurantSnapshot(raw: unknown): RestaurantSnapshot | null {
     address: str(s.address),
     mapUrl: strOrNull(s.mapUrl),
     links: Array.isArray(s.links) ? readStoredLinks(s.links) : legacyLink(s.linkUrl, s.linkLabel),
+    // Snapshots saved before migration 7 have neither: unknown location, a meal venue.
+    location: readStoredLocation(s.location),
+    purposes: readStoredPurposes(s.purposes),
   };
 }
 
@@ -93,6 +99,8 @@ const toPlan = (r: PlanRow): StoredPlan => ({
   timeZone: r.time_zone,
   instant: r.instant,
   mode: r.mode,
+  // Home plans are always meals; anything unreadable is treated as a meal too.
+  purpose: r.mode === 'restaurant' && r.purpose === 'treat' ? 'treat' : 'meal',
   note: r.note,
   dishes: readDishSnapshots(parseJson<unknown>(r.dishes_json, [])),
   candidates: toRestaurantSnapshots(parseJson<unknown>(r.candidates_json, [])),
@@ -142,9 +150,9 @@ export function createPlanRepo(db: DB) {
     insert(rec: { id: string; shortId: string; sourcePlanId: string | null } & PlanWrite, now: Date): void {
       const ts = now.toISOString();
       db.prepare(
-        `INSERT INTO plans (id, short_id, status, version, date, meal_label, local_time, time_zone, instant, mode, note,
-         dishes_json, candidates_json, selected_json, source_plan_id, created_at, updated_at)
-         VALUES (?, ?, 'active', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO plans (id, short_id, status, version, date, meal_label, local_time, time_zone, instant, mode, purpose,
+         note, dishes_json, candidates_json, selected_json, source_plan_id, created_at, updated_at)
+         VALUES (?, ?, 'active', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         rec.id,
         rec.shortId,
@@ -154,6 +162,7 @@ export function createPlanRepo(db: DB) {
         rec.timeZone,
         rec.instant,
         rec.mode,
+        rec.purpose,
         rec.note,
         JSON.stringify(rec.dishes),
         JSON.stringify(rec.candidates),
@@ -170,7 +179,7 @@ export function createPlanRepo(db: DB) {
       const result = db
         .prepare(
           `UPDATE plans SET version = version + 1, date = ?, meal_label = ?, local_time = ?, time_zone = ?, instant = ?,
-           mode = ?, note = ?, dishes_json = ?, candidates_json = ?, selected_json = ?, updated_at = ?
+           mode = ?, purpose = ?, note = ?, dishes_json = ?, candidates_json = ?, selected_json = ?, updated_at = ?
            WHERE id = ? AND version = ? AND status = 'active'`,
         )
         .run(
@@ -180,6 +189,7 @@ export function createPlanRepo(db: DB) {
           w.timeZone,
           w.instant,
           w.mode,
+          w.purpose,
           w.note,
           JSON.stringify(w.dishes),
           JSON.stringify(w.candidates),

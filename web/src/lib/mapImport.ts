@@ -29,10 +29,26 @@ export function mergeImport(
   autofilled: Partial<ImportValues>,
   incoming: Partial<Record<ImportField, string | null>>,
 ): ImportMerge {
-  const updates: Partial<ImportValues> = {};
-  const nextAutofilled: Partial<ImportValues> = { ...autofilled };
-  const conflicts: ImportConflict[] = [];
-  for (const field of IMPORT_FIELDS) {
+  return mergeAutofill(IMPORT_FIELDS, current, autofilled, incoming);
+}
+
+export interface AutofillMerge<F extends string> {
+  updates: Partial<Record<F, string>>;
+  autofilled: Partial<Record<F, string>>;
+  conflicts: { field: F; current: string; incoming: string }[];
+}
+
+/** The same no-clobber rule for any set of text fields (also used for country / region / city). */
+export function mergeAutofill<F extends string>(
+  fields: readonly F[],
+  current: Record<F, string>,
+  autofilled: Partial<Record<F, string>>,
+  incoming: Partial<Record<F, string | null>>,
+): AutofillMerge<F> {
+  const updates: Partial<Record<F, string>> = {};
+  const nextAutofilled: Partial<Record<F, string>> = { ...autofilled };
+  const conflicts: { field: F; current: string; incoming: string }[] = [];
+  for (const field of fields) {
     const value = incoming[field]?.trim();
     if (!value) continue;
     const now = current[field].trim();

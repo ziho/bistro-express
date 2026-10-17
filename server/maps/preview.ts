@@ -39,7 +39,7 @@ export function buildPreview(resolved: ResolvedMapsLink, restaurants: Restaurant
   if (name?.truncated) notes.push(`店名超过 ${LIMITS.name} 个字，已截断。`);
   if (!p.place && p.camera) notes.push('链接只带有地图视角中心（@坐标），那不是店铺的准确位置。');
   if (!mapUrl) notes.push('链接太长，无法保存为地图链接，请手动填写。');
-  notes.push('地址、菜系和预算可在下方补充，照片可自行上传。');
+  notes.push('地址、标签和预算可在下方补充，照片可自行上传。');
   return {
     sourceUrl: resolved.sourceUrl,
     resolvedUrl: p.cleanUrl,

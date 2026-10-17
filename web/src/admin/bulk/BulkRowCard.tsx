@@ -1,10 +1,16 @@
-import { CircleCheck, ExternalLink, RotateCw, Trash2, TriangleAlert } from 'lucide-react';
+import { CircleCheck, ExternalLink, MapPinned, RotateCw, Trash2, TriangleAlert } from 'lucide-react';
 import { memo } from 'react';
 import { classifyMapsUrl } from '../../../../shared/mapsUrl';
-import type { RestaurantDuplicate } from '../../../../shared/types';
-import { isRetryable, type QueueRow, type RowEdit, type RowInfo, type RowProblem } from '../../lib/bulkQueue';
+import type { RestaurantDuplicate, VenuePurpose } from '../../../../shared/types';
+import { PURPOSE_LABEL, VENUE_PURPOSES } from '../../../../shared/venue';
+import { OsmAttribution } from '../../components/RestaurantBits';
+import { canRetryGeo, isRetryable, type QueueRow, type RowEdit, type RowInfo, type RowProblem } from '../../lib/bulkQueue';
+import { LOCATION_FIELD_LABEL, LOCATION_FIELDS, locationPayload, togglePurpose, type LocationField } from '../../lib/venueForm';
 
 export interface RowActions {
+  editLocation: (id: string, field: LocationField, value: string) => void;
+  setPurposes: (id: string, purposes: VenuePurpose[]) => void;
+  retryGeo: (id: string) => void;
   edit: (id: string, edit: RowEdit) => void;
   retry: (id: string) => void;
   setManual: (id: string, manual: boolean) => void;
@@ -53,6 +59,7 @@ function Field({
   disabled,
   type,
   placeholder,
+  listId,
   onChange,
 }: {
   id: string;
@@ -62,6 +69,8 @@ function Field({
   disabled: boolean;
   type?: 'url';
   placeholder?: string;
+  /** A shared <datalist> of values already used (location fields). */
+  listId?: string;
   onChange: (v: string) => void;
 }) {
   const error = problems.map((p) => p.message).join('；');
@@ -77,6 +86,7 @@ function Field({
         inputMode={type === 'url' ? 'url' : undefined}
         value={value}
         placeholder={placeholder}
+        list={listId}
         disabled={disabled}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-err` : undefined}
@@ -115,6 +125,39 @@ function RowMessages({ row, info }: { row: QueueRow; info: RowInfo }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+const GEO_TEXT: Partial<Record<QueueRow['geo']['status'], string>> = {
+  queued: '等待识别地区',
+  pending: '正在识别地区…',
+};
+
+/** Region lookup state of a row, kept apart from the link status. */
+function GeoNote({ row, locked, onRetry }: { row: QueueRow; locked: boolean; onRetry: () => void }) {
+  const g = row.geo;
+  const fromOsm = locationPayload(row.location).source === 'osm';
+  const text = GEO_TEXT[g.status] ?? g.message;
+  const retry = !locked && canRetryGeo(row) && g.status !== 'suggested' && g.status !== 'no_point' && g.status !== 'disabled';
+  if (!text && !retry && !fromOsm) return null;
+  return (
+    <div className="bulk-geo small">
+      {text && (
+        <span className={g.status === 'unavailable' ? 'bulk-note-warn' : 'muted'}>
+          {g.status === 'unavailable' && <TriangleAlert aria-hidden="true" />} 地区：{text}
+        </span>
+      )}
+      {fromOsm && (
+        <span className="muted">
+          地区来自 <OsmAttribution />
+        </span>
+      )}
+      {retry && (
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onRetry}>
+          <MapPinned aria-hidden="true" /> {g.status === 'idle' ? '识别地区' : '重新识别地区'}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -224,6 +267,36 @@ export const BulkRowCard = memo(function BulkRowCard({ row, info, locked, action
           onChange={(sourceUrl) => actions.edit(row.id, { sourceUrl })}
         />
       </div>
+      <div className="bulk-row-fields bulk-row-location">
+        {LOCATION_FIELDS.map((f) => (
+          <Field
+            key={f}
+            id={`${base}-${f}`}
+            label={`${LOCATION_FIELD_LABEL[f]}（可选）`}
+            value={row.location.values[f]}
+            problems={of(f)}
+            disabled={locked}
+            listId={`bulk-loc-${f}`}
+            onChange={(v) => actions.editLocation(row.id, f, v)}
+          />
+        ))}
+      </div>
+      <fieldset className="bulk-purposes" disabled={locked}>
+        <legend className="bulk-field-label">用途</legend>
+        {VENUE_PURPOSES.map((p) => (
+          <label key={p} className="check-row small">
+            <input
+              type="checkbox"
+              checked={row.purposes.includes(p)}
+              aria-invalid={of('purposes').length ? true : undefined}
+              onChange={() => actions.setPurposes(row.id, togglePurpose(row.purposes, p))}
+            />
+            <span>{PURPOSE_LABEL[p]}</span>
+          </label>
+        ))}
+        {of('purposes').length > 0 && <span className="field-error">{of('purposes')[0]!.message}</span>}
+      </fieldset>
+      <GeoNote row={row} locked={locked} onRetry={() => actions.retryGeo(row.id)} />
       <MapLink url={row.mapUrl || row.sourceUrl} />
     </li>
   );

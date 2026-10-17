@@ -2,6 +2,7 @@ import { FilePen, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { formatDateLabel } from '../../../shared/time';
+import { OUTING_LABEL, outingKind } from '../../../shared/venue';
 import { deleteDraft, draftHasContent, listDrafts } from '../lib/drafts';
 
 /** Unfinished drafts stored on this device only. */
@@ -22,9 +23,9 @@ export function DraftList() {
           return (
             <li key={d.key} className="draft-item">
               <Link to={href} className="draft-link">
-                <strong>{d.mealLabel || '未命名的一餐'}</strong>
+                <strong>{d.mealLabel || (outingKind(d) === 'treat' ? '未命名的安排' : '未命名的一餐')}</strong>
                 <span className="muted small">
-                  {formatDateLabel(d.date)} · {d.planId ? '修改中' : '新计划'} · {count} 项
+                  {formatDateLabel(d.date)} · {OUTING_LABEL[outingKind(d)]} · {d.planId ? '修改中' : '新计划'} · {count} 项
                 </span>
               </Link>
               <button

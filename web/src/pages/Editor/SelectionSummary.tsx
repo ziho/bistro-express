@@ -1,9 +1,12 @@
-import { ClipboardList, Dices, Home, Send, Store, Trash2, Wand2 } from 'lucide-react';
+import { ClipboardList, Dices, Send, Trash2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { formatDateLabel } from '../../../../shared/time';
 import type { Catalog } from '../../../../shared/types';
+import { OUTING_LABEL, outingKind } from '../../../../shared/venue';
+import { OutingIcon, outingClass } from '../../components/OutingIcon';
 import { drawOne } from '../../lib/draw';
 import type { Draft } from '../../lib/drafts';
+import { drawableCandidates } from '../../lib/outing';
 
 interface Props {
   draft: Draft;
@@ -34,7 +37,8 @@ export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onRe
 
   const draw = () => {
     const pick = () => {
-      onChange({ selectedRestaurantId: drawOne(draft.candidateIds) });
+      // Only candidates that are still offered and fit this outing's purpose can be drawn.
+      onChange({ selectedRestaurantId: drawOne(drawable) });
       setDrawCount((n) => n + 1);
       setRolling(false);
     };
@@ -46,27 +50,29 @@ export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onRe
   const selectedName = draft.selectedRestaurantId
     ? restaurantName.get(draft.selectedRestaurantId) ?? snapshotNames.get(draft.selectedRestaurantId)
     : null;
-  const candidateCount = new Set(draft.candidateIds).size;
+  const drawable = drawableCandidates(draft.candidateIds, catalog.restaurants, draft.purpose);
+  const candidateCount = drawable.length;
+  const kind = outingKind(draft);
 
   return (
     <div className="summary">
       <div className="summary-head">
-        <span className={`summary-mode mode-${draft.mode}`} aria-hidden="true">
-          {draft.mode === 'home' ? <Home /> : <Store />}
+        <span className={`summary-mode ${outingClass(draft)}`} aria-hidden="true">
+          <OutingIcon plan={draft} />
         </span>
         <div>
           <p className="summary-title">{draft.mealLabel || '还没起名的一餐'}</p>
           <p className="muted small">
             {formatDateLabel(draft.date)}
-            {draft.localTime ? ` · ${draft.localTime}` : ''} · {draft.mode === 'home' ? '在家吃' : '去餐厅'}
+            {draft.localTime ? ` · ${draft.localTime}` : ''} · {OUTING_LABEL[kind]}
           </p>
         </div>
       </div>
 
-      <h3 className="summary-subtitle">{draft.mode === 'home' ? `已选的菜（${ids.length}）` : `候选餐厅（${ids.length}）`}</h3>
+      <h3 className="summary-subtitle">{draft.mode === 'home' ? `已选的菜（${ids.length}）` : `候选店铺（${ids.length}）`}</h3>
       {ids.length === 0 ? (
         <p className="muted small summary-empty">
-          {draft.mode === 'home' ? '点菜单卡片把想吃的菜加进来。' : '把想去的餐厅加入候选，再随机抽一家。'}
+          {draft.mode === 'home' ? '点菜单卡片把想吃的菜加进来。' : '把想去的店加入候选，再随机抽一家。'}
         </p>
       ) : (
         <ul className="summary-list">
@@ -116,8 +122,8 @@ export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onRe
             <button
               type="button"
               className="btn btn-butter btn-block"
-              onClick={() => onChange({ selectedRestaurantId: draft.candidateIds[0] ?? null })}
-              disabled={draft.selectedRestaurantId === draft.candidateIds[0]}
+              onClick={() => onChange({ selectedRestaurantId: drawable[0] ?? null })}
+              disabled={draft.selectedRestaurantId === drawable[0]}
             >
               <Wand2 aria-hidden="true" />
               就选它

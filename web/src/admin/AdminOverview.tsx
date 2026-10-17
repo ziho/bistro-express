@@ -82,10 +82,10 @@ export function AdminOverview() {
       <ul className="overview-grid">
         <Tile
           to="/admin/restaurants"
-          title="餐厅"
+          title="店铺"
           Icon={Store}
           status={countActive(restaurants.data, '家')}
-          description="收藏想去的店，写点评、标签和菜单 / 官网链接。"
+          description="收藏餐厅和饮品甜品店，整理地区、标签与菜单 / 官网链接。"
         />
         <Tile
           to="/admin/dishes"
@@ -109,7 +109,7 @@ export function AdminOverview() {
           Icon={Settings}
           status={barkStatus(bark.data)}
           attention={bark.data ? bark.data.enabled && !bark.data.configured : false}
-          description="Bark 服务器和接收推送的设备。"
+          description="Bark 推送设备和店铺地区识别服务。"
         />
       </ul>
     </div>

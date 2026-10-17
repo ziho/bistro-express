@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { splitTags } from '../../../shared/restaurant';
 import type { ItemKind } from './ItemForm';
 
@@ -14,6 +15,10 @@ const ID = 'item-tags';
 
 export function TagField({ kind, value, error, suggestions, onChange }: Props) {
   const current = splitTags(value);
+  const [tagQuery, setTagQuery] = useState('');
+  const searchable = kind === 'restaurant' && suggestions.length > 12;
+  const matching = suggestions.filter((t) => !searchable || t.toLowerCase().includes(tagQuery.trim().toLowerCase()));
+  const visibleSuggestions = searchable ? matching.slice(0, 12) : matching;
   const toggle = (tag: string) =>
     onChange((current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]).join(' '));
   const describedBy = [kind === 'restaurant' ? `${ID}-hint` : '', error ? `${ID}-err` : ''].filter(Boolean).join(' ');
@@ -35,7 +40,7 @@ export function TagField({ kind, value, error, suggestions, onChange }: Props) {
         id={ID}
         className="input"
         value={value}
-        placeholder={kind === 'restaurant' ? '川菜 火锅 约会' : '快手 下饭 约会'}
+        placeholder={kind === 'restaurant' ? '川菜 火锅 奶茶 约会' : '快手 下饭 约会'}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
         onChange={(e) => onChange(e.target.value)}
@@ -45,9 +50,26 @@ export function TagField({ kind, value, error, suggestions, onChange }: Props) {
           标签就是餐厅的分类，可以同时写菜系、场景和口味，例如「川菜 火锅 约会 适合聚餐」。同一个标签可以给多家餐厅用，点餐时能按标签筛选。
         </p>
       )}
+      {searchable && (
+        <div className="field">
+          <label className="field-label small" htmlFor={ID + '-find'}>查找已有标签</label>
+          <input
+            id={ID + '-find'}
+            type="search"
+            className="input"
+            value={tagQuery}
+            placeholder="输入几个字，再点选标签"
+            onChange={(e) => setTagQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.preventDefault(); }}
+          />
+          <p className="field-hint" aria-live="polite">
+            {matching.length ? '显示 ' + visibleSuggestions.length + ' / ' + matching.length + ' 个标签；点一下添加或移除。' : '没有匹配的已有标签，可以在上方直接填写新标签。'}
+          </p>
+        </div>
+      )}
       {kind === 'restaurant' && suggestions.length > 0 && (
         <div className="chip-row" role="group" aria-label="已有标签，点一下添加或移除">
-          {suggestions.map((t) => (
+          {visibleSuggestions.map((t) => (
             <button key={t} type="button" className="chip chip-tag" aria-pressed={current.includes(t)} onClick={() => toggle(t)}>
               #{t}
             </button>

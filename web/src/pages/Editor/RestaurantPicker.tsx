@@ -1,56 +1,78 @@
 import { Check, Info, Plus } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
-import type { Restaurant } from '../../../../shared/types';
+import { useEffect, useId, useMemo, useState } from 'react';
+import type { Restaurant, VenuePurpose } from '../../../../shared/types';
+import { filterVenues, placeTree, tagChoices, type VenueFilter } from '../../../../shared/venueFilter';
 import { EmptyPlate } from '../../components/Illustrations';
 import { ItemImage } from '../../components/ItemImage';
-import { MapLinkButton, RestaurantLinkRows, RestaurantQuickLinks, TagList } from '../../components/RestaurantBits';
+import { LocationLine, MapLinkButton, PurposeBadges, RestaurantLinkRows, RestaurantQuickLinks, TagList } from '../../components/RestaurantBits';
 import { Sheet } from '../../components/Sheet';
-import { filterRestaurants } from '../../lib/restaurants';
-import { CatalogFilters, emptyFilter, type FilterState } from './CatalogFilters';
+import { collectPlaceKeys, VenueFilters } from '../../components/VenueFilters';
+import { loadVenueFilter, saveVenueFilter } from '../../lib/venueFilterStore';
 
 interface Props {
   restaurants: Restaurant[];
+  /** Only venues serving this purpose are offered (a mixed venue appears for both). */
+  purpose: VenuePurpose;
   candidateIds: string[];
   onToggle: (id: string) => void;
 }
 
-const uniqueSorted = (values: string[]) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh'));
+/** The remembered filters of this purpose, limited to tags and places that still exist. */
+function initialFilter(purpose: VenuePurpose, venues: Restaurant[]): VenueFilter {
+  return loadVenueFilter(purpose, {
+    tags: new Set(tagChoices(venues).map((t) => t.tag)),
+    places: collectPlaceKeys(placeTree(venues).nodes, new Set(['unknown'])),
+  });
+}
 
-export function RestaurantPicker({ restaurants, candidateIds, onToggle }: Props) {
+export function RestaurantPicker({ restaurants, purpose, candidateIds, onToggle }: Props) {
   const idPrefix = useId();
-  const [filter, setFilter] = useState<FilterState>(emptyFilter);
+  const offered = useMemo(() => restaurants.filter((r) => r.purposes.includes(purpose)), [restaurants, purpose]);
+  const [filter, setFilter] = useState<VenueFilter>(() => initialFilter(purpose, offered));
   const [detail, setDetail] = useState<Restaurant | null>(null);
   const selected = useMemo(() => new Set(candidateIds), [candidateIds]);
-  const tags = useMemo(() => uniqueSorted(restaurants.flatMap((r) => r.tags)), [restaurants]);
 
-  const visible = filterRestaurants(restaurants, filter, selected);
+  // Switching between 去吃饭 and 饮品甜品 brings back that purpose's own remembered filters.
+  useEffect(() => {
+    setFilter((f) => (f.purpose === purpose ? f : initialFilter(purpose, offered)));
+  }, [purpose, offered]);
 
-  if (restaurants.length === 0) {
+  const applyFilter = (next: VenueFilter) => {
+    setFilter(next);
+    saveVenueFilter(purpose, next);
+  };
+
+  const visible = filterVenues(offered, { ...filter, purpose }, selected);
+  const noun = purpose === 'treat' ? '饮品甜品店' : '餐厅';
+
+  if (offered.length === 0) {
     return (
       <div className="empty-state">
         <EmptyPlate className="empty-art" />
-        <p>还没有收藏的餐厅。</p>
-        <p className="muted small">主厨在后台添加餐厅后，就能挑候选、随机抽一家啦。</p>
+        <p>还没有收藏的{noun}。</p>
+        <p className="muted small">
+          {purpose === 'treat'
+            ? '主厨在后台把店标记为「饮品甜品」后，就能在这里挑候选。'
+            : '主厨在后台添加餐厅后，就能挑候选、随机抽一家啦。'}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="picker">
-      <CatalogFilters
+      <VenueFilters
+        venues={offered}
         value={filter}
-        onChange={setFilter}
-        groups={[]}
-        tags={tags}
-        groupLabel="按分类标签筛选"
-        selectedCount={selected.size}
-        placeholder="搜店名、点评、标签、地址或预算"
+        onChange={applyFilter}
+        selected={selected}
+        placeholder="搜店名、点评、标签、地区、地址或预算"
       />
       <p className="sr-only" aria-live="polite">
-        找到 {visible.length} 家餐厅
+        找到 {visible.length} 家{noun}
       </p>
       {visible.length === 0 ? (
-        <p className="muted empty-filter">没有符合条件的餐厅，换个关键词试试。</p>
+        <p className="muted empty-filter">没有符合条件的{noun}，换个关键词或减少筛选条件试试。</p>
       ) : (
         <ul className="rest-grid">
           {visible.map((r) => (
@@ -105,6 +127,7 @@ function RestaurantCard({ restaurant: r, nameId, selected, onToggle, onDetail }:
           </h3>
           {r.review && <p className="rest-card-review">{r.review}</p>}
           <TagList tags={r.tags} />
+          <LocationLine location={r.location} className="rest-card-meta" />
           {meta && <p className="rest-card-meta">{meta}</p>}
         </div>
       </div>
@@ -134,6 +157,8 @@ function RestaurantDetail({ restaurant: r, selected, onToggle }: { restaurant: R
     <div className="detail">
       {r.imageAssetId && <ItemImage assetId={r.imageAssetId} name={r.name} kind="restaurant" variant="full" className="detail-image detail-photo" />}
       {r.review && <p className="detail-review">{r.review}</p>}
+      <PurposeBadges purposes={r.purposes} />
+      <LocationLine location={r.location} />
       <TagList tags={r.tags} />
       {(r.budgetText || r.address) && (
         <dl className="detail-facts">

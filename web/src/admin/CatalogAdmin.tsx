@@ -9,12 +9,16 @@ import { dishSummaryLines, SectionLabels } from '../components/DishBits';
 import { Cloche } from '../components/Illustrations';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
-import { TagList } from '../components/RestaurantBits';
+import { LocationLine, PurposeBadges, TagList } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { dishSectionOptions } from '../lib/dishes';
 import { restaurantSearchFields } from '../lib/restaurants';
+import type { Restaurant } from '../../../shared/types';
+import { emptyVenueFilter, filterVenues, type VenueFilter } from '../../../shared/venueFilter';
+import { VenueFilters } from '../components/VenueFilters';
 import { ItemForm, type CatalogItem, type ItemKind } from './ItemForm';
+import { venueLocationOptions } from '../lib/venueForm';
 
 const TEXT = {
   dish: {
@@ -27,10 +31,10 @@ const TEXT = {
   },
   restaurant: {
     path: '/admin/restaurants',
-    noun: '餐厅',
+    noun: '店铺',
     unit: '家',
-    add: '添加餐厅',
-    searchHint: '搜索店名、点评、标签、地址或备注',
+    add: '添加店铺',
+    searchHint: '搜索店名、点评、标签、地区、地址或备注',
     searchFields: (i: CatalogItem) => ('review' in i ? restaurantSearchFields(i) : [i.name, ...i.tags]),
   },
 };
@@ -62,6 +66,10 @@ function ItemSummary({ item }: { item: CatalogItem }) {
   return (
     <>
       {item.review && <span className="small admin-item-review">{item.review}</span>}
+      <span className="admin-item-line">
+        <PurposeBadges purposes={item.purposes} />
+      </span>
+      <LocationLine location={item.location} className="small muted" />
       {item.tags.length > 0 ? <TagList tags={item.tags} className="tag-list-compact" /> : <span className="muted small">还没有分类标签</span>}
     </>
   );
@@ -75,6 +83,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const [q, setQ] = useState('');
   const [tag, setTag] = useState('');
   const [section, setSection] = useState('');
+  const [venueFilter, setVenueFilter] = useState<VenueFilter>(() => emptyVenueFilter(null));
   const [editing, setEditing] = useState<CatalogItem | 'new' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<CatalogItem | null>(null);
@@ -120,7 +129,10 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const allTags = useMemo(() => [...new Set(items.flatMap((i) => i.tags))].sort(), [items]);
   const allSections = useMemo(() => dishSectionOptions(items.flatMap((i) => ('review' in i ? [] : [i]))), [items]);
   const needle = q.trim().toLowerCase();
-  const visible = items.filter(
+  const restaurants = useMemo(() => items.filter((i): i is Restaurant => 'review' in i), [items]);
+  const locationOptions = useMemo(() => venueLocationOptions(restaurants), [restaurants]);
+  const visibleVenueIds = useMemo(() => new Set(filterVenues(restaurants, venueFilter).map((r) => r.id)), [restaurants, venueFilter]);
+  const visible = kind === 'restaurant' ? items.filter((i) => visibleVenueIds.has(i.id)) : items.filter(
     (i) =>
       (!section || ('sections' in i && i.sections.includes(section))) &&
       (!tag || i.tags.includes(tag)) &&
@@ -157,13 +169,13 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
       {items.length === 0 ? (
         <div className="onboarding card">
           <Cloche className="onboarding-art" />
-          <h2>{kind === 'dish' ? '还没有菜品，先上几道拿手菜吧' : '还没有餐厅，把想去的店收藏进来吧'}</h2>
+          <h2>{kind === 'dish' ? '还没有菜品，先上几道拿手菜吧' : '还没有店铺，把想去的餐厅、饮品甜品店收藏进来吧'}</h2>
           <ol className="onboarding-steps">
             <li>点「{t.add}」，填写名字（必填），可以拍照上传。</li>
             <li>
               {kind === 'dish'
                 ? '可以选几个菜单分区（如「配饭菜」「汤羹」）、加些标签（如「快手」「下饭」）；主料、耗时和采购提醒都能以后再补。'
-                : '写一句话点评，再加几个分类标签（例如「川菜」「火锅」「约会」），点餐时可以按标签筛选。'}
+                : '选好用途（吃饭 / 饮品甜品，可以都选），写一句话点评，加几个标签（例如「川菜」「奶茶」「约会」），可以填国家、省/州和城市，点餐时都能筛选。'}
             </li>
             <li>暂时不想被选到的，可以随时「下架」，历史记录不受影响。</li>
             {kind === 'restaurant' && <li>收藏了很多 Google 地图链接？用「批量导入」一次粘贴最多 100 个。</li>}
@@ -178,40 +190,44 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
         </div>
       ) : (
         <>
-          <div className="filters">
-            <div className="search-box">
-              <Search aria-hidden="true" />
-              <label htmlFor="admin-search" className="sr-only">
-                搜索{t.noun}
-              </label>
-              <input id="admin-search" type="search" className="input" placeholder={t.searchHint} value={q} onChange={(e) => setQ(e.target.value)} />
-            </div>
-            {allTags.length + allSections.length > 0 && (
-              <div className="chip-scroller" role="group" aria-label={kind === 'dish' ? '按菜单分区和标签筛选' : '按标签筛选'}>
-                <button
-                  type="button"
-                  className="chip"
-                  aria-pressed={!tag && !section}
-                  onClick={() => {
-                    setTag('');
-                    setSection('');
-                  }}
-                >
-                  全部
-                </button>
-                {allSections.map((s) => (
-                  <button key={`s-${s}`} type="button" className="chip" aria-pressed={section === s} onClick={() => setSection(section === s ? '' : s)}>
-                    {s}
-                  </button>
-                ))}
-                {allTags.map((tg) => (
-                  <button key={tg} type="button" className="chip chip-tag" aria-pressed={tag === tg} onClick={() => setTag(tag === tg ? '' : tg)}>
-                    #{tg}
-                  </button>
-                ))}
+          {kind === 'restaurant' ? (
+            <VenueFilters venues={restaurants} value={venueFilter} onChange={setVenueFilter} placeholder={t.searchHint} purposeChoice />
+          ) : (
+            <div className="filters">
+              <div className="search-box">
+                <Search aria-hidden="true" />
+                <label htmlFor="admin-search" className="sr-only">
+                  搜索{t.noun}
+                </label>
+                <input id="admin-search" type="search" className="input" placeholder={t.searchHint} value={q} onChange={(e) => setQ(e.target.value)} />
               </div>
-            )}
-          </div>
+              {allTags.length + allSections.length > 0 && (
+                <div className="chip-scroller" role="group" aria-label={kind === 'dish' ? '按菜单分区和标签筛选' : '按标签筛选'}>
+                  <button
+                    type="button"
+                    className="chip"
+                    aria-pressed={!tag && !section}
+                    onClick={() => {
+                      setTag('');
+                      setSection('');
+                    }}
+                  >
+                    全部
+                  </button>
+                  {allSections.map((s) => (
+                    <button key={`s-${s}`} type="button" className="chip" aria-pressed={section === s} onClick={() => setSection(section === s ? '' : s)}>
+                      {s}
+                    </button>
+                  ))}
+                  {allTags.map((tg) => (
+                    <button key={tg} type="button" className="chip chip-tag" aria-pressed={tag === tg} onClick={() => setTag(tag === tg ? '' : tg)}>
+                      #{tg}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <ul className="admin-list">
             {visible.map((item) => {
               // Text-first: no placeholder thumbnail when there is no real photo.
@@ -274,6 +290,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             serverError={formError}
             tagSuggestions={allTags}
             sectionSuggestions={allSections}
+            locationOptions={locationOptions}
             onSubmit={(payload) => {
               setFormError(null);
               save.mutate(payload);

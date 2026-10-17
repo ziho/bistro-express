@@ -101,6 +101,8 @@ export const planInputSchema = z.object({
     .transform((v) => (v ? v : null)),
   timeZone: z.string().min(1).max(64),
   mode: z.enum(['home', 'restaurant']),
+  /** Optional for older clients (see planService.resolvePurpose). */
+  purpose: z.enum(['meal', 'treat'], '用途只能是 meal 或 treat').optional(),
   note: text(LIMITS.note).default(''),
   dishIds: idList(LIMITS.maxDishesPerMeal),
   candidateIds: idList(LIMITS.maxCandidates),
@@ -169,6 +171,9 @@ const importRow = z.object({
     .optional()
     .transform((v) => (v?.trim() ? v.trim() : null)),
   tags,
+  /** Checked per row (parseLocation / parsePurposes); omitted = unknown location, ['meal']. */
+  location: z.unknown().optional(),
+  purposes: z.unknown().optional(),
 });
 export type ImportRowInput = z.output<typeof importRow>;
 

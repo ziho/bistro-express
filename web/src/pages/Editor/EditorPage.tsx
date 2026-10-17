@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { LIMITS } from '../../../../shared/constants';
 import { isPastDate } from '../../../../shared/time';
-import type { Plan } from '../../../../shared/types';
+import type { Catalog, Plan } from '../../../../shared/types';
+import { OUTING_CHOICE_LABEL, outingFromKind, PURPOSE_LABEL, type OutingKind } from '../../../../shared/venue';
 import { api, ApiError, newIdempotencyKey } from '../../api/client';
 import { keys, useCatalog, usePlan } from '../../api/queries';
 import { Loading } from '../../components/Loading';
@@ -13,6 +14,7 @@ import { useToast } from '../../components/Toast';
 import { deleteDraft, draftToInput, saveDraft, type Draft } from '../../lib/drafts';
 import { useMediaQuery, useToday } from '../../lib/hooks';
 import { isEditable } from '../../lib/planView';
+import { draftOuting, incompatibleCandidates, withOuting } from '../../lib/outing';
 import { DishPicker } from './DishPicker';
 import { MealMetaForm, timeProblem } from './MealMetaForm';
 import { RestaurantPicker } from './RestaurantPicker';
@@ -21,9 +23,16 @@ import { SelectionSummary } from './SelectionSummary';
 import { ShoppingPreviewSheet } from './ShoppingPreviewSheet';
 import { useEditorDraft } from './useEditorDraft';
 
+const PICKER_TITLE: Record<OutingKind, string> = {
+  home: '今天在家吃什么',
+  restaurant: '想去哪几家',
+  treat: '想去哪家喝点、吃点甜的',
+};
+
 type FieldErrors = Partial<Record<'date' | 'mealLabel' | 'localTime', string>>;
 
-function validate(draft: Draft, activeIds: { dishes: Set<string>; restaurants: Set<string> }): { fields: FieldErrors; general: string | null } {
+function validate(draft: Draft, catalog: Catalog): { fields: FieldErrors; general: string | null } {
+  const activeIds = { dishes: new Set(catalog.dishes.map((d) => d.id)), restaurants: new Set(catalog.restaurants.map((r) => r.id)) };
   const fields: FieldErrors = {};
   if (!draft.mealLabel.trim()) fields.mealLabel = '给这一餐起个名字，比如「晚餐」';
   if (isPastDate(draft.date, draft.timeZone)) fields.date = '不能安排已经过去的日期';
@@ -35,6 +44,9 @@ function validate(draft: Draft, activeIds: { dishes: Set<string>; restaurants: S
     else if (draft.dishIds.some((id) => !activeIds.dishes.has(id))) general = '有菜已经下架，请先移除';
   } else if (draft.candidateIds.length === 0) general = '至少加入一家候选餐厅';
   else if (draft.candidateIds.some((id) => !activeIds.restaurants.has(id))) general = '有餐厅已经下架，请先移除';
+  else if (incompatibleCandidates(draft.candidateIds, catalog.restaurants, draft.purpose).length) {
+    general = `有店不适合「${PURPOSE_LABEL[draft.purpose]}」，请先移除`;
+  }
   else if (!draft.selectedRestaurantId || !draft.candidateIds.includes(draft.selectedRestaurantId)) {
     general = draft.candidateIds.length === 1 ? '点「就选它」确定这家餐厅' : '先随机抽一家餐厅';
   }
@@ -59,6 +71,8 @@ export function EditorPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [conflict, setConflict] = useState<Plan | null>(null);
+  /** An outing switch that would remove candidates, waiting for the user's confirmation. */
+  const [pendingOuting, setPendingOuting] = useState<{ kind: OutingKind; drop: string[] } | null>(null);
 
   const snapshotNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -83,8 +97,16 @@ export function EditorPage() {
   }
 
   const cat = catalog.data;
-  const activeIds = { dishes: new Set(cat.dishes.map((d) => d.id)), restaurants: new Set(cat.restaurants.map((r) => r.id)) };
   const isEdit = Boolean(planId);
+  const outing = draftOuting(draft);
+  const restaurantName = new Map(cat.restaurants.map((r) => [r.id, r.name]));
+
+  const changeOuting = (kind: OutingKind) => {
+    if (kind === outing) return;
+    const drop = kind === 'home' ? [] : incompatibleCandidates(draft.candidateIds, cat.restaurants, outingFromKind(kind).purpose);
+    if (drop.length) setPendingOuting({ kind, drop });
+    else update(withOuting(draft, kind));
+  };
 
   const toggleDish = (id: string) =>
     update({ dishIds: draft.dishIds.includes(id) ? draft.dishIds.filter((x) => x !== id) : [...draft.dishIds, id] });
@@ -96,7 +118,7 @@ export function EditorPage() {
     });
 
   const openReview = () => {
-    const { fields, general } = validate(draft, activeIds);
+    const { fields, general } = validate(draft, cat);
     setFieldErrors(fields);
     if (Object.keys(fields).length || general) {
       toast(Object.values(fields)[0] ?? general ?? '请检查填写内容', 'error');
@@ -139,7 +161,7 @@ export function EditorPage() {
         setSubmitError('网络断开了。草稿已保存在本机，恢复网络后再点一次提交即可。');
       } else if (err instanceof ApiError) {
         setSubmitError(err.message);
-        if (err.code === 'unavailable_items') await queryClient.invalidateQueries({ queryKey: keys.catalog });
+        if (err.code === 'unavailable_items' || err.code === 'incompatible_purpose') await queryClient.invalidateQueries({ queryKey: keys.catalog });
       } else {
         setSubmitError('提交失败，请稍后再试');
       }
@@ -175,7 +197,7 @@ export function EditorPage() {
           <ArrowLeft aria-hidden="true" />
           返回
         </Link>
-        <h1>{isEdit ? `修改计划 #${plan.data?.shortId}` : '安排一顿'}</h1>
+        <h1>{isEdit ? `修改计划 #${plan.data?.shortId}` : outing === 'treat' ? '喝点 / 吃点甜的' : '安排一顿'}</h1>
       </div>
 
       {restored && (
@@ -204,12 +226,12 @@ export function EditorPage() {
 
       <div className="editor-grid">
         <section className="editor-meta card" aria-label="这一餐的基本信息">
-          <MealMetaForm draft={draft} today={today} onChange={update} errors={fieldErrors} />
+          <MealMetaForm draft={draft} today={today} onChange={update} onOutingChange={changeOuting} errors={fieldErrors} />
         </section>
 
-        <section className="editor-picker" aria-label={draft.mode === 'home' ? '选菜' : '选餐厅'}>
+        <section className="editor-picker" aria-label={draft.mode === 'home' ? '选菜' : '选店'}>
           <div className="picker-heading">
-            <h2 className="section-title">{draft.mode === 'home' ? '今天在家吃什么' : '想去哪几家'}</h2>
+            <h2 className="section-title">{PICKER_TITLE[outing]}</h2>
             {draft.mode === 'home' && draft.dishIds.length > 0 && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={openShoppingPreview} aria-haspopup="dialog">
                 <ClipboardList aria-hidden="true" />
@@ -220,7 +242,12 @@ export function EditorPage() {
           {draft.mode === 'home' ? (
             <DishPicker dishes={cat.dishes} selectedIds={draft.dishIds} onToggle={toggleDish} />
           ) : (
-            <RestaurantPicker restaurants={cat.restaurants} candidateIds={draft.candidateIds} onToggle={toggleCandidate} />
+            <RestaurantPicker
+              restaurants={cat.restaurants}
+              purpose={draft.purpose}
+              candidateIds={draft.candidateIds}
+              onToggle={toggleCandidate}
+            />
           )}
           <div className="field note-field">
             <label className="field-label" htmlFor="meal-note">
@@ -250,7 +277,7 @@ export function EditorPage() {
             <button type="button" className="summary-bar-info" onClick={() => setDrawerOpen(true)} aria-haspopup="dialog">
               <ListChecks aria-hidden="true" />
               <span>
-                <strong>{draft.mode === 'home' ? `已选 ${count} 道菜` : `候选 ${count} 家`}</strong>
+                <strong>{draft.mode === 'home' ? `已选 ${count} 道菜` : `候选 ${count} 家店`}</strong>
                 <span className="small muted">查看已选</span>
               </span>
             </button>
@@ -281,6 +308,39 @@ export function EditorPage() {
         onClose={() => setReviewOpen(false)}
         onConfirm={() => void submit()}
       />
+
+      <Sheet
+        open={pendingOuting !== null}
+        onClose={() => setPendingOuting(null)}
+        title={`换成「${pendingOuting ? OUTING_CHOICE_LABEL[pendingOuting.kind] : ''}」？`}
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setPendingOuting(null)}>
+              先不换
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (pendingOuting) update(withOuting(draft, pendingOuting.kind, pendingOuting.drop));
+                setPendingOuting(null);
+              }}
+            >
+              移出 {pendingOuting?.drop.length ?? 0} 家并切换
+            </button>
+          </>
+        }
+      >
+        <p>下面这些候选不适合「{pendingOuting ? OUTING_CHOICE_LABEL[pendingOuting.kind] : ''}」，切换后会从候选里移出{draft.selectedRestaurantId && pendingOuting?.drop.includes(draft.selectedRestaurantId) ? '，已抽中的结果也会清除' : ''}：</p>
+        <ul className="summary-list">
+          {pendingOuting?.drop.map((id) => (
+            <li key={id}>
+              <span>{restaurantName.get(id) ?? '未知店铺'}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="muted small">已选的菜不受影响。不想移出的话，可以先不换。</p>
+      </Sheet>
 
       <Sheet open={conflict !== null} onClose={() => setConflict(null)} title="计划在别处被改过了">
         <p>

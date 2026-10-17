@@ -1,9 +1,8 @@
 import type { Restaurant } from '../../../shared/types';
+import { emptyVenueFilter, filterVenues, venueSearchFields } from '../../../shared/venueFilter';
 
-/** Every restaurant field that search matches against (tags are the classification). */
-export function restaurantSearchFields(r: Restaurant): string[] {
-  return [r.name, r.review, r.address, r.note, r.budgetText, ...r.tags];
-}
+/** Every restaurant field that search matches against (tags are the classification, plus the location). */
+export const restaurantSearchFields = (r: Restaurant): string[] => venueSearchFields(r);
 
 export interface RestaurantFilter {
   q: string;
@@ -11,13 +10,11 @@ export interface RestaurantFilter {
   onlySelected: boolean;
 }
 
-/** Case-insensitive substring search plus optional tag / "only selected" filters. */
+/** Single-tag shorthand of the shared venue filter (see shared/venueFilter for multi-tag / place filters). */
 export function filterRestaurants(restaurants: Restaurant[], filter: RestaurantFilter, selected: ReadonlySet<string>): Restaurant[] {
-  const needle = filter.q.trim().toLowerCase();
-  return restaurants.filter(
-    (r) =>
-      (!filter.tag || r.tags.includes(filter.tag)) &&
-      (!filter.onlySelected || selected.has(r.id)) &&
-      (!needle || restaurantSearchFields(r).some((f) => f.toLowerCase().includes(needle))),
+  return filterVenues(
+    restaurants,
+    { ...emptyVenueFilter(), q: filter.q, tags: filter.tag ? [filter.tag] : [], onlySelected: filter.onlySelected },
+    selected,
   );
 }

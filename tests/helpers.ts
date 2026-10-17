@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Hono } from 'hono';
 import type { AppConfig } from '../server/config.js';
-import { createAppContext, type AppContext } from '../server/context.js';
+import { createAppContext, type AppContext, type ContextOptions } from '../server/context.js';
 import { createHttpApp } from '../server/http/app.js';
 import type { HonoEnv } from '../server/http/types.js';
 import { entryDateSecret, hashScrypt } from '../server/lib/crypto.js';
@@ -148,6 +148,9 @@ export interface TestEnvOptions {
   fetch?: FetchLike;
   /** Runs before the app opens (and migrates) its database — used to seed an older schema. */
   beforeOpen?: (dataDir: string) => void;
+  /** Region lookup default (off unless given) plus its own fake fetch / queue clock. */
+  geocoder?: AppConfig['geocoder'];
+  geo?: ContextOptions['geo'];
 }
 
 export async function createTestEnv(start = '2030-01-15T12:00:00Z', opts: TestEnvOptions = {}): Promise<TestEnv> {
@@ -174,6 +177,7 @@ export async function createTestEnv(start = '2030-01-15T12:00:00Z', opts: TestEn
     cookieSecure: true,
     trustProxy: true,
     webDir,
+    ...(opts.geocoder ? { geocoder: opts.geocoder } : {}),
   };
   if (opts.beforeOpen) {
     fs.mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
@@ -185,6 +189,7 @@ export async function createTestEnv(start = '2030-01-15T12:00:00Z', opts: TestEn
     clock: () => now,
     provider: opts.realBark ? undefined : () => provider,
     fetch: opts.fetch ?? noNetwork,
+    geo: opts.geo,
     log: () => {},
   });
   const publicApp = createHttpApp(ctx, 'public');

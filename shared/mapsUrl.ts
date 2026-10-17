@@ -61,6 +61,10 @@ export interface ParsedMapsLink {
   cidDerived: boolean;
   kgId: string | null;
   place: LatLng | null;
+  /** 'data' = the place's own !3d/!4d point; 'coords' = the link itself is a bare coordinate pair. */
+  placeSource: 'data' | 'coords' | null;
+  /** The segment after /maps/ ('place', 'search', 'dir'…), or null. */
+  pathKind: string | null;
   camera: (LatLng & { zoom: number | null }) | null;
   /** origin + path (+ allowlisted query params); tracking parameters removed. */
   cleanUrl: string;
@@ -155,6 +159,8 @@ export function parseMapsUrl(url: URL): ParsedMapsLink {
     cidDerived: false,
     kgId: null,
     place: null,
+    placeSource: null,
+    pathKind: null,
     camera: null,
     cleanUrl: cleanUrlOf(url),
   };
@@ -162,11 +168,14 @@ export function parseMapsUrl(url: URL): ParsedMapsLink {
   const mapsAt = segments.indexOf('maps');
   const kindSegment = mapsAt >= 0 ? segments[mapsAt + 1] : undefined;
   const nameSegment = mapsAt >= 0 ? segments[mapsAt + 2] : undefined;
+  if (kindSegment && /^[a-z]{1,20}$/.test(kindSegment)) result.pathKind = kindSegment;
   if (nameSegment && !nameSegment.startsWith('@') && !nameSegment.startsWith('data=')) {
     const text = cleanText(nameSegment);
     const coords = COORD_PAIR_RE.exec(text);
-    if (coords) result.place = latLng(Number(coords[1]), Number(coords[2]));
-    else if (text && kindSegment === 'place') [result.name, result.nameSource] = [text, 'place'];
+    if (coords) {
+      result.place = latLng(Number(coords[1]), Number(coords[2]));
+      if (result.place) result.placeSource = 'coords';
+    } else if (text && kindSegment === 'place') [result.name, result.nameSource] = [text, 'place'];
     else if (text && kindSegment === 'search') [result.name, result.nameSource] = [text, 'query'];
   }
   for (const segment of segments) {
@@ -180,7 +189,7 @@ export function parseMapsUrl(url: URL): ParsedMapsLink {
       result.ftid ??= data.ftid;
       result.placeId ??= data.placeId;
       result.kgId ??= data.kgId;
-      result.place = data.place ?? result.place;
+      if (data.place) [result.place, result.placeSource] = [data.place, 'data'];
     }
   }
 
@@ -189,8 +198,12 @@ export function parseMapsUrl(url: URL): ParsedMapsLink {
   if (query) {
     const text = cleanText(query, false);
     const coords = COORD_PAIR_RE.exec(text);
-    if (coords) result.place ??= latLng(Number(coords[1]), Number(coords[2]));
-    else if (text && !result.name) [result.name, result.nameSource] = [text, 'query'];
+    if (coords) {
+      if (!result.place) {
+        result.place = latLng(Number(coords[1]), Number(coords[2]));
+        if (result.place) result.placeSource = 'coords';
+      }
+    } else if (text && !result.name) [result.name, result.nameSource] = [text, 'query'];
   }
   const placeId = params.get('query_place_id');
   if (placeId && PLACE_ID_RE.test(placeId)) result.placeId ??= placeId;

@@ -1,13 +1,18 @@
-import { Globe2, Home, Store, X } from 'lucide-react';
+import { Globe2, X } from 'lucide-react';
 import { MEAL_SUGGESTIONS, LIMITS } from '../../../../shared/constants';
 import { resolveLocalDateTime, TIME_ERROR_MESSAGES } from '../../../../shared/time';
-import type { PlanMode } from '../../../../shared/types';
+import { OUTING_CHOICE_LABEL, outingKind, TREAT_SUGGESTIONS, type OutingKind } from '../../../../shared/venue';
+import { OUTING_ICON } from '../../components/OutingIcon';
 import { viewerTimeZone, type Draft } from '../../lib/drafts';
+
+const OUTING_KINDS: OutingKind[] = ['home', 'restaurant', 'treat'];
 
 interface Props {
   draft: Draft;
   today: string;
   onChange: (patch: Partial<Draft>) => void;
+  /** Switching outing may need a confirmation (dropping venues that do not fit), so the page decides. */
+  onOutingChange: (kind: OutingKind) => void;
   errors: Partial<Record<'date' | 'mealLabel' | 'localTime', string>>;
 }
 
@@ -23,14 +28,12 @@ export function timeIsAmbiguous(draft: Draft): boolean {
   return r.ok && r.ambiguous;
 }
 
-export function MealMetaForm({ draft, today, onChange, errors }: Props) {
+export function MealMetaForm({ draft, today, onChange, onOutingChange, errors }: Props) {
   const viewerZone = viewerTimeZone();
   const zoneDiffers = draft.timeZone !== viewerZone;
   const timeError = errors.localTime ?? timeProblem(draft);
-  const modes: { value: PlanMode; label: string; Icon: typeof Home }[] = [
-    { value: 'home', label: '在家吃', Icon: Home },
-    { value: 'restaurant', label: '去餐厅', Icon: Store },
-  ];
+  const outing = outingKind(draft);
+  const suggestions = outing === 'treat' ? TREAT_SUGGESTIONS : MEAL_SUGGESTIONS;
 
   return (
     <div className="meta-form">
@@ -71,7 +74,7 @@ export function MealMetaForm({ draft, today, onChange, errors }: Props) {
           aria-describedby={errors.mealLabel ? 'meal-label-err' : undefined}
         />
         <div className="chip-row" role="group" aria-label="快速选择">
-          {MEAL_SUGGESTIONS.map((s) => (
+          {suggestions.map((s) => (
             <button
               key={s}
               type="button"
@@ -135,24 +138,22 @@ export function MealMetaForm({ draft, today, onChange, errors }: Props) {
       )}
 
       <fieldset className="field">
-        <legend className="field-label">怎么吃</legend>
-        <div className="segmented">
-          {modes.map(({ value, label, Icon }) => (
-            <label key={value} className="segmented-option">
-              <input
-                type="radio"
-                name="meal-mode"
-                value={value}
-                checked={draft.mode === value}
-                onChange={() => onChange({ mode: value })}
-              />
-              <span>
-                <Icon aria-hidden="true" />
-                {label}
-              </span>
-            </label>
-          ))}
+        <legend className="field-label">安排什么</legend>
+        <div className="segmented segmented-3">
+          {OUTING_KINDS.map((kind) => {
+            const Icon = OUTING_ICON[kind];
+            return (
+              <label key={kind} className="segmented-option">
+                <input type="radio" name="meal-mode" value={kind} checked={outing === kind} onChange={() => onOutingChange(kind)} />
+                <span>
+                  <Icon aria-hidden="true" />
+                  {OUTING_CHOICE_LABEL[kind]}
+                </span>
+              </label>
+            );
+          })}
         </div>
+        {outing === 'treat' && <p className="muted small">只显示标记为「饮品甜品」的店，比如奶茶、咖啡、甜品、蛋糕、面包店。</p>}
       </fieldset>
     </div>
   );

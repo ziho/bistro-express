@@ -5,7 +5,8 @@ import { Loading } from '../../components/Loading';
 import { Sheet } from '../../components/Sheet';
 import { rowGroup } from '../../lib/bulkQueue';
 import { BulkRowCard } from './BulkRowCard';
-import { BatchTags, PasteBox, QueueToolbar, type RowFilter } from './BulkControls';
+import { BatchLocation, BatchTags, PasteBox, QueueToolbar, type RowFilter } from './BulkControls';
+import { venueLocationOptions } from '../../lib/venueForm';
 import { useBulkImport, type BulkImport, type CommitOutcome } from './useBulkImport';
 
 function Outcome({ outcome }: { outcome: CommitOutcome }) {
@@ -67,21 +68,31 @@ export function BulkImportPage() {
   const suggestions = useMemo(() => [...new Set((bulk.restaurants.data ?? []).flatMap((r) => r.tags))].sort(), [bulk.restaurants.data]);
   const visible = state.rows.filter((r) => matchesFilter(filter, rowGroup(r, info.get(r.id))));
   const lockedIds = new Set(state.pendingCommit?.rowIds ?? []);
+  const locationOptions = useMemo(() => venueLocationOptions(bulk.restaurants.data ?? []), [bulk.restaurants.data]);
   const actions = useMemo(
-    () => ({ edit: bulk.edit, retry: bulk.retry, setManual: bulk.setManual, toggle: bulk.toggle, remove: bulk.remove }),
-    [bulk.edit, bulk.retry, bulk.setManual, bulk.toggle, bulk.remove],
+    () => ({
+      edit: bulk.edit,
+      retry: bulk.retry,
+      setManual: bulk.setManual,
+      toggle: bulk.toggle,
+      remove: bulk.remove,
+      editLocation: bulk.editLocation,
+      setPurposes: bulk.setPurposes,
+      retryGeo: bulk.retryGeo,
+    }),
+    [bulk.edit, bulk.retry, bulk.setManual, bulk.toggle, bulk.remove, bulk.editLocation, bulk.setPurposes, bulk.retryGeo],
   );
 
   return (
     <div className="admin-page bulk-page">
       <Link to="/admin/restaurants" className="back-link">
-        <ArrowLeft aria-hidden="true" /> 返回餐厅
+        <ArrowLeft aria-hidden="true" /> 返回店铺
       </Link>
       <div className="admin-page-head">
         <div>
-          <h1>批量导入餐厅</h1>
+          <h1>批量导入店铺</h1>
           <p className="muted small">
-            粘贴 Google 地图链接，自动识别店名，核对、补标签后一次导入。只需要店名和地图链接，其他信息之后在餐厅编辑里补充。
+            粘贴 Google 地图链接，自动识别店名（和尽量识别地区），核对、补标签、地区和用途后一次导入。只需要店名和地图链接，其他信息之后在店铺编辑里补充。
           </p>
         </div>
       </div>
@@ -116,8 +127,13 @@ export function BulkImportPage() {
             onSelectAll={bulk.selectAll}
             onClearImported={bulk.clearImported}
             onClearAll={() => setConfirmClear(true)}
+            withGeo={bulk.withGeo}
+            onWithGeo={bulk.setWithGeo}
+            geoFailed={bulk.geoFailed}
+            onRetryFailedGeo={bulk.retryFailedGeo}
           />
           <BatchTags selected={bulk.counts.selected} suggestions={suggestions} onApply={bulk.addBatchTags} />
+          <BatchLocation selected={bulk.counts.selected} options={locationOptions} onFill={bulk.fillLocation} onPurposes={bulk.fillPurposes} />
           {bulk.outcome && <Outcome outcome={bulk.outcome} />}
           <ul className="bulk-rows" aria-label="导入队列">
             {visible.map((row) => (

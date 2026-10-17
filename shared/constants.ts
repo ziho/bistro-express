@@ -91,6 +91,28 @@ export const BULK_IMPORT = {
   requestBytes: 1024 * 1024,
 } as const;
 
+/**
+ * Optional region lookup (地区识别) through a Nominatim-compatible reverse geocoder. The public
+ * OpenStreetMap service is used only as its usage policy allows: user-triggered, admin-only, at
+ * most one request per second across the whole app, identified, cached and attributed.
+ */
+export const GEO = {
+  defaultBaseUrl: 'https://nominatim.openstreetmap.org',
+  policyUrl: 'https://operations.osmfoundation.org/policies/nominatim/',
+  /** Minimum time between the starts of two requests (one shared queue for every listener). */
+  minIntervalMs: 1100,
+  timeoutMs: 10_000,
+  maxResponseBytes: 64 * 1024,
+  /** Requests waiting in the queue (beyond this the lookup answers "busy, try later"). */
+  maxPending: 20,
+  /** Successful answers (including "nothing here") are reused for this long, also across restarts. */
+  cacheDays: 90,
+  /** City-level detail; coordinates are rounded to 5 decimals (~1 m) for the cache key. */
+  zoom: 10,
+  language: 'en',
+  baseUrlMax: 300,
+} as const;
+
 /** Link previews per 10 minutes: one 100-row batch plus retries, still bounded. */
 export const MAP_LINK_RATE_LIMIT = 150;
 

@@ -2,6 +2,7 @@ import { CALENDAR_EVENT_MINUTES } from './constants.js';
 import { isSafeExternalUrl } from './restaurant.js';
 import { addDays, isPastDate, isValidDateString } from './time.js';
 import type { Plan } from './types.js';
+import { formatLocation, OUTING_LABEL, outingKind } from './venue.js';
 
 /**
  * One saved meal as a calendar event, shared by the Google Calendar link (browser) and the .ics
@@ -30,6 +31,7 @@ export type CalendarPlan = Pick<
   | 'instant'
   | 'mode'
   | 'note'
+  | 'purpose'
   | 'dishes'
   | 'selectedRestaurant'
   | 'updatedAt'
@@ -92,8 +94,9 @@ function timingOf(plan: CalendarPlan): CalendarTiming {
 }
 
 function titleOf(plan: CalendarPlan): string {
-  const where = plan.mode === 'home' ? '在家吃' : oneLine(plan.selectedRestaurant?.name ?? '') || '去餐厅';
-  return `${oneLine(plan.mealLabel) || '用餐'} · ${where}`;
+  const kind = outingKind(plan);
+  const where = kind === 'home' ? '在家吃' : oneLine(plan.selectedRestaurant?.name ?? '') || OUTING_LABEL[kind];
+  return `${oneLine(plan.mealLabel) || (kind === 'treat' ? OUTING_LABEL.treat : '用餐')} · ${where}`;
 }
 
 function locationOf(plan: CalendarPlan): string {
@@ -109,7 +112,9 @@ function descriptionOf(plan: CalendarPlan, planUrl: string): string {
     lines.push(`在家吃：${names.join('、') || '（未选菜）'}`);
   } else {
     const r = plan.selectedRestaurant;
-    lines.push(`餐厅：${oneLine(r?.name ?? '') || '（未定）'}`);
+    lines.push(`${outingKind(plan) === 'treat' ? '饮品甜品' : '餐厅'}：${oneLine(r?.name ?? '') || '（未定）'}`);
+    const where = oneLine(formatLocation(r?.location));
+    if (where) lines.push(`地区：${where}`);
     if (r?.address) lines.push(`地址：${oneLine(r.address)}`);
     if (r?.mapUrl && isSafeExternalUrl(r.mapUrl)) lines.push(`地图：${r.mapUrl}`);
   }

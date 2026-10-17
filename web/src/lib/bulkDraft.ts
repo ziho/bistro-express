@@ -1,6 +1,8 @@
 import { BULK_IMPORT, LIMITS, MAP_LINK_INPUT_MAX } from '../../../shared/constants';
-import type { RestaurantDuplicate } from '../../../shared/types';
-import type { CommitIssue, PendingCommit, QueueRow, QueueState, RowPreview, RowStatus } from './bulkQueue';
+import type { RestaurantDuplicate, VenuePurpose } from '../../../shared/types';
+import { isCountryCode, normalizePurposes, VENUE_PURPOSES } from '../../../shared/venue';
+import { idleGeo, type CommitIssue, type GeoStatus, type PendingCommit, type QueueRow, type QueueState, type RowGeo, type RowPreview, type RowStatus } from './bulkQueue';
+import { LOCATION_FIELDS, toLocationForm, type LocationFormState } from './venueForm';
 
 /**
  * The bulk-import queue survives reloads in *this tab only* (sessionStorage): nothing is sent to
@@ -8,7 +10,12 @@ import type { CommitIssue, PendingCommit, QueueRow, QueueState, RowPreview, RowS
  * are checked, and anything unexpected discards the draft instead of half-loading it.
  */
 export const BULK_DRAFT_KEY = 'bx:bulk-import';
-export const BULK_DRAFT_VERSION = 1;
+/**
+ * 2 = rows carry location, purposes and region-lookup state. Version 1 drafts are still read: their
+ * rows get an unknown location and ['meal'], and an unanswered batch keeps its exact body and key.
+ */
+export const BULK_DRAFT_VERSION = 2;
+const READABLE_VERSIONS = new Set([1, 2]);
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const KEY_RE = /^[A-Za-z0-9_-]{8,100}$/;
@@ -58,6 +65,10 @@ function readRow(v: unknown): QueueRow | null {
   if (!(imp === null || (isObj(imp) && str(imp.id, 64) && str(imp.name, 4 * LIMITS.name)))) return null;
   const imported = imp === null ? null : { id: imp.id as string, name: imp.name as string };
   if ((v.status === 'imported') !== (imported !== null)) return null;
+  const location = readLocation(v.location);
+  const purposes = readPurposes(v.purposes);
+  const geo = readGeo(v.geo);
+  if (!location || !purposes || !geo) return null;
   return {
     id: v.id,
     line: v.line as string,
@@ -65,6 +76,9 @@ function readRow(v: unknown): QueueRow | null {
     name: v.name as string,
     mapUrl: v.mapUrl as string,
     tags: v.tags as string,
+    location,
+    purposes,
+    geo,
     autofilled: { ...(auto.name !== undefined && { name: auto.name as string }), ...(auto.mapUrl !== undefined && { mapUrl: auto.mapUrl as string }) },
     // A preview cut off by the reload is simply waiting again.
     status: v.status === 'resolving' ? 'queued' : (v.status as RowStatus),
@@ -75,6 +89,39 @@ function readRow(v: unknown): QueueRow | null {
     commit,
     imported,
   };
+}
+
+const GEO_STATUSES: GeoStatus[] = ['idle', 'queued', 'pending', 'suggested', 'no_point', 'not_found', 'unavailable', 'disabled'];
+
+/** Undefined = malformed. */
+function readLocation(v: unknown): LocationFormState | undefined {
+  if (v === undefined) return toLocationForm(null);
+  if (!isObj(v) || !isObj(v.values) || !isObj(v.autofilled) || !isObj(v.codes)) return undefined;
+  const values = v.values;
+  const auto = v.autofilled;
+  if (!LOCATION_FIELDS.every((f) => str(values[f], 400) && optStr(auto[f], 400))) return undefined;
+  const codes = Object.entries(v.codes);
+  if (codes.length > 20 || !codes.every(([k, c]) => k.length <= 400 && typeof c === 'string' && isCountryCode(c))) return undefined;
+  return {
+    values: { country: values.country as string, region: values.region as string, city: values.city as string },
+    autofilled: Object.fromEntries(LOCATION_FIELDS.flatMap((f) => (auto[f] === undefined ? [] : [[f, auto[f] as string]]))),
+    codes: Object.fromEntries(codes) as Record<string, string>,
+  };
+}
+
+function readPurposes(v: unknown): VenuePurpose[] | undefined {
+  if (v === undefined) return ['meal'];
+  if (!Array.isArray(v) || v.length > 4 || !v.every((p) => VENUE_PURPOSES.includes(p as VenuePurpose))) return undefined;
+  return normalizePurposes(v);
+}
+
+function readGeo(v: unknown): RowGeo | undefined {
+  if (v === undefined) return idleGeo();
+  if (!isObj(v) || !GEO_STATUSES.includes(v.status as GeoStatus)) return undefined;
+  if (!(v.message === null || str(v.message, 500)) || !(v.url === null || str(v.url))) return undefined;
+  // A lookup cut off by the reload waits again (it only runs when the admin continues).
+  const status = v.status === 'pending' ? 'queued' : (v.status as GeoStatus);
+  return { status, message: v.message as string | null, url: v.url as string | null };
 }
 
 function readPending(v: unknown, ids: Set<string>): PendingCommit | null | undefined {
@@ -94,7 +141,7 @@ export function parseBulkDraft(raw: string | null): QueueState | null {
   } catch {
     return null;
   }
-  if (!isObj(value) || value.version !== BULK_DRAFT_VERSION || !Array.isArray(value.rows)) return null;
+  if (!isObj(value) || !READABLE_VERSIONS.has(value.version as number) || !Array.isArray(value.rows)) return null;
   if (value.rows.length > BULK_IMPORT.maxQueue) return null;
   const rows = value.rows.map(readRow);
   if (!rows.every(Boolean)) return null;

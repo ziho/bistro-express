@@ -3,7 +3,8 @@ import { bodyLimit } from 'hono/body-limit';
 import { LIMITS } from '../../../shared/constants.js';
 import { badRequest, conflict, HttpError, notFound } from '../../lib/errors.js';
 import { parseDishCreate, parseDishUpdate } from '../../lib/dishValidation.js';
-import { parseWith, restaurantInputSchema, UUID_RE } from '../../lib/validation.js';
+import { parseRestaurantCreate, parseRestaurantUpdate } from '../../lib/restaurantValidation.js';
+import { UUID_RE } from '../../lib/validation.js';
 import { processUpload } from '../../media/process.js';
 import { ok, readJson, requireAdminListener } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
@@ -74,7 +75,7 @@ function catalogRoutes() {
   r.get('/restaurants', (c) => ok(c, c.get('app').repos.catalog.listRestaurants(false)));
 
   r.post('/restaurants', async (c) => {
-    const input = parseWith(restaurantInputSchema, (await readJson(c)).value);
+    const input = parseRestaurantCreate((await readJson(c)).value);
     ensureImage(c, input.imageAssetId);
     const app = c.get('app');
     return ok(c, app.repos.catalog.createRestaurant(input, app.clock()), 201);
@@ -82,9 +83,13 @@ function catalogRoutes() {
 
   r.put('/restaurants/:id', async (c) => {
     const id = itemId(c);
-    const input = parseWith(restaurantInputSchema, (await readJson(c)).value);
-    ensureImage(c, input.imageAssetId);
     const app = c.get('app');
+    const { value } = await readJson(c);
+    // Location and purposes an older page omits keep their stored values.
+    const stored = app.repos.catalog.getRestaurant(id);
+    if (!stored) throw notFound('这家餐厅不存在');
+    const input = parseRestaurantUpdate(value, stored);
+    ensureImage(c, input.imageAssetId);
     const restaurant = app.repos.catalog.updateRestaurant(id, input, app.clock());
     if (!restaurant) throw notFound('这家餐厅不存在');
     return ok(c, restaurant);

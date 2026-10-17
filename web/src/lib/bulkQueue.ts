@@ -3,13 +3,26 @@ import { findLinkDuplicates, linkKeys } from '../../../shared/mapsKeys';
 import { classifyMapsUrl, extractLink, parseMapsUrl } from '../../../shared/mapsUrl';
 import { splitTags } from '../../../shared/restaurant';
 import type {
+  GeoOutcome,
   MapLinkPreview,
   Restaurant,
   RestaurantDuplicate,
   RestaurantImportResponse,
   RestaurantImportRow,
+  VenuePurpose,
 } from '../../../shared/types';
+import { normalizeLocationText, normalizePurposes } from '../../../shared/venue';
 import { mergeImport } from './mapImport';
+import {
+  applySuggestion,
+  editLocation as editLocationField,
+  locationPayload,
+  locationProblems,
+  toLocationForm,
+  LOCATION_FIELDS,
+  type LocationField,
+  type LocationFormState,
+} from './venueForm';
 
 /**
  * Pure state helpers of the admin bulk importer (批量导入). Every function returns new objects;
@@ -32,6 +45,21 @@ export type CommitIssue =
   | { kind: 'error'; message: string }
   | { kind: 'duplicate'; message: string; duplicates: RestaurantDuplicate[] };
 
+/**
+ * Region lookup of one row, kept apart from the link status: a region that cannot be found never
+ * makes the link itself fail. `url` is the link the lookup belongs to; a result for any other
+ * link (the admin changed it meanwhile) is ignored.
+ */
+export type GeoStatus = 'idle' | 'queued' | 'pending' | 'suggested' | 'no_point' | 'not_found' | 'unavailable' | 'disabled';
+
+export interface RowGeo {
+  status: GeoStatus;
+  message: string | null;
+  url: string | null;
+}
+
+export const idleGeo = (): RowGeo => ({ status: 'idle', message: null, url: null });
+
 export interface QueueRow {
   /** Stable client id, also the import request's clientId. */
   id: string;
@@ -41,6 +69,11 @@ export interface QueueRow {
   name: string;
   mapUrl: string;
   tags: string;
+  /** Optional country / region / city (with what the lookup filled in, to keep manual values). */
+  location: LocationFormState;
+  /** At least one; new rows start as ['meal']. */
+  purposes: VenuePurpose[];
+  geo: RowGeo;
   /** Values the importer wrote, so a retry only replaces fields the admin has not touched. */
   autofilled: { name?: string; mapUrl?: string };
   status: RowStatus;
@@ -90,6 +123,9 @@ export function newRow(line: string, id: string): QueueRow {
     name: '',
     mapUrl: '',
     tags: '',
+    location: toLocationForm(null),
+    purposes: ['meal'],
+    geo: idleGeo(),
     autofilled: {},
     status: problem ? 'failed' : 'queued',
     error: problem,
@@ -141,16 +177,26 @@ export function parsePaste(text: string, current: QueueRow[], makeId: () => stri
 export type RowEdit = Partial<Pick<QueueRow, 'name' | 'mapUrl' | 'tags' | 'sourceUrl'>>;
 
 /** Admin edits. A changed source link needs a new preview; any edit clears the last import verdict. */
+/** A new place: region values the lookup filled in for the old link go; typed ones stay. */
+function dropAutoLocation(location: LocationFormState): LocationFormState {
+  const values = { ...location.values };
+  for (const f of LOCATION_FIELDS) if (location.autofilled[f] !== undefined && values[f] === location.autofilled[f]) values[f] = '';
+  return { ...location, values, autofilled: {} };
+}
+
 export function editRow(row: QueueRow, edit: RowEdit): QueueRow {
   if (row.status === 'imported') return row;
   const next: QueueRow = { ...row, ...edit, commit: null };
   if (edit.sourceUrl !== undefined && edit.sourceUrl !== row.sourceUrl) {
-    // Changing the source chooses a new place: discard its old destination and untouched auto-name.
+    // Changing the source chooses a new place: discard its old destination, untouched auto-name and
+    // auto-region, and any region lookup still on its way for the old link.
     return {
       ...next,
       mapUrl: edit.mapUrl ?? '',
       name: edit.name ?? (row.name === row.autofilled.name ? '' : row.name),
       autofilled: {},
+      location: dropAutoLocation(row.location),
+      geo: idleGeo(),
       status: 'edited',
       error: null,
       preview: null,
@@ -159,9 +205,79 @@ export function editRow(row: QueueRow, edit: RowEdit): QueueRow {
   }
   if (edit.mapUrl !== undefined && edit.mapUrl !== row.mapUrl) {
     // A manually changed destination must be checked on its own; old source/preview keys cannot follow it.
-    return { ...next, sourceUrl: edit.mapUrl.trim(), status: 'edited', error: null, preview: null, manual: false };
+    return {
+      ...next,
+      sourceUrl: edit.mapUrl.trim(),
+      location: dropAutoLocation(row.location),
+      geo: idleGeo(),
+      status: 'edited',
+      error: null,
+      preview: null,
+      manual: false,
+    };
   }
   return next;
+}
+
+/** Typing in a region field of one row. */
+export function editRowLocation(row: QueueRow, field: LocationField, value: string): QueueRow {
+  if (row.status === 'imported') return row;
+  return { ...row, location: editLocationField(row.location, field, value), commit: null };
+}
+
+export function setRowPurposes(row: QueueRow, purposes: VenuePurpose[]): QueueRow {
+  if (row.status === 'imported') return row;
+  return { ...row, purposes: normalizePurposes(purposes), commit: null };
+}
+
+// ---------- Region lookup ----------
+
+/** The link a region lookup uses: the expanded Google link (no new short-link request), else the map link. */
+export function geoUrlOf(row: QueueRow): string | null {
+  const url = row.preview?.resolvedUrl || row.mapUrl.trim();
+  return url || null;
+}
+
+/** Merges a lookup result; only fills empty or still-auto fields (manual values are never replaced). */
+export function withGeoOutcome(row: QueueRow, url: string, outcome: GeoOutcome): QueueRow {
+  if (outcome.status !== 'suggested') return { ...row, geo: { status: outcome.status, message: outcome.message, url } };
+  const merged = applySuggestion(row.location, outcome.suggestion);
+  const kept = merged.conflicts.map((c) => c.field);
+  const message = kept.length ? `已保留你填写的${kept.length} 项；建议：${merged.conflicts.map((c) => c.incoming).join(' / ')}` : null;
+  return { ...row, location: merged.state, geo: { status: 'suggested', message, url } };
+}
+
+/** Rows whose region may be looked up (again) by hand: the link is known and nothing is running. */
+export function canRetryGeo(row: QueueRow): boolean {
+  if (row.status === 'imported' || row.geo.status === 'queued' || row.geo.status === 'pending') return false;
+  return (row.status === 'resolved' || row.manual) && geoUrlOf(row) !== null;
+}
+
+export const isGeoFailed = (row: QueueRow) => row.geo.status === 'unavailable' && canRetryGeo(row);
+
+export function queueGeo(row: QueueRow): QueueRow {
+  if (!canRetryGeo(row)) return row;
+  return { ...row, geo: { status: 'queued', message: null, url: geoUrlOf(row) } };
+}
+
+export function markGeoPending(row: QueueRow): QueueRow {
+  return row.geo.status === 'queued' ? { ...row, geo: { ...row.geo, status: 'pending' } } : row;
+}
+
+/** A lookup answer arrived: applied only if the row still waits for exactly this link. */
+export function applyGeo(row: QueueRow, sent: string, outcome: GeoOutcome): QueueRow {
+  if (row.status === 'imported' || row.geo.status !== 'pending' || row.geo.url !== sent || geoUrlOf(row) !== sent) return row;
+  return withGeoOutcome(row, sent, outcome);
+}
+
+/** The lookup request itself failed (network, 429…): the row can be retried by hand. */
+export function failGeo(row: QueueRow, sent: string, message: string, requeue = false): QueueRow {
+  if (row.geo.status !== 'pending' || row.geo.url !== sent) return row;
+  return { ...row, geo: requeue ? { ...row.geo, status: 'queued' } : { status: 'unavailable', message, url: sent } };
+}
+
+export function nextGeo(state: QueueState, busy: Set<string>): QueueRow | null {
+  return state.rows.find((r) => r.geo.status === 'queued' && !busy.has(`geo:${r.id}`) && !isLocked(state, r.id)) ?? null;
 }
 
 export function retryRow(row: QueueRow): QueueRow {
@@ -183,7 +299,7 @@ export function markResolving(row: QueueRow): QueueRow {
 export function applyPreview(row: QueueRow, sent: string, preview: MapLinkPreview): QueueRow {
   if (row.status !== 'resolving' || row.sourceUrl !== sent) return row;
   const merged = mergeImport({ name: row.name, mapUrl: row.mapUrl }, row.autofilled, { name: preview.name, mapUrl: preview.mapUrl });
-  return {
+  const resolved: QueueRow = {
     ...row,
     ...merged.updates,
     autofilled: merged.autofilled,
@@ -198,6 +314,8 @@ export function applyPreview(row: QueueRow, sent: string, preview: MapLinkPrevie
       hasPlace: preview.place !== null,
     },
   };
+  // A region that came with the preview belongs to the expanded link.
+  return preview.geo ? withGeoOutcome(resolved, preview.resolvedUrl, preview.geo) : resolved;
 }
 
 export function applyFailure(row: QueueRow, sent: string, message: string): QueueRow {
@@ -221,7 +339,7 @@ export function setManual(row: QueueRow, manual: boolean): QueueRow {
 // ---------- Derived facts ----------
 
 export interface RowProblem {
-  field: 'name' | 'mapUrl' | 'tags';
+  field: 'name' | 'mapUrl' | 'tags' | 'purposes' | LocationField;
   message: string;
 }
 
@@ -262,6 +380,10 @@ export function rowProblems(row: QueueRow): RowProblem[] {
     problems.push({ field: 'mapUrl', message: `地图链接不能超过 ${LIMITS.url} 个字符` });
   }
   for (const message of tagProblems(splitTags(row.tags))) problems.push({ field: 'tags', message });
+  for (const [field, message] of Object.entries(locationProblems(row.location))) {
+    problems.push({ field: field as LocationField, message });
+  }
+  if (row.purposes.length === 0) problems.push({ field: 'purposes', message: '请至少选择一种用途' });
   return problems;
 }
 
@@ -305,6 +427,8 @@ export function analyzeQueue(state: QueueState, restaurants: Restaurant[] | null
     const importable =
       restaurants !== null &&
       ready &&
+      row.geo.status !== 'queued' &&
+      row.geo.status !== 'pending' &&
       !isLocked(state, row.id) &&
       problems.length === 0 &&
       existing.length === 0 &&
@@ -336,7 +460,7 @@ const isDuplicate = (row: QueueRow, i: RowInfo | undefined) =>
 export function rowGroup(row: QueueRow, i: RowInfo | undefined): RowGroup {
   if (row.status === 'imported') return 'imported';
   if (isDuplicate(row, i)) return 'duplicate';
-  if (row.status === 'queued' || row.status === 'resolving') return 'waiting';
+  if (row.status === 'queued' || row.status === 'resolving' || row.geo.status === 'queued' || row.geo.status === 'pending') return 'waiting';
   if (i?.importable) return 'importable';
   if (isRetryable(row) || row.commit?.kind === 'error' || (row.status === 'resolved' && !!i?.problems.length)) return 'attention';
   return 'other';
@@ -406,6 +530,60 @@ export function addTagsToSelected(rows: QueueRow[], info: Map<string, RowInfo>, 
   return { ok: true, rows: next, applied, skipped };
 }
 
+export type BatchFillResult = { ok: true; rows: QueueRow[]; applied: number; unchanged: number } | { ok: false; error: string };
+
+/**
+ * Fills country / region / city of the selected importable rows. 'empty' only writes fields that are
+ * still empty; 'replace' (an explicit action) overwrites them. Blank inputs are never written.
+ */
+export function fillLocationSelected(
+  rows: QueueRow[],
+  info: Map<string, RowInfo>,
+  values: Partial<Record<LocationField, string>>,
+  mode: 'empty' | 'replace',
+): BatchFillResult {
+  const incoming = LOCATION_FIELDS.flatMap((f) => {
+    const v = normalizeLocationText(values[f] ?? '');
+    return v ? [[f, v] as const] : [];
+  });
+  if (incoming.length === 0) return { ok: false, error: '请先填写要批量填入的国家、省/州或城市' };
+  let applied = 0;
+  let unchanged = 0;
+  let touched = 0;
+  const next = rows.map((r) => {
+    if (!info.get(r.id)?.selected) return r;
+    touched += 1;
+    let location = r.location;
+    for (const [f, v] of incoming) {
+      if (mode === 'empty' && normalizeLocationText(location.values[f])) continue;
+      if (location.values[f] === v) continue;
+      location = editLocationField(location, f, v);
+    }
+    if (location === r.location) {
+      unchanged += 1;
+      return r;
+    }
+    applied += 1;
+    return { ...r, location, commit: null };
+  });
+  if (touched === 0) return { ok: false, error: '还没有选中可导入的行' };
+  return { ok: true, rows: next, applied, unchanged };
+}
+
+/** Sets the purposes of the selected importable rows (always an explicit replacement). */
+export function setPurposesSelected(rows: QueueRow[], info: Map<string, RowInfo>, purposes: VenuePurpose[]): BatchFillResult {
+  const list = normalizePurposes(purposes);
+  if (list.length === 0) return { ok: false, error: '请至少选择一种用途' };
+  let applied = 0;
+  const next = rows.map((r) => {
+    if (!info.get(r.id)?.selected) return r;
+    applied += 1;
+    return setRowPurposes(r, list);
+  });
+  if (applied === 0) return { ok: false, error: '还没有选中可导入的行' };
+  return { ok: true, rows: next, applied, unchanged: 0 };
+}
+
 // ---------- Commit ----------
 
 export function commitRows(state: QueueState, info: Map<string, RowInfo>): RestaurantImportRow[] {
@@ -418,6 +596,8 @@ export function commitRows(state: QueueState, info: Map<string, RowInfo>): Resta
       mapUrl: r.mapUrl.trim(),
       sourceUrl: r.sourceUrl || null,
       tags: splitTags(r.tags),
+      location: locationPayload(r.location),
+      purposes: r.purposes,
     }));
 }
 

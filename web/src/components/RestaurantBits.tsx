@@ -1,7 +1,8 @@
 import { ArrowUpRight, ExternalLink, MapPin } from 'lucide-react';
 import { CARD_QUICK_LINKS } from '../../../shared/constants';
 import { restaurantLinks, type LinkAction } from '../../../shared/restaurant';
-import type { RestaurantLink } from '../../../shared/types';
+import type { RestaurantLink, VenueLocation, VenuePurpose } from '../../../shared/types';
+import { formatLocation, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL, PURPOSE_LABEL } from '../../../shared/venue';
 
 /** Read-only tag chips (分类标签). Renders nothing when there are no tags. */
 export function TagList({ tags, className }: { tags: string[]; className?: string }) {
@@ -94,6 +95,47 @@ export function RestaurantLinkRows({ links, name }: { links: RestaurantLink[]; n
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Concise 「加拿大 · British Columbia · Burnaby」 line. When the values came from the OpenStreetMap
+ * lookup, the required attribution is shown with it. Renders nothing for an unknown location.
+ */
+export function LocationLine({ location, className = '' }: { location: VenueLocation; className?: string }) {
+  const text = formatLocation(location);
+  if (!text) return null;
+  return (
+    <p className={`location-line ${className}`}>
+      <MapPin aria-hidden="true" />
+      <span>
+        <span className="sr-only">地区：</span>
+        {text}
+        {location.source === 'osm' && <OsmAttribution />}
+      </span>
+    </p>
+  );
+}
+
+export function OsmAttribution() {
+  return (
+    <a className="osm-attribution" href={OSM_COPYRIGHT_URL} {...NEW_WINDOW}>
+      {OSM_ATTRIBUTION}
+    </a>
+  );
+}
+
+/** 吃饭 / 饮品甜品 labels of a venue. */
+export function PurposeBadges({ purposes }: { purposes: VenuePurpose[] }) {
+  return (
+    <span className="purpose-badges">
+      <span className="sr-only">用途：</span>
+      {purposes.map((p) => (
+        <span key={p} className={`badge badge-purpose-${p}`}>
+          {PURPOSE_LABEL[p]}
+        </span>
+      ))}
+    </span>
   );
 }
 

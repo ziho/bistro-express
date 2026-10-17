@@ -80,7 +80,7 @@ describe('migration 5: dish details', () => {
   it('adds empty detail columns and copies each non-blank category as exactly one section', async () => {
     env = await createTestEnv(undefined, { beforeOpen: seedV4 });
     const versions = env.ctx.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
+    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
 
     const raw = new Map(rawDishes(env).map((r) => [r.id, r]));
     expect(raw.get(ID.home)).toEqual({

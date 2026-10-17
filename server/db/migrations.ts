@@ -128,6 +128,33 @@ export function migrateDishDetails(db: Database.Database): void {
 }
 
 /**
+ * Worldwide location and purpose of venues, purpose of plans, and the region lookup cache.
+ * Additive only: no table is rebuilt (the plans.mode CHECK stays as it is), no timestamp, tag,
+ * note or plan snapshot is touched. Existing venues become meal venues with an unknown location
+ * (nothing is inferred from names, tags or addresses); existing plans are meals.
+ * Safe to run more than once: columns are only added when missing.
+ */
+export function migrateVenueLocationPurpose(db: Database.Database): void {
+  addColumnIfMissing(db, 'restaurants', 'country', `TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing(db, 'restaurants', 'country_code', `TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing(db, 'restaurants', 'region', `TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing(db, 'restaurants', 'city', `TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing(db, 'restaurants', 'location_source', `TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing(db, 'restaurants', 'purposes_json', `TEXT NOT NULL DEFAULT '["meal"]'`);
+  addColumnIfMissing(db, 'plans', 'purpose', `TEXT NOT NULL DEFAULT 'meal'`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS geo_cache (
+      key TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS geo_cache_expires ON geo_cache(expires_at);
+  `);
+}
+
+/**
  * Append-only list. Never edit a migration that has shipped — add a new one.
  * Each migration runs inside its own transaction at startup.
  */
@@ -314,6 +341,12 @@ const MIGRATIONS: Migration[] = [
         updated_at TEXT NOT NULL
       );
     `,
+  },
+  {
+    version: 7,
+    name: 'venue location, meal/treat purposes, plan purpose and region lookup cache',
+    sql: '',
+    up: migrateVenueLocationPurpose,
   },
 ];
 

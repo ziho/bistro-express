@@ -7,6 +7,7 @@ import { Loading } from '../components/Loading';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { BarkDeviceForm, type DevicePayload } from './BarkDeviceForm';
+import { GeoSettingsCard } from './GeoSettingsCard';
 
 const QUERY_KEY = ['admin', 'bark'];
 const DEVICES = '/admin/settings/bark/devices';
@@ -204,6 +205,8 @@ export function BarkSettingsPage() {
         </div>
         <TestResultView state={testState} />
       </section>
+
+      <GeoSettingsCard />
 
       <Sheet
         open={editing !== null}

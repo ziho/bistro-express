@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { BASE_PATH } from '../shared/constants.js';
+import { BASE_PATH, GEO } from '../shared/constants.js';
 
 export interface AppConfig {
   publicBaseUrl: string;
@@ -15,6 +15,11 @@ export interface AppConfig {
   trustProxy: boolean;
   /** Directory with the built SPA (index.html, assets). */
   webDir: string;
+  /**
+   * Default of the admin-only region lookup (地区识别) until settings are saved in the app.
+   * Omitted = off (tests and hand-built configs never reach an external service by accident).
+   */
+  geocoder?: { enabled: boolean; baseUrl: string };
 }
 
 export class ConfigError extends Error {}
@@ -76,6 +81,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cookieSecure,
     trustProxy: env.TRUST_PROXY !== 'false',
     webDir: path.resolve(env.WEB_DIR ?? './dist/web'),
+    // Accepted choice: the public OpenStreetMap Nominatim service, used within its usage policy.
+    // It can be switched off or pointed elsewhere in 推送设置 → 地区识别 without a code change.
+    geocoder: { enabled: true, baseUrl: GEO.defaultBaseUrl },
   };
 }
 

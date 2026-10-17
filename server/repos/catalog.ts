@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { readMinutes, readStoredIngredients, readStoredSections } from '../../shared/dish.js';
 import { readStoredLinks } from '../../shared/restaurant.js';
 import type { Dish, Restaurant } from '../../shared/types.js';
+import { readStoredLocation, readStoredPurposes } from '../../shared/venue.js';
 import type { DB } from '../db/connection.js';
 import type { DishWrite } from '../lib/dishValidation.js';
-import type { RestaurantInput } from '../lib/validation.js';
+import type { RestaurantWrite } from '../lib/restaurantValidation.js';
 
 /**
  * The legacy `category` column is no longer read: migration 5 copied it into sections_json, and
@@ -43,6 +44,12 @@ interface RestaurantRow {
   map_url: string | null;
   links_json: string;
   note: string;
+  country: string;
+  country_code: string;
+  region: string;
+  city: string;
+  location_source: string;
+  purposes_json: string;
   active: number;
   created_at: string;
   updated_at: string;
@@ -121,6 +128,46 @@ const dishValues = (input: DishWrite) => [
   input.active ? 1 : 0,
 ];
 
+/** Written restaurant columns (besides id and timestamps). */
+const RESTAURANT_COLUMNS = [
+  'name',
+  'image_asset_id',
+  'review',
+  'tags',
+  'budget_text',
+  'address',
+  'map_url',
+  'links_json',
+  'note',
+  'country',
+  'country_code',
+  'region',
+  'city',
+  'location_source',
+  'purposes_json',
+  'active',
+] as const;
+
+/** Values for RESTAURANT_COLUMNS, in the same order. */
+const restaurantValues = (input: RestaurantWrite) => [
+  input.name,
+  input.imageAssetId,
+  input.review,
+  JSON.stringify(input.tags),
+  input.budgetText,
+  input.address,
+  input.mapUrl,
+  JSON.stringify(input.links),
+  input.note,
+  input.location.country,
+  input.location.countryCode,
+  input.location.region,
+  input.location.city,
+  input.location.source,
+  JSON.stringify(input.purposes),
+  input.active ? 1 : 0,
+];
+
 const toRestaurant = (r: RestaurantRow): Restaurant => ({
   id: r.id,
   name: r.name,
@@ -132,6 +179,14 @@ const toRestaurant = (r: RestaurantRow): Restaurant => ({
   mapUrl: r.map_url,
   links: readStoredLinks(parseJson(r.links_json)),
   note: r.note,
+  location: readStoredLocation({
+    country: r.country,
+    countryCode: r.country_code,
+    region: r.region,
+    city: r.city,
+    source: r.location_source,
+  }),
+  purposes: readStoredPurposes(parseJson(r.purposes_json)),
   active: r.active === 1,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -215,52 +270,25 @@ export function createCatalogRepo(db: DB) {
       return rows.map(toRestaurant);
     },
 
-    createRestaurant(input: RestaurantInput, now: Date): Restaurant {
+    createRestaurant(input: RestaurantWrite, now: Date): Restaurant {
       const id = randomUUID();
       const ts = now.toISOString();
-      db.prepare(
-        `INSERT INTO restaurants (id, name, image_asset_id, review, tags, budget_text, address, map_url, links_json,
-         note, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
+      const columns = ['id', ...RESTAURANT_COLUMNS, 'created_at', 'updated_at'];
+      db.prepare(`INSERT INTO restaurants (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`).run(
         id,
-        input.name,
-        input.imageAssetId,
-        input.review,
-        JSON.stringify(input.tags),
-        input.budgetText,
-        input.address,
-        input.mapUrl,
-        JSON.stringify(input.links),
-        input.note,
-        input.active ? 1 : 0,
+        ...restaurantValues(input),
         ts,
         ts,
       );
       return this.getRestaurant(id)!;
     },
 
-    updateRestaurant(id: string, input: RestaurantInput, now: Date): Restaurant | null {
+    /** The legacy single link columns are cleared on every write (links_json is the only source). */
+    updateRestaurant(id: string, input: RestaurantWrite, now: Date): Restaurant | null {
+      const assignments = [...RESTAURANT_COLUMNS, 'updated_at'].map((c) => `${c} = ?`).join(', ');
       const result = db
-        .prepare(
-          `UPDATE restaurants SET name = ?, image_asset_id = ?, review = ?, tags = ?, budget_text = ?, address = ?,
-           map_url = ?, links_json = ?, link_url = NULL, link_label = '', note = ?, active = ?, updated_at = ?
-           WHERE id = ?`,
-        )
-        .run(
-          input.name,
-          input.imageAssetId,
-          input.review,
-          JSON.stringify(input.tags),
-          input.budgetText,
-          input.address,
-          input.mapUrl,
-          JSON.stringify(input.links),
-          input.note,
-          input.active ? 1 : 0,
-          now.toISOString(),
-          id,
-        );
+        .prepare(`UPDATE restaurants SET ${assignments}, link_url = NULL, link_label = '' WHERE id = ?`)
+        .run(...restaurantValues(input), now.toISOString(), id);
       return result.changes ? this.getRestaurant(id) : null;
     },
 

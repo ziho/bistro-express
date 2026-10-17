@@ -1,16 +1,18 @@
 import { useMutation } from '@tanstack/react-query';
 import { MapPinned, TriangleAlert, Wand2 } from 'lucide-react';
-import { useId, useState, type SyntheticEvent } from 'react';
+import { useId, useRef, useState, type SyntheticEvent } from 'react';
 import { LIMITS, MAP_LINK_INPUT_MAX } from '../../../shared/constants';
-import type { MapLinkPreview } from '../../../shared/types';
+import type { GeoOutcome, MapLinkPreview } from '../../../shared/types';
 import { api, ApiError } from '../api/client';
 import { mergeImport, type ImportConflict, type ImportField, type ImportValues } from '../lib/mapImport';
 
-const FIELD_LABEL: Record<ImportField, string> = { name: '餐厅名', mapUrl: '地图链接' };
+const FIELD_LABEL: Record<ImportField, string> = { name: '店名', mapUrl: '地图链接' };
 
 interface Props {
   current: ImportValues;
   onApply: (updates: Partial<ImportValues>) => void;
+  /** The region suggestion that came with the link (shown and merged by the location fields). */
+  onGeo?: (outcome: GeoOutcome) => void;
 }
 
 const firstLink = (text: string) => /https:\/\/\S+/i.exec(text)?.[0] ?? null;
@@ -19,25 +21,33 @@ const firstLink = (text: string) => /https:\/\/\S+/i.exec(text)?.[0] ?? null;
  * "Paste a Google Maps link" helper for the add-restaurant form. It only fills the form —
  * the admin still reviews and presses 保存. Fields the admin typed are never overwritten silently.
  */
-export function MapLinkImport({ current, onApply }: Props) {
+export function MapLinkImport({ current, onApply, onGeo }: Props) {
   const inputId = useId();
   const [link, setLink] = useState('');
+  const latestLink = useRef(link);
+  latestLink.current = link;
   const [autofilled, setAutofilled] = useState<Partial<ImportValues>>({});
   const [preview, setPreview] = useState<MapLinkPreview | null>(null);
   const [conflicts, setConflicts] = useState<ImportConflict[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const resolve = useMutation({
-    mutationFn: (url: string) => api<MapLinkPreview>('POST', '/admin/restaurants/resolve-map-link', { json: { url } }),
+    // The click also asks for a region suggestion; its failure never fails the link preview.
+    mutationFn: (url: string) => api<MapLinkPreview>('POST', '/admin/restaurants/resolve-map-link', { json: { url, geo: Boolean(onGeo) } }),
     onMutate: () => setError(null),
-    onSuccess: (p) => {
+    onSuccess: (p, sent) => {
+      // The input may change while Google/the region service responds. An older link cannot fill a newer form.
+      if (latestLink.current.trim() !== sent) return;
       const merged = mergeImport(current, autofilled, { name: p.name, mapUrl: p.mapUrl });
       onApply(merged.updates);
       setAutofilled(merged.autofilled);
       setConflicts(merged.conflicts);
       setPreview(p);
+      // A manually kept, different map link must not inherit this other place's location.
+      if (p.geo && p.mapUrl && (merged.updates.mapUrl === p.mapUrl || current.mapUrl.trim() === p.mapUrl)) onGeo?.(p.geo);
     },
-    onError: (err) => {
+    onError: (err, sent) => {
+      if (latestLink.current.trim() !== sent) return;
       setPreview(null);
       setConflicts([]);
       setError(err instanceof ApiError ? err.message : '识别失败，请稍后再试');
@@ -48,6 +58,7 @@ export function MapLinkImport({ current, onApply }: Props) {
     onApply({ [field]: value });
     setAutofilled((prev) => ({ ...prev, [field]: value }));
     setConflicts((prev) => prev.filter((c) => c.field !== field));
+    if (field === 'mapUrl' && preview?.geo && value === preview.mapUrl) onGeo?.(preview.geo);
   };
 
   /** Also used for Enter in the input, which must not submit the surrounding restaurant form. */
@@ -66,7 +77,7 @@ export function MapLinkImport({ current, onApply }: Props) {
         <MapPinned aria-hidden="true" /> 从 Google 地图链接填写（可选）
       </h3>
       <p className="muted small">
-        粘贴餐厅分享链接，快速填写店名和地图链接。你可以继续修改、补充，核对后再保存。
+        粘贴店铺分享链接，快速填写店名、地图链接，并尝试识别所在地区。你可以继续修改、补充，核对后再保存。
       </p>
       {/* Not a nested <form>: the sheet already wraps the restaurant form. */}
       <div className="map-import-row" role="group" aria-label="识别 Google 地图链接">

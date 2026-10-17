@@ -77,7 +77,7 @@ describe('migration 4: restaurant links', () => {
   it('moves each legacy link into the links array and keeps the old columns', async () => {
     env = await createTestEnv(undefined, { beforeOpen: seedV3 });
     const versions = env.ctx.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
+    expect(versions).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
 
     const admin = await env.admin();
     const list = (await admin.get('/bistro/api/admin/restaurants')).body.data as Record<string, unknown>[];

@@ -33,6 +33,7 @@ function main(): void {
     const now = app.clock();
     app.repos.sessions.purgeExpired(now);
     app.repos.idempotency.purgeOlderThan(new Date(now.getTime() - 7 * 24 * 60 * 60_000));
+    app.repos.geoCache.purgeExpired(now);
   }, MAINTENANCE_INTERVAL_MS);
   maintenance.unref();
 

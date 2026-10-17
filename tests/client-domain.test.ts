@@ -67,6 +67,8 @@ const snapshot: RestaurantSnapshot = {
   address: '',
   mapUrl: null,
   links: [],
+  location: { country: '', countryCode: '', region: '', city: '', source: '' },
+  purposes: ['meal'],
 };
 
 const restaurant = (patch: Partial<Restaurant> = {}): Restaurant => ({
@@ -80,6 +82,8 @@ const restaurant = (patch: Partial<Restaurant> = {}): Restaurant => ({
   mapUrl: null,
   links: [],
   note: '',
+  location: { country: '', countryCode: '', region: '', city: '', source: '' },
+  purposes: ['meal'],
   active: true,
   createdAt: '',
   updatedAt: '',
