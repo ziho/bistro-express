@@ -15,6 +15,8 @@ export const UNAUTHORIZED_EVENT = 'bx:unauthorized';
 
 interface RequestOptions {
   json?: unknown;
+  /** Already-serialised JSON, sent byte-for-byte (idempotent retries must repeat the exact body). */
+  jsonText?: string;
   form?: FormData;
   idempotencyKey?: string;
   signal?: AbortSignal;
@@ -23,7 +25,10 @@ interface RequestOptions {
 export async function api<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
   let body: BodyInit | undefined;
-  if (opts.json !== undefined) {
+  if (opts.jsonText !== undefined) {
+    headers['content-type'] = 'application/json';
+    body = opts.jsonText;
+  } else if (opts.json !== undefined) {
     headers['content-type'] = 'application/json';
     body = JSON.stringify(opts.json);
   } else if (opts.form) {

@@ -12,6 +12,7 @@ import './styles/layout.css';
 import './styles/components.css';
 import './styles/editor.css';
 import './styles/admin.css';
+import './styles/bulk-import.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

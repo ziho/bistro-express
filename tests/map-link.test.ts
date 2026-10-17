@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { BULK_IMPORT, MAP_LINK_RATE_LIMIT } from '../shared/constants.js';
 import type { FetchLike } from '../server/notify/bark.js';
 import { cidFromFtid, classifyMapsUrl, parseMapsUrl } from '../server/maps/parse.js';
 import { extractLink, MapLinkError, resolveMapsLink } from '../server/maps/resolve.js';
@@ -228,12 +229,16 @@ describe('POST /admin/restaurants/resolve-map-link', () => {
     expect((await env.adminClient().post(PATH, { url: KATSU_SHORT })).status).toBe(502); // private access needs no cookie
   });
 
-  it('rate-limits outbound expansion', async () => {
+  it('rate-limits outbound expansion (room for one 100-row bulk import plus retries)', async () => {
     env = await createTestEnv(undefined, { fetch: fakeRedirects(routes).fetch });
     const admin = await env.admin();
-    for (let i = 0; i < 30; i += 1) expect((await admin.post(PATH, { url: DEER_FULL })).status).toBe(200);
+    expect(MAP_LINK_RATE_LIMIT).toBeGreaterThanOrEqual(BULK_IMPORT.maxRows);
+    expect(MAP_LINK_RATE_LIMIT).toBeLessThanOrEqual(200);
+    for (let i = 0; i < MAP_LINK_RATE_LIMIT; i += 1) expect((await admin.post(PATH, { url: DEER_FULL })).status).toBe(200);
     const limited = await admin.post(PATH, { url: DEER_FULL });
     expect(limited.status).toBe(429);
+    expect(limited.body.error.details.retryAfter).toBeGreaterThan(0);
+    expect(Number(limited.headers.get('retry-after'))).toBe(limited.body.error.details.retryAfter);
     env.advance(10 * 60_000 + 1);
     expect((await admin.post(PATH, { url: DEER_FULL })).status).toBe(200);
   });

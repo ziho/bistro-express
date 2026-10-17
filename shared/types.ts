@@ -240,6 +240,39 @@ export interface MapLinkPreview {
     cidDerived: boolean;
     kgId: string | null;
   };
-  duplicates: { id: string; name: string; active: boolean; matchedBy: string[] }[];
+  duplicates: RestaurantDuplicate[];
   notes: string[];
+}
+
+/** An existing restaurant whose saved map link points at the same place. */
+export interface RestaurantDuplicate {
+  id: string;
+  name: string;
+  active: boolean;
+  matchedBy: string[];
+}
+
+/** One row of POST /admin/restaurants/import. `clientId` is the browser queue's stable row id. */
+export interface RestaurantImportRow {
+  clientId: string;
+  name: string;
+  /** Canonical map link (or the strict Google link itself when it could not be expanded). */
+  mapUrl: string;
+  /** The pasted link, so saved short links are recognised as duplicates. */
+  sourceUrl: string | null;
+  tags: string[];
+}
+
+export type RestaurantImportResult =
+  | { clientId: string; status: 'created'; restaurant: { id: string; name: string } }
+  | { clientId: string; status: 'duplicate'; message: string; duplicates: RestaurantDuplicate[] }
+  | { clientId: string; status: 'error'; message: string; field: string | null };
+
+export interface RestaurantImportResponse {
+  results: RestaurantImportResult[];
+  created: number;
+  duplicates: number;
+  errors: number;
+  /** true when this is the stored answer to an earlier identical request (same Idempotency-Key). */
+  replayed: boolean;
 }

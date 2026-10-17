@@ -1,5 +1,7 @@
 import type { FetchLike } from '../notify/bark.js';
-import { classifyMapsUrl, hasPlaceData, isMapsGoogleHost, parseMapsUrl, type ParsedMapsLink } from './parse.js';
+import { classifyMapsUrl, extractLink, hasPlaceData, isMapsGoogleHost, parseMapsUrl, type ParsedMapsLink } from './parse.js';
+
+export { extractLink };
 
 export const MAX_REDIRECT_HOPS = 5;
 const TOTAL_TIMEOUT_MS = 8_000;
@@ -21,18 +23,6 @@ export interface ResolvedMapsLink {
   expanded: boolean;
   hops: number;
   parsed: ParsedMapsLink;
-}
-
-/** Finds the first http(s) link in pasted share text such as "店名\nhttps://maps.app.goo.gl/…". */
-export function extractLink(text: string): string | null {
-  const match = /https?:\/\/[^\s<>"'，。、）\]]+/i.exec(text);
-  if (!match) return null;
-  let link = match[0];
-  // Preserve restaurant-name parentheses; remove only unmatched Markdown wrappers.
-  while (link.endsWith(')') && [...link].filter((c) => c === ')').length > [...link].filter((c) => c === '(').length) {
-    link = link.slice(0, -1);
-  }
-  return link;
 }
 
 function hostOf(raw: string): string {

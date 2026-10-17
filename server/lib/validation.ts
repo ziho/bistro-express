@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BARK_LIMITS, LIMITS, MAP_LINK_INPUT_MAX } from '../../shared/constants.js';
+import { BARK_LIMITS, BULK_IMPORT, LIMITS, MAP_LINK_INPUT_MAX } from '../../shared/constants.js';
 import { isSafeExternalUrl } from '../../shared/restaurant.js';
 import { badRequest } from './errors.js';
 
@@ -162,6 +162,39 @@ export const barkDeviceUpdateSchema = z.object({
 
 export const mapLinkSchema = z.object({
   url: z.string().trim().min(1, '请先粘贴 Google 地图链接').max(MAP_LINK_INPUT_MAX, '链接太长了'),
+});
+
+export const IMPORT_CLIENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Structure of one bulk-import row. Shape, ids, tags and hard size caps are rejected for the whole
+ * request; the user-editable name and links are checked per row (restaurantInputSchema + strict
+ * Google Maps allowlist), so one bad row does not block the others.
+ */
+const importRow = z.object({
+  clientId: z.string().regex(IMPORT_CLIENT_ID_RE, '行编号无效'),
+  name: z.string().max(LIMITS.name * 4, '店名太长了'),
+  mapUrl: z.string().max(MAP_LINK_INPUT_MAX, '地图链接太长了'),
+  sourceUrl: z
+    .union([z.string().max(MAP_LINK_INPUT_MAX, '原始链接太长了'), z.null()])
+    .optional()
+    .transform((v) => (v?.trim() ? v.trim() : null)),
+  tags,
+});
+export type ImportRowInput = z.output<typeof importRow>;
+
+export const restaurantImportSchema = z.object({
+  rows: z
+    .array(importRow)
+    .min(1, '请至少选择一家餐厅')
+    .max(BULK_IMPORT.maxRows, `一次最多导入 ${BULK_IMPORT.maxRows} 家`)
+    .superRefine((rows, ctx) => {
+      const seen = new Set<string>();
+      rows.forEach((row, i) => {
+        if (seen.has(row.clientId)) ctx.addIssue({ code: 'custom', path: [i, 'clientId'], message: '行编号重复' });
+        seen.add(row.clientId);
+      });
+    }),
 });
 
 export function parseWith<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {

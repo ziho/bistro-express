@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { MAP_LINK_RATE_LIMIT } from '../shared/constants.js';
 import type { AppConfig } from './config.js';
 import { openDatabase, type DB } from './db/connection.js';
 import { createAuthLimiter, RateLimiter, type AuthLimiter } from './lib/rateLimit.js';
@@ -12,6 +13,7 @@ import { createNotificationRepo } from './repos/notifications.js';
 import { createPlanRepo } from './repos/plans.js';
 import { createSessionRepo } from './repos/sessions.js';
 import { createPlanService } from './services/planService.js';
+import { createRestaurantImporter } from './services/restaurantImport.js';
 
 export interface ContextOptions {
   clock?: () => Date;
@@ -55,6 +57,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     clock,
     onCommitted: () => worker.kick(),
   });
+  const restaurantImporter = createRestaurantImporter({ db, catalog: repos.catalog, idempotency: repos.idempotency, clock });
   const nowMs = () => clock().getTime();
   const limiters: { gate: AuthLimiter; mapLink: RateLimiter } = {
     gate: createAuthLimiter({
@@ -64,8 +67,11 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
       globalWindowMs: 60 * 60_000,
       now: nowMs,
     }),
-    /** Outbound link expansion (admin-only) — keeps accidental loops from hammering Google. */
-    mapLink: new RateLimiter(30, 10 * 60_000, nowMs),
+    /**
+     * Outbound link expansion (admin-only) — keeps accidental loops from hammering Google while
+     * leaving room for one 100-row bulk import plus retries.
+     */
+    mapLink: new RateLimiter(MAP_LINK_RATE_LIMIT, 10 * 60_000, nowMs),
   };
   return {
     config,
@@ -76,6 +82,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     provider,
     worker,
     planService,
+    restaurantImporter,
     limiters,
     outboundFetch,
     mediaDir: path.join(config.dataDir, 'media'),

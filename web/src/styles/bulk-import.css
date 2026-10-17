@@ -1,0 +1,212 @@
+/* ---------- Restaurant bulk import (批量导入) ---------- */
+.bulk-page {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.bulk-page > .notice,
+.bulk-page > p {
+  margin: 0;
+}
+.bulk-section-title {
+  margin: 0 0 var(--space-2);
+  font-size: 1.05rem;
+}
+.bulk-paste,
+.bulk-tags,
+.bulk-toolbar {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.bulk-textarea {
+  min-height: 9rem;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 16px; /* avoid iOS input zoom */
+  overflow-wrap: anywhere;
+}
+.bulk-paste-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bulk-counts {
+  margin: 0;
+}
+.bulk-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.bulk-wait {
+  margin: 0;
+}
+
+.bulk-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.bulk-row {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+.bulk-row.is-selected {
+  border-color: var(--butter-strong);
+  box-shadow: inset 3px 0 0 var(--butter-strong);
+}
+.bulk-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.bulk-row-title {
+  font-weight: 700;
+}
+.bulk-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.bulk-row-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.bulk-note {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+.bulk-note svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 3px;
+}
+.bulk-note-bad {
+  color: var(--danger);
+}
+.bulk-note-warn {
+  color: #7a5200;
+}
+.bulk-note-info {
+  color: var(--muted);
+}
+.bulk-manual {
+  align-items: flex-start;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--butter-soft);
+}
+.bulk-manual input {
+  margin-top: 2px;
+  flex: none;
+}
+.bulk-row-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+}
+@media (min-width: 760px) {
+  .bulk-row-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.bulk-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.bulk-field-label {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.bulk-map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--tap);
+  width: fit-content;
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+.bulk-map-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+.bulk-row-imported {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  background: var(--cream);
+}
+.bulk-imported-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--ok);
+}
+.bulk-imported-text {
+  display: grid;
+  min-width: 0;
+}
+@media (max-width: 480px) {
+  .bulk-row-imported {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .bulk-row-imported .bulk-map-link {
+    grid-column: 2;
+  }
+}
+
+.bulk-outcome {
+  margin: 0;
+}
+.bulk-outcome p {
+  margin: 4px 0 0;
+}
+.bulk-outcome:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* The import button stays reachable at the bottom while scrolling through 100 rows. */
+.bulk-commit {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 calc(var(--space-3) + var(--safe-bottom));
+  background: linear-gradient(to bottom, rgba(255, 248, 238, 0), var(--cream) 30%);
+}
+.bulk-commit-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--butter-soft);
+}
+
+.onboarding .head-actions {
+  justify-content: center;
+}
+
+.bulk-row-actions .icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,17 +1,19 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { ADMIN_API_PATH, API_PATH, BASE_PATH } from '../../shared/constants.js';
+import { ADMIN_API_PATH, API_PATH, BASE_PATH, BULK_IMPORT } from '../../shared/constants.js';
 import type { AppContext } from '../context.js';
 import { HttpError } from '../lib/errors.js';
 import { apiError, ok } from './helpers.js';
 import { blockAdminOnPublic, originGuard, securityHeaders } from './middleware.js';
 import { adminRoutes } from './routes/admin.js';
+import { RESTAURANT_IMPORT_PATH } from './routes/restaurantImport.js';
 import { guestAuthRoutes } from './routes/auth.js';
 import { guestRoutes } from './routes/guest.js';
 import { spaHandler } from './static.js';
 import type { HonoEnv, Listener } from './types.js';
 
 const JSON_LIMIT = 64 * 1024;
+const IMPORT_PATH = `${ADMIN_API_PATH}${RESTAURANT_IMPORT_PATH}`;
 
 /**
  * Builds the app for one listener.
@@ -33,9 +35,11 @@ export function createHttpApp(app: AppContext, listener: Listener) {
   http.use(`${API_PATH}/*`, async (c, next) => {
     // Uploads have their own, larger limit.
     if (c.req.path === `${ADMIN_API_PATH}/media`) return next();
+    // Only the exact private bulk-import route accepts up to 100 rows in one JSON body.
+    const isImport = listener === 'admin' && c.req.method === 'POST' && c.req.path === IMPORT_PATH;
     return bodyLimit({
-      maxSize: JSON_LIMIT,
-      onError: (ctx) => apiError(ctx, 413, 'payload_too_large', '请求内容太大'),
+      maxSize: isImport ? BULK_IMPORT.requestBytes : JSON_LIMIT,
+      onError: (ctx) => apiError(ctx, 413, 'payload_too_large', isImport ? '一次导入的内容太多，请分批提交' : '请求内容太大'),
     })(c, next);
   });
 

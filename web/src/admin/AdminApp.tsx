@@ -4,6 +4,7 @@ import { Logo, OfflineBanner } from '../components/AppShell';
 import { AdminOverview } from './AdminOverview';
 import { AdminWelcome } from './AdminWelcome';
 import { BarkSettingsPage } from './BarkSettingsPage';
+import { BulkImportPage } from './bulk/BulkImportPage';
 import { CatalogAdmin } from './CatalogAdmin';
 import { NotificationsAdmin } from './NotificationsAdmin';
 import { PlansAdmin } from './PlansAdmin';
@@ -60,6 +61,7 @@ export default function AdminApp() {
         <Route path="overview" element={<AdminOverview />} />
         <Route path="dishes" element={<CatalogAdmin kind="dish" />} />
         <Route path="restaurants" element={<CatalogAdmin kind="restaurant" />} />
+        <Route path="restaurants/import" element={<BulkImportPage />} />
         <Route path="plans" element={<PlansAdmin />} />
         <Route path="notifications" element={<NotificationsAdmin />} />
         <Route path="settings" element={<BarkSettingsPage />} />

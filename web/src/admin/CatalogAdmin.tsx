@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ListPlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { keys } from '../api/queries';
 import { Cloche } from '../components/Illustrations';
@@ -30,6 +31,15 @@ const TEXT = {
     searchFields: (i: CatalogItem) => ('review' in i ? restaurantSearchFields(i) : [i.name, ...i.tags]),
   },
 };
+
+function BulkImportLink() {
+  return (
+    <Link to="/admin/restaurants/import" className="btn btn-butter">
+      <ListPlus aria-hidden="true" />
+      批量导入
+    </Link>
+  );
+}
 
 function ItemSummary({ item }: { item: CatalogItem }) {
   if (!('review' in item)) {
@@ -119,10 +129,13 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             共 {items.length} {t.unit}，上架 {activeCount} {t.unit}
           </p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={() => openEditor('new')}>
-          <Plus aria-hidden="true" />
-          {t.add}
-        </button>
+        <div className="head-actions">
+          {kind === 'restaurant' && <BulkImportLink />}
+          <button type="button" className="btn btn-primary" onClick={() => openEditor('new')}>
+            <Plus aria-hidden="true" />
+            {t.add}
+          </button>
+        </div>
       </div>
 
       {items.length === 0 ? (
@@ -137,11 +150,15 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
                 : '写一句话点评，再加几个分类标签（例如「川菜」「火锅」「约会」），点餐时可以按标签筛选。'}
             </li>
             <li>暂时不想被选到的，可以随时「下架」，历史记录不受影响。</li>
+            {kind === 'restaurant' && <li>收藏了很多 Google 地图链接？用「批量导入」一次粘贴最多 100 个。</li>}
           </ol>
-          <button type="button" className="btn btn-primary" onClick={() => openEditor('new')}>
-            <Plus aria-hidden="true" />
-            {t.add}
-          </button>
+          <div className="head-actions">
+            <button type="button" className="btn btn-primary" onClick={() => openEditor('new')}>
+              <Plus aria-hidden="true" />
+              {t.add}
+            </button>
+            {kind === 'restaurant' && <BulkImportLink />}
+          </div>
         </div>
       ) : (
         <>
