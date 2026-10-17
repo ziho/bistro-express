@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
 import { notFound } from '../../lib/errors.js';
-import { manualDeleteSchema, manualItemSchema, shoppingStatusSchema } from '../../lib/shoppingValidation.js';
+import { manualDeleteSchema, manualItemSchema, shoppingHaveBatchSchema, shoppingStatusSchema } from '../../lib/shoppingValidation.js';
 import { parseWith, UUID_RE } from '../../lib/validation.js';
 import { idempotencyKey, ok, readJson } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
@@ -30,6 +30,18 @@ export function registerShoppingRoutes(r: Hono<HonoEnv>): void {
     const res = c.get('app').shoppingService.setStatus(id, input, {
       key,
       fingerprintSource: `PUT /plans/${id}/shopping/status ${raw}`,
+    });
+    return ok(c, res.body, res.status as 200);
+  });
+
+  r.put('/plans/:id/shopping/have', async (c) => {
+    const id = planIdOf(c);
+    const key = idempotencyKey(c);
+    const { raw, value } = await readJson(c);
+    const input = parseWith(shoppingHaveBatchSchema, value);
+    const res = c.get('app').shoppingService.markHave(id, input, {
+      key,
+      fingerprintSource: `PUT /plans/${id}/shopping/have ${raw}`,
     });
     return ok(c, res.body, res.status as 200);
   });

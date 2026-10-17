@@ -94,17 +94,34 @@ export const BULK_IMPORT = {
 /** Link previews per 10 minutes: one 100-row batch plus retries, still bounded. */
 export const MAP_LINK_RATE_LIMIT = 150;
 
+const MANUAL_SHOPPING_ITEMS = 50;
+
 /** Shared shopping checklist of a home meal (采购清单): manual additions per meal. */
 export const SHOPPING_LIMITS = {
   /** Manual additions per meal. */
-  manualItems: 50,
+  manualItems: MANUAL_SHOPPING_ITEMS,
   name: 40,
   /** Free text, never converted or summed. */
   quantity: 60,
   note: 160,
   /** Longest group key accepted in a request (keys are normalized ingredient names). */
   groupKey: 200,
+  /** Keys in one "家里已有" batch: every possible group of the largest meal (dishes × rows + manual items). */
+  batchKeys: LIMITS.maxDishesPerMeal * DISH_LIMITS.ingredients + MANUAL_SHOPPING_ITEMS,
 } as const;
+
+/** Ingredients the browser remembers as "already at home" (本机现有食材). Local only, never sent as a whole. */
+export const PANTRY_LIMITS = {
+  /** Names kept on one device. */
+  names: 100,
+  /** One name, after trimming and collapsing whitespace (same as a recipe ingredient name). */
+  name: DISH_LIMITS.ingredientName,
+  /** Longest paste accepted in one go (never truncated: longer input is refused with a message). */
+  pasteChars: 8000,
+} as const;
+
+/** Length of a calendar event exported from a timed meal (all-day meals take the whole day). */
+export const CALENDAR_EVENT_MINUTES = 60;
 
 /** Foreground refetch interval of a saved meal's shopping list (cross-device sharing is pull-based). */
 export const SHOPPING_REFRESH_MS = 30_000;

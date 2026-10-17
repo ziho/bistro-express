@@ -1,6 +1,7 @@
 import { ClipboardList, Info } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { deriveShopping, type ShoppingDishInput } from '../../../shared/shopping';
+import { splitShoppingByPantry } from '../../../shared/pantry';
+import { deriveShopping, type ShoppingDishInput, type ShoppingGroup } from '../../../shared/shopping';
 import type { ShoppingDishNote, ShoppingSource } from '../../../shared/types';
 
 /**
@@ -82,9 +83,34 @@ export function DishShoppingNotes({ notes, heading: H = 'h3' }: { notes: readonl
   );
 }
 
-/** Read-only checklist derived from the selected dishes before the meal is saved. */
-export function ShoppingPreview({ dishes, unavailable }: { dishes: readonly ShoppingDishInput[]; unavailable: number }) {
+function PreviewGroups({ groups, label }: { groups: readonly ShoppingGroup[]; label?: string }) {
+  return (
+    <ul className="shop-list" aria-label={label}>
+      {groups.map((g) => (
+        <li key={g.key} className="shop-item">
+          <h3 className="shop-item-name">{g.name}</h3>
+          <ShoppingSources name={g.name} sources={g.sources} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+interface PreviewProps {
+  dishes: readonly ShoppingDishInput[];
+  unavailable: number;
+  /** Match keys of the ingredients remembered on this device; empty = no split. */
+  have: ReadonlySet<string>;
+}
+
+/**
+ * Read-only checklist derived from the selected dishes before the meal is saved. With remembered
+ * ingredients it is split into 家里可能已有 / 还需采购 — a hint only: groups, sources and
+ * quantities stay exactly as derived and no status is written anywhere.
+ */
+export function ShoppingPreview({ dishes, unavailable, have }: PreviewProps) {
   const { groups, dishNotes, dishesWithoutIngredients } = deriveShopping(dishes);
+  const split = have.size > 0 ? splitShoppingByPantry(groups, have) : null;
   return (
     <div className="shop-preview">
       <p className="notice notice-butter small shop-preview-hint">
@@ -95,17 +121,35 @@ export function ShoppingPreview({ dishes, unavailable }: { dishes: readonly Shop
       {unavailable > 0 && <p className="muted small">有 {unavailable} 道已下架的菜没有算在预览里。</p>}
       {groups.length === 0 ? (
         <p className="muted shop-empty">已选的菜还没有记录主料，暂时没有可列出的食材。</p>
+      ) : split ? (
+        <>
+          <p className="muted small">
+            共 {groups.length} 样。按这台设备记下的现有食材分开显示，只比较名称、不核对数量，也不会改变任何状态。
+          </p>
+          <section className="shop-preview-part" aria-labelledby="preview-need">
+            <h3 id="preview-need" className="shop-subtitle">
+              还需采购（{split.need.length}）
+            </h3>
+            {split.need.length ? <PreviewGroups groups={split.need} label="还需采购" /> : <p className="muted small">看起来都不用买。</p>}
+          </section>
+          <section className="shop-preview-part shop-preview-have" aria-labelledby="preview-have">
+            <h3 id="preview-have" className="shop-subtitle">
+              家里可能已有（{split.maybeHave.length}）
+            </h3>
+            {split.maybeHave.length ? (
+              <>
+                <p className="muted small">请看看数量够不够这一餐用。</p>
+                <PreviewGroups groups={split.maybeHave} label="家里可能已有" />
+              </>
+            ) : (
+              <p className="muted small">记下的现有食材里没有这些菜的主料。</p>
+            )}
+          </section>
+        </>
       ) : (
         <>
           <p className="muted small">共 {groups.length} 样（同名食材合在一起，每道菜的用量分别列出，不换算、不相加）。</p>
-          <ul className="shop-list">
-            {groups.map((g) => (
-              <li key={g.key} className="shop-item">
-                <h3 className="shop-item-name">{g.name}</h3>
-                <ShoppingSources name={g.name} sources={g.sources} />
-              </li>
-            ))}
-          </ul>
+          <PreviewGroups groups={groups} />
         </>
       )}
       <DishShoppingNotes notes={dishNotes} />

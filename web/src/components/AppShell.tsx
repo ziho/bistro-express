@@ -4,6 +4,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { useSession } from '../api/queries';
 import { clearAllLocalData } from '../lib/drafts';
+import { pantryStore } from '../lib/pantryStore';
 import { useOnline } from '../lib/hooks';
 import { useToast } from './Toast';
 
@@ -42,6 +43,8 @@ export function useLogout() {
       toast('网络异常，本机数据已清除，服务器会话将在到期后失效', 'error');
     }
     clearAllLocalData();
+    // The remembered ingredients were wiped with the other local keys; drop the in-memory copy too.
+    pantryStore().reset();
     queryClient.clear();
     navigate('/gate', { replace: true });
   };

@@ -18,6 +18,7 @@ import { saveDraft } from '../lib/drafts';
 import { useToday } from '../lib/hooks';
 import { cloneToDraft, isEditable, planDisplay } from '../lib/planView';
 import { NotFoundPage } from './NotFoundPage';
+import { PlanCalendar } from './PlanCalendar';
 import { ShoppingSection } from './Shopping/ShoppingSection';
 
 /** The restaurant as it was frozen in the plan; the photo is shown only when there is one. */
@@ -207,6 +208,8 @@ export function PlanDetailPage() {
       )}
 
       {p.mode === 'home' && <ShoppingSection plan={p} />}
+
+      <PlanCalendar plan={p} />
 
       <div className="detail-actions">
         {editable && (

@@ -7,6 +7,7 @@ import { parseWith, planCancelSchema, planInputSchema, planUpdateSchema, UUID_RE
 import { mediaPath, type MediaVariant } from '../../media/process.js';
 import { idempotencyKey, ok, readJson, requireGuestAccess } from '../helpers.js';
 import type { Ctx, HonoEnv } from '../types.js';
+import { registerCalendarRoute } from './calendar.js';
 import { registerShoppingRoutes } from './shopping.js';
 
 function optionalDate(c: Ctx, name: string): string | undefined {
@@ -43,6 +44,8 @@ export function guestRoutes() {
   });
 
   r.get('/plans/:id', (c) => ok(c, c.get('app').planService.get(planId(c))));
+
+  registerCalendarRoute(r);
 
   r.post('/plans', async (c) => {
     const key = idempotencyKey(c);

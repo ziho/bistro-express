@@ -1,6 +1,7 @@
 import type { Dish } from '../../../../shared/types';
 import { ShoppingPreview } from '../../components/ShoppingBits';
 import { Sheet } from '../../components/Sheet';
+import { usePantry } from '../../lib/pantryStore';
 
 interface Props {
   open: boolean;
@@ -11,6 +12,7 @@ interface Props {
 
 /** Read-only preview from the selected dishes; statuses and manual items need a saved meal. */
 export function ShoppingPreviewSheet({ open, onClose, dishIds, dishes }: Props) {
+  const { keys: have } = usePantry();
   const byId = new Map(dishes.map((d) => [d.id, d]));
   const selected = dishIds.flatMap((id) => {
     const d = byId.get(id);
@@ -28,7 +30,7 @@ export function ShoppingPreviewSheet({ open, onClose, dishIds, dishes }: Props) 
         </button>
       }
     >
-      <ShoppingPreview dishes={selected} unavailable={dishIds.length - selected.length} />
+      <ShoppingPreview dishes={selected} unavailable={dishIds.length - selected.length} have={have} />
     </Sheet>
   );
 }

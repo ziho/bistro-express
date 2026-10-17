@@ -1,17 +1,20 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ClipboardList, RefreshCw, WifiOff } from 'lucide-react';
+import { ClipboardList, RefreshCw, Refrigerator, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { SHOPPING_LIMITS } from '../../../../shared/constants';
+import { pantryCandidates } from '../../../../shared/pantry';
 import { SHOPPING_STATUS_LABELS, shoppingKey } from '../../../../shared/shopping';
 import type { Plan, ShoppingItem, ShoppingList, ShoppingManualItem, ShoppingStatus } from '../../../../shared/types';
 import { keys, useShoppingList } from '../../api/queries';
 import { DishShoppingNotes, MissingIngredientsNotice } from '../../components/ShoppingBits';
 import { Sheet } from '../../components/Sheet';
 import { useOnline } from '../../lib/hooks';
+import { usePantry } from '../../lib/pantryStore';
 import { partitionShopping } from '../../lib/shopping';
 import { ManualItemForm, type ManualSubmitResult, type ManualValues } from './ManualItemForm';
+import { PantryHaveSheet, type HaveSession, type ShoppingBase } from './PantryHaveSheet';
 import { itemSelector, ShoppingItemRow } from './ShoppingItemRow';
-import { useShoppingWriter } from './useShoppingWriter';
+import { useShoppingWriter, type ShoppingWriteResult } from './useShoppingWriter';
 
 interface Problem {
   message: string;
@@ -105,6 +108,12 @@ export function ShoppingSection({ plan }: { plan: Plan }) {
     return { ok: true };
   };
 
+  const markHave = async (keys: string[], base: ShoppingBase): Promise<ShoppingWriteResult> => {
+    const result = await run({ method: 'PUT', path: `${basePath}/have`, payload: { keys } }, 'have:batch', base);
+    if (result.ok) succeed(`已将 ${keys.length} 样标记为家里已有，移到了「已准备好」`);
+    return result;
+  };
+
   const deleteManual = async (id: string, itemName: string): Promise<boolean> => {
     const result = await run({ method: 'DELETE', path: `${basePath}/manual/${id}`, payload: {} }, `manual:${id}`);
     if (!result.ok) {
@@ -164,6 +173,7 @@ export function ShoppingSection({ plan }: { plan: Plan }) {
           onAdd={addManual}
           onEditManual={editManual}
           onDeleteManual={deleteManual}
+          onMarkHave={markHave}
         />
       )}
     </section>
@@ -181,9 +191,33 @@ interface BodyProps {
   onAdd: (values: ManualValues) => Promise<ManualSubmitResult>;
   onEditManual: (id: string, values: ManualValues, base: Pick<ShoppingList, 'planVersion' | 'revision'>) => Promise<ManualSubmitResult>;
   onDeleteManual: (id: string, itemName: string) => Promise<boolean>;
+  onMarkHave: (keys: string[], base: ShoppingBase) => Promise<ShoppingWriteResult>;
 }
 
-function ShoppingBody({ list, online, busy, refreshFailed, problem, onDismissProblem, onStatus, onAdd, onEditManual, onDeleteManual }: BodyProps) {
+function ShoppingBody({ list, online, busy, refreshFailed, problem, onDismissProblem, onStatus, onAdd, onEditManual, onDeleteManual, onMarkHave }: BodyProps) {
+  const { keys: have } = usePantry();
+  const [haveSession, setHaveSession] = useState<HaveSession | null>(null);
+  const sessionCounter = useRef(0);
+  const candidates = pantryCandidates(list.items, have);
+  const openHaveReview = () => {
+    sessionCounter.current += 1;
+    setHaveSession({
+      id: sessionCounter.current,
+      keys: candidates.map((i) => i.key),
+      base: { planVersion: list.planVersion, revision: list.revision },
+    });
+  };
+  const closeHaveReview = (saved: boolean) => {
+    if (!saved && busy === 'have:batch') return;
+    setHaveSession(null);
+    if (!saved) return;
+    // The trigger disappears when nothing pending matches any more; fall back to the heading.
+    window.requestAnimationFrame(() => {
+      const trigger = document.querySelector('[data-have-review]');
+      if (isVisible(trigger)) trigger.focus();
+      else document.getElementById('shopping-title')?.focus();
+    });
+  };
   // Keep editing outside moving ingredient rows. Refetches can move/remove a row without
   // unmounting the form or changing the revision the user's input was based on.
   const [editing, setEditing] = useState<{
@@ -257,6 +291,24 @@ function ShoppingBody({ list, online, busy, refreshFailed, problem, onDismissPro
 
       <MissingIngredientsNotice names={list.dishesWithoutIngredients} />
 
+      {list.writable && candidates.length > 0 && (
+        <div className="shop-pantry">
+          <p className="small">
+            <Refrigerator aria-hidden="true" className="inline-icon" /> 有 {candidates.length} 样待采购出现在这台设备记下的现有食材里。
+          </p>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            data-have-review
+            aria-haspopup="dialog"
+            onClick={openHaveReview}
+            disabled={busy !== null || !online || editing !== null}
+          >
+            核对后标记家里已有
+          </button>
+        </div>
+      )}
+
       {list.items.length === 0 ? (
         <p className="muted shop-empty">清单里还没有东西。{list.writable ? '可以在下面手动补充要买的。' : ''}</p>
       ) : pending.length === 0 ? (
@@ -311,6 +363,16 @@ function ShoppingBody({ list, online, busy, refreshFailed, problem, onDismissPro
           </>
         )}
       </Sheet>
+
+      <PantryHaveSheet
+        session={haveSession}
+        list={list}
+        online={online}
+        busy={busy !== null && busy !== 'have:batch'}
+        lockText={list.lockReason ? LOCK_TEXT[list.lockReason] : !list.writable ? '清单目前只能查看。' : null}
+        onSubmit={onMarkHave}
+        onClose={closeHaveReview}
+      />
 
       {list.writable && (
         <div className="shop-add">

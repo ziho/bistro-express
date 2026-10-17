@@ -5,7 +5,7 @@ import { isPastDate } from '../../shared/time.js';
 import type { ShoppingList, ShoppingLockReason, ShoppingManualItem } from '../../shared/types.js';
 import type { DB } from '../db/connection.js';
 import { conflict, HttpError, notFound, unprocessable } from '../lib/errors.js';
-import type { ManualItemInput, ShoppingExpected, ShoppingStatusInput } from '../lib/shoppingValidation.js';
+import type { ManualItemInput, ShoppingExpected, ShoppingHaveBatchInput, ShoppingStatusInput } from '../lib/shoppingValidation.js';
 import type { IdempotencyRepo, StoredResponse } from '../repos/misc.js';
 import type { PlanRepo, StoredPlan } from '../repos/plans.js';
 import type { ShoppingRepo, StoredShopping, ShoppingWrite } from '../repos/shopping.js';
@@ -128,6 +128,36 @@ export function createShoppingService(deps: ShoppingServiceDeps) {
         if (!group) throw new HttpError(404, 'shopping_item_missing', '清单里没有这一项，清单已刷新');
         const states = reconcileShoppingStates(stored?.states ?? [], groups);
         return { manual, states: withShoppingStatus(states, group, input.status) };
+      });
+    },
+
+    /**
+     * Marks several pending groups 家里已有 in one revision. Every key must name a group that is
+     * pending right now; one unknown or already-prepared key refuses the whole batch (with the
+     * current list), so have/bought items are never overwritten and nothing is half-applied.
+     */
+    markHave(planId: string, input: ShoppingHaveBatchInput, req: IdempotentRequest): StoredResponse {
+      return write(planId, input, req, 200, (plan, stored, now) => {
+        const manual = stored?.manual ?? [];
+        const { groups } = deriveForPlan(plan, manual);
+        let states = reconcileShoppingStates(stored?.states ?? [], groups);
+        const items = new Map(applyShoppingStates(groups, states).map((i) => [i.key, i]));
+        const missingKeys = input.keys.filter((key) => !items.has(key));
+        if (missingKeys.length) {
+          throw new HttpError(404, 'shopping_item_missing', '有选中的食材已经不在清单里，清单已刷新，请重新核对', {
+            missingKeys,
+            current: view(plan, stored, now),
+          });
+        }
+        const changedKeys = input.keys.filter((key) => items.get(key)?.status !== 'pending');
+        if (changedKeys.length) {
+          throw conflict('shopping_item_not_pending', '有选中的食材已经不是待采购，清单已刷新，请重新核对', {
+            changedKeys,
+            current: view(plan, stored, now),
+          });
+        }
+        for (const key of input.keys) states = withShoppingStatus(states, groups.find((g) => g.key === key)!, 'have');
+        return { manual, states };
       });
     },
 

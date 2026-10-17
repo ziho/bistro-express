@@ -29,10 +29,21 @@ export const shoppingStatusSchema = z.object({
   ...expected,
 });
 
+/** 家里已有 for several pending items at once: distinct group keys, applied all or nothing. */
+export const shoppingHaveBatchSchema = z.object({
+  keys: z
+    .array(z.string().min(1).max(SHOPPING_LIMITS.groupKey))
+    .min(1, '请至少选一样')
+    .max(SHOPPING_LIMITS.batchKeys)
+    .refine((keys) => new Set(keys).size === keys.length, '同一样不能重复提交'),
+  ...expected,
+});
+
 export const manualItemSchema = z.object({ ...manualFields, ...expected });
 
 export const manualDeleteSchema = z.object(expected);
 
 export type ShoppingStatusInput = z.output<typeof shoppingStatusSchema>;
+export type ShoppingHaveBatchInput = z.output<typeof shoppingHaveBatchSchema>;
 export type ManualItemInput = z.output<typeof manualItemSchema>;
 export type ShoppingExpected = z.output<typeof manualDeleteSchema>;

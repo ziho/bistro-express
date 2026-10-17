@@ -36,8 +36,9 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE)) return;
-  // Never touch API, media, auth or admin traffic.
+  // Never touch API, media, auth or admin traffic (this includes the private .ics calendar downloads).
   if (url.pathname.startsWith(`${BASE}api/`) || url.pathname.startsWith(`${BASE}admin`)) return;
+  if (url.pathname.endsWith('.ics')) return;
 
   if (request.mode === 'navigate') {
     // Network first so deploys are picked up; fall back to the cached shell when offline.

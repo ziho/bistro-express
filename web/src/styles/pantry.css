@@ -1,0 +1,442 @@
+/* ---------- 按现有食材找菜 (pantry finder), pantry hints in shopping, calendar export ---------- */
+
+.pantry-finder {
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--cream);
+}
+.pantry-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.pantry-toggle > svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--tomato);
+}
+.pantry-toggle-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pantry-toggle-count {
+  flex: none;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.pantry-toggle .pantry-toggle-chevron {
+  color: var(--ink-2);
+  transition: transform var(--dur-fast);
+}
+.pantry-finder.is-open .pantry-toggle-chevron {
+  transform: rotate(180deg);
+}
+@media (hover: hover) {
+  .pantry-toggle:hover {
+    background: var(--cream-2);
+  }
+}
+.pantry-finder-body {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: 0 var(--space-3) var(--space-3);
+}
+.pantry-finder-body .notice {
+  margin-bottom: 0;
+}
+
+.pantry-panel {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pantry-intro,
+.pantry-panel p {
+  margin: 0;
+}
+.pantry-field {
+  margin-bottom: 0;
+}
+.pantry-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.pantry-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 64px;
+  background: var(--paper);
+}
+.pantry-input-row > .btn {
+  flex: none;
+  min-height: var(--tap);
+}
+.pantry-suggestions {
+  margin-top: var(--space-2);
+}
+.pantry-feedback:empty {
+  display: none;
+}
+.pantry-feedback .field-error ul {
+  margin: 2px 0 0;
+  padding-left: 1.2em;
+  overflow-wrap: anywhere;
+}
+.pantry-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px var(--space-3);
+}
+.pantry-list-head .shop-subtitle {
+  margin: 0;
+}
+
+.pantry-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pantry-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 36px;
+  padding-left: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+.pantry-chip-name {
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.pantry-chip-remove {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  touch-action: manipulation;
+}
+.pantry-chip-remove svg {
+  width: 16px;
+  height: 16px;
+}
+.pantry-chip-remove:active {
+  background: var(--cream-2);
+}
+@media (hover: hover) {
+  .pantry-chip-remove:hover {
+    background: var(--cream-2);
+    color: var(--danger);
+  }
+}
+.pantry-clear {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pantry-filters {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pantry-filters .chip {
+  background: var(--paper);
+}
+.pantry-filters .chip[aria-pressed='true'] {
+  background: var(--butter);
+}
+.pantry-count {
+  min-width: 1.5em;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--cream-2);
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.pantry-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+.pantry-time .field-label {
+  margin: 0;
+}
+.pantry-time-select {
+  width: auto;
+  min-height: var(--tap);
+  background: var(--paper);
+}
+.pantry-caveat {
+  margin: 0;
+}
+
+/* Match summary inside a dish card (phrasing content only, it lives in a <button>). */
+.pantry-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.pantry-state {
+  flex: none;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.pantry-state-ready {
+  background: var(--leaf-soft);
+  color: #255f33;
+}
+.pantry-state-missing {
+  background: var(--butter-soft);
+  color: #7a5200;
+}
+.pantry-state-unknown {
+  background: var(--cream-2);
+  color: var(--ink-2);
+}
+.pantry-names {
+  min-width: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.pantry-names-missing {
+  color: var(--tomato-dark);
+}
+
+/* Per-ingredient comparison in the dish detail sheet. */
+.pantry-detail {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+}
+.pantry-detail p {
+  margin: 0;
+}
+.pantry-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--space-2);
+}
+.pantry-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.pantry-kinds > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pantry-kind-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+}
+.pantry-kind-mark svg {
+  width: 18px;
+  height: 18px;
+}
+.pantry-kinds .is-have .pantry-kind-mark {
+  color: var(--ok);
+}
+.pantry-kinds .is-missing .pantry-kind-mark {
+  color: var(--tomato-dark);
+}
+.pantry-kind-text {
+  display: grid;
+  min-width: 0;
+}
+.pantry-kind-name {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.pantry-kind-row {
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+/* Draft shopping preview split. */
+.shop-preview-part {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.shop-preview-part .shop-subtitle {
+  margin: 0;
+}
+.shop-preview-have {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--sky-soft);
+}
+.shop-preview-have .shop-source {
+  background: var(--paper);
+}
+
+/* Saved list: entry to the 家里已有 review. */
+.shop-pantry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--sky-soft);
+}
+.shop-pantry p {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+.shop-pantry .btn {
+  background: var(--paper);
+}
+
+.have-review {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.have-review p {
+  margin: 0;
+}
+.have-review .notice {
+  margin-bottom: 0;
+}
+.have-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.have-row {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+}
+.have-row .shop-source {
+  background: var(--paper);
+}
+.have-row.is-gone {
+  gap: 2px;
+  opacity: 0.75;
+}
+.have-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.have-checkbox {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--sky);
+}
+.have-name {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font-size: 1.05rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.have-row.is-gone .have-name {
+  min-height: 0;
+  cursor: default;
+}
+.have-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  background: var(--paper);
+}
+
+/* 添加到日历 */
+.cal-export {
+  display: grid;
+  gap: var(--space-2);
+}
+.cal-export .section-title,
+.cal-export p {
+  margin: 0;
+}
+.cal-export .notice {
+  margin-bottom: 0;
+}
+.cal-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.cal-export-actions .btn {
+  flex: 1 1 12rem;
+}
+.cal-export-status:empty {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pantry-toggle .pantry-toggle-chevron {
+    transition: none;
+  }
+}

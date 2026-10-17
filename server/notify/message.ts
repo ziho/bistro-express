@@ -9,6 +9,13 @@ const EVENT_TITLE: Record<PlanEvent, string> = {
   cancelled: '用餐计划已取消',
 };
 
+/** Calendars never sync back: a short reminder, written into new messages only (stored ones are never rewritten). */
+const CALENDAR_HINT: Record<PlanEvent, string> = {
+  created: '可在计划详情里添加到日历',
+  updated: '如已添加到日历，请手动更新日程',
+  cancelled: '如已添加到日历，请手动删除日程',
+};
+
 export interface BuiltMessage {
   title: string;
   body: string;
@@ -30,6 +37,7 @@ export function buildPlanMessage(plan: StoredPlan, event: PlanEvent, publicBaseU
   }
   if (plan.note) lines.push(`备注：${plan.note}`);
   lines.push(`编号 #${plan.shortId} · 第 ${plan.version} 版`);
+  lines.push(CALENDAR_HINT[event]);
   return {
     title: `${EVENT_TITLE[event]} · ${when}`,
     body: lines.join('\n'),
