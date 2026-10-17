@@ -8,9 +8,9 @@ import { timeIsAmbiguous, timeProblem, type MetaErrors } from '../../lib/editorF
 const OUTING_KINDS: OutingKind[] = ['home', 'restaurant', 'treat'];
 
 const OUTING_HINT: Record<OutingKind, string> = {
-  home: '在屋企煮，下一步挑菜。',
-  restaurant: '出去食饭，下一步挑几家候选店，再抽一家或直接选定。',
-  treat: '奶茶、咖啡、糖水、甜品都算，下一步只列出做饮品甜品的店。',
+  home: '下一步点菜。',
+  restaurant: '下一步挑店，可以自己选，也可以抽签。',
+  treat: '奶茶、咖啡、糖水、甜品，下一步再挑店。',
 };
 
 interface Props {

@@ -18,7 +18,7 @@ import type { Ctx, HonoEnv } from '../types.js';
 
 function tooMany(seconds: number): HttpError {
   const minutes = Math.max(1, Math.ceil(seconds / 60));
-  return new HttpError(429, 'rate_limited', `尝试次数太多啦，休息 ${minutes} 分钟再来吧`, { retryAfter: seconds });
+  return new HttpError(429, 'rate_limited', `试得有点多，请等 ${minutes} 分钟再试。`, { retryAfter: seconds });
 }
 
 /** Shared limiter flow: check budget, verify, then record failure or success. */
@@ -50,7 +50,7 @@ export function guestAuthRoutes() {
     const success = await verifyWithLimit(c, app.limiters.gate, () =>
       verifyScrypt(entryDateSecret(date), app.config.entryDateHash),
     );
-    if (!success) throw new HttpError(401, 'wrong_date', '好像不是这一天哦，再想想？');
+    if (!success) throw new HttpError(401, 'wrong_date', '日期不对，再选一次。');
     const session = app.repos.sessions.create('guest', GUEST_SESSION_SECONDS, app.clock());
     setGuestCookie(c, session.token, GUEST_SESSION_SECONDS);
     return ok(c, { guest: true });

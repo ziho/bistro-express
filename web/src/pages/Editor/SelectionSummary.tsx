@@ -111,7 +111,7 @@ export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onRe
       <h3 className="summary-subtitle">{draft.mode === 'home' ? `已选的菜（${ids.length}）` : `候选店铺（${ids.length}）`}</h3>
       {ids.length === 0 ? (
         <p className="muted small summary-empty">
-          {draft.mode === 'home' ? '点菜单卡片，把想吃的菜加进来。' : '把想去的店加入候选，一家就直接定，几家可以抽一家。'}
+          {draft.mode === 'home' ? '点一下菜名，就能加入这一餐。' : '先把想去的店加进来，再决定去哪家。'}
         </p>
       ) : (
         <ul className="summary-list">
@@ -177,7 +177,7 @@ export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onRe
               </span>
             ) : (
               <span className="muted small">
-                {drawable.length === 0 ? '还没有能去的候选' : '抽一家，或者在上面直接选定'}
+                {drawable.length === 0 ? '还没有可选的店' : '自己选，或者抽签决定。'}
               </span>
             )}
           </div>
@@ -187,7 +187,7 @@ export function SelectionSummary({ draft, catalog, snapshotNames, onChange, onRe
               {selectedName ? '再抽一次' : '随机抽一家'}
             </button>
           )}
-          {drawable.length === 1 && <p className="muted small center">只有一家候选，已经帮你定好。</p>}
+          {drawable.length === 1 && <p className="muted small center">只有一家，已自动选中。</p>}
         </div>
       )}
     </div>

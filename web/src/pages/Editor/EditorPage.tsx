@@ -42,13 +42,13 @@ import { useStepTransition, type FocusTarget } from './useStepTransition';
 const PICK_TITLE: Record<OutingKind, string> = {
   home: '今日食乜？',
   restaurant: '出街搵好嘢',
-  treat: '给第二个胃留个位',
+  treat: '想饮啲乜？',
 };
 
 const PICK_LEAD: Record<OutingKind, string> = {
-  home: '把想食的菜加进来，可以按家里现有的材料筛一筛。',
-  restaurant: '加几家候选店：只有一家就直接定，几家可以抽一家，也可以直接选。',
-  treat: '奶茶、咖啡、糖水、甜品，挑几家想去的。',
+  home: '想吃的菜直接点，也可以按家里现有的食材来找。',
+  restaurant: '先加候选店，再选一家；拿不定主意就抽签。',
+  treat: '奶茶、咖啡、糖水、甜品，想去的先加进来。',
 };
 
 const FIELD_ID: Record<MetaField, string> = {
@@ -287,7 +287,7 @@ export function EditorPage() {
         {restored && (
           <div className="notice notice-butter small" role="status">
             <RotateCcw aria-hidden="true" />
-            <span>刚才拣到一半的都在，接着来吧。</span>
+            <span>上次没填完的已恢复。</span>
             {isEdit && plan.data && (
               <button
                 type="button"
@@ -320,7 +320,7 @@ export function EditorPage() {
             <h2 id="editor-step-title" ref={heading} tabIndex={-1}>
               几时开饭，点样食？
             </h2>
-            <p className="muted">先定日子和吃法，下一步再挑菜挑店。</p>
+            <p className="muted">先选日期和吃法，再挑菜或店铺。</p>
           </header>
           <div className="card editor-meta" data-step-motion="lift">
             <MealMetaForm draft={draft} today={today} onChange={update} onOutingChange={changeOuting} errors={fieldErrors} disabled={busy} />
@@ -372,7 +372,7 @@ export function EditorPage() {
             <h2 id="editor-step-title" ref={heading} tabIndex={-1}>
               备注与确认
             </h2>
-            <p className="muted">看一眼，没问题就确认。</p>
+            <p className="muted">看看有没有漏的，没问题就确认。</p>
           </header>
           {reviewCheck && !reviewCheck.ok && (
             <div className="notice notice-butter small" role="status">
@@ -394,7 +394,7 @@ export function EditorPage() {
               className="input textarea"
               rows={3}
               maxLength={LIMITS.note}
-              placeholder="少辣、饭煮软一点、顺路买支嘢饮……"
+              placeholder="少辣、早点吃、顺路买饮料……"
               value={draft.note}
               onChange={(e) => update({ note: e.target.value })}
               disabled={busy}
@@ -408,7 +408,7 @@ export function EditorPage() {
               {submitError}
             </p>
           )}
-          <p className="muted small">确认后会保存，并尝试推送一条通知。</p>
+          <p className="muted small">确认后保存安排，并尝试发送通知。</p>
         </section>
       )}
 

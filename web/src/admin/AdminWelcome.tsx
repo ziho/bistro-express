@@ -11,7 +11,7 @@ export function AdminWelcome() {
         <Logo />
         <Cloche className="admin-welcome-art" />
         <h1 className="admin-welcome-title">欢迎回来，主厨。</h1>
-        <p className="admin-welcome-text">整理拿手菜、收藏好餐厅，为下一顿留点期待。</p>
+        <p className="admin-welcome-text">加菜、收藏店铺，看看最近的安排。</p>
         <Link to="/admin/overview" className="btn btn-primary admin-welcome-enter">
           进入
           <ArrowRight aria-hidden="true" />

@@ -62,8 +62,8 @@ export function RestaurantPicker({ restaurants, purpose, candidateIds, onToggle 
         <p>还没有收藏的{noun}。</p>
         <p className="muted small">
           {purpose === 'treat'
-            ? '主厨在后台把店标记为「饮品甜品」后，就能在这里挑候选。'
-            : '主厨在后台添加餐厅后，就能挑候选、随机抽一家啦。'}
+            ? '店铺在后台勾选「饮品甜品」后，就能在这里选。'
+            : '后台收藏好餐厅，这里就能选。'}
         </p>
       </div>
     );

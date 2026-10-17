@@ -20,8 +20,8 @@ function greeting(): string {
   const h = new Date().getHours();
   if (h < 10) return '早晨，今日食乜好？';
   if (h < 14) return '到点开饭，食乜好？';
-  if (h < 18) return '今晚食乜？慢慢拣。';
-  return '食饱未？下一顿也安排上。';
+  if (h < 18) return '今晚食乜？';
+  return '下一顿食乜？';
 }
 
 export function HomePage() {
@@ -50,7 +50,7 @@ export function HomePage() {
             <Sparkles aria-hidden="true" /> {formatDateLabel(today)}
           </p>
           <h1>{greeting()}</h1>
-          <p className="muted">屋企煮、出街食，或者饮番杯。把想吃的，慢慢排进日常。</p>
+          <p className="muted">屋企煮、出街食，还是饮番杯？</p>
         </div>
         <TableForTwo className="hero-art" />
       </section>
@@ -60,7 +60,7 @@ export function HomePage() {
           <Cloche className="notice-art" />
           <div>
             <strong>菜单还是空的</strong>
-            <p className="small">等主厨添几道拿手菜、收藏几家好店，就能开点啦。</p>
+            <p className="small">后台添好菜、收藏好店铺，这里就能选。</p>
           </div>
         </div>
       )}
@@ -89,8 +89,8 @@ export function HomePage() {
             </p>
           ) : dayPlans.length === 0 ? (
             <div className="empty-day">
-              <p>这天还没节目，给好吃的留个位。</p>
-              <p className="muted small">一餐饭、一杯茶、一份糖水，都可以单独记一笔。</p>
+              <p>这天还没安排。</p>
+              <p className="muted small">正餐、奶茶、糖水，都可以单独安排。</p>
             </div>
           ) : (
             <ul className="plan-list">
@@ -108,7 +108,7 @@ export function HomePage() {
             接下来
           </h2>
           {upcoming.length === 0 && !plans.isPending ? (
-            <p className="muted small">还没约好下一顿，先挑个好日子。</p>
+            <p className="muted small">还没安排下一顿。</p>
           ) : (
             <ol className="agenda-list">
               {upcoming.map(([date, list]) => (

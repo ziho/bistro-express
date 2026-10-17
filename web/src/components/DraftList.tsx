@@ -15,7 +15,7 @@ export function DraftList() {
         <FilePen aria-hidden="true" />
         还没定好的
       </h2>
-      <p className="muted small">刚才拣到一半的都在这里。草稿记在这台设备上，确认后大家才看得到。</p>
+      <p className="muted small">草稿只存在这台设备，确认后才会同步。</p>
       <ul>
         {drafts.map((d) => {
           const count = d.mode === 'home' ? d.dishIds.length : d.candidateIds.length;
@@ -23,7 +23,7 @@ export function DraftList() {
           return (
             <li key={d.key} className="draft-item">
               <Link to={href} className="draft-link">
-                <strong>{d.mealLabel || (outingKind(d) === 'treat' ? '待定的小安排' : '待定的一餐')}</strong>
+                <strong>{d.mealLabel || (outingKind(d) === 'treat' ? '还没起名的安排' : '待定的一餐')}</strong>
                 <span className="muted small">
                   {formatDateLabel(d.date)} · {OUTING_LABEL[outingKind(d)]} · {d.planId ? '修改中' : '新安排'} · {count} 项
                 </span>

@@ -141,8 +141,8 @@ export function PlanDetailPage() {
         <div className="saved-celebration" role="status">
           <PartyPopper aria-hidden="true" />
           <span>
-            {justSaved === 'updated' ? '改好啦。' : '安排好啦，好吃的有着落了。'}
-            {p.notification?.status === 'unconfigured' ? '通知渠道还没配置，主厨暂时收不到推送。' : '通知正在安排发送。'}
+            {justSaved === 'updated' ? '改好了。' : '安排好了。'}
+            {p.notification?.status === 'unconfigured' ? '还没设置通知，这次不会推送。' : '通知发送情况见下方。'}
           </span>
         </div>
       )}
@@ -230,7 +230,7 @@ export function PlanDetailPage() {
         </button>
       </div>
       <p className="muted small">
-        这里先记想吃的，还不算打卡记录。保存于 {new Date(p.updatedAt).toLocaleString('zh-CN')}
+        更新于 {new Date(p.updatedAt).toLocaleString('zh-CN')}
       </p>
 
       <Sheet
@@ -248,7 +248,7 @@ export function PlanDetailPage() {
           </>
         }
       >
-        <p>取消后会通知主厨，计划会保留在记录里但不能再修改。</p>
+        <p>取消后记录还在，但不能再改。取消通知会按设置发送。</p>
       </Sheet>
     </article>
   );

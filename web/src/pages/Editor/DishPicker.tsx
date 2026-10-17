@@ -46,7 +46,7 @@ export function DishPicker({ dishes, selectedIds, onToggle }: Props) {
       <div className="empty-state">
         <EmptyPlate className="empty-art" />
         <p>菜单里还没有可选的菜。</p>
-        <p className="muted small">主厨上新之后，这里会出现可以点的菜。</p>
+        <p className="muted small">后台添加菜品后，这里就能选。</p>
       </div>
     );
   }

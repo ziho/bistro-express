@@ -8,8 +8,6 @@ import { Logo, OfflineBanner } from '../components/AppShell';
 import { TableForTwo } from '../components/Illustrations';
 import { Loading } from '../components/Loading';
 
-const WRONG_LINES = ['好像不是这天，再想想？', '暗号未对上，想想那个特别的日子', '不是这天，慢慢想，不着急'];
-
 function safeNext(next: string | null): string {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/gate')) return '/';
   return next;
@@ -25,7 +23,6 @@ export function GatePage() {
   const [lockedUntil, setLockedUntil] = useState(0);
   const [message, setMessage] = useState<{ tone: 'wrong' | 'locked' | 'error'; text: string } | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
-  const wrongCount = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -47,7 +44,7 @@ export function GatePage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!date) {
-      setMessage({ tone: 'error', text: '先选一个日期吧' });
+      setMessage({ tone: 'error', text: '先选个日期。' });
       return;
     }
     setBusy(true);
@@ -58,16 +55,14 @@ export function GatePage() {
       navigate(safeNext(params.get('next')), { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'wrong_date') {
-        const line = WRONG_LINES[wrongCount.current % WRONG_LINES.length]!;
-        wrongCount.current += 1;
-        setMessage({ tone: 'wrong', text: line });
+        setMessage({ tone: 'wrong', text: '日期不对，再选一次。' });
         setShakeKey((k) => k + 1);
       } else if (err instanceof ApiError && err.status === 429) {
         const seconds = Number((err.details as { retryAfter?: number } | undefined)?.retryAfter) || 60;
         setLockedUntil(Date.now() + Math.max(1, seconds) * 1000);
         setMessage({ tone: 'locked', text: err.message });
       } else {
-        setMessage({ tone: 'error', text: err instanceof ApiError ? err.message : '出了点小问题，请稍后再试' });
+        setMessage({ tone: 'error', text: err instanceof ApiError ? err.message : '暂时进不去，稍后再试。' });
       }
     } finally {
       setBusy(false);
@@ -80,11 +75,11 @@ export function GatePage() {
       <div className="gate-card" key={shakeKey} data-shake={shakeKey > 0 ? 'true' : undefined}>
         <Logo />
         <TableForTwo className="gate-art" />
-        <h1 className="gate-title">入嚟坐，两个人的小馆</h1>
-        <p className="gate-sub">先对个暗号：只有我们知道的那个日子</p>
+        <h1 className="gate-title">入嚟坐</h1>
+        <p className="gate-sub">选对日期，就能进去点餐。</p>
         <form onSubmit={submit} className="gate-form" noValidate>
           <label htmlFor="gate-date" className="field-label">
-            暗号日期
+            日期
           </label>
           <input
             ref={inputRef}
@@ -99,7 +94,7 @@ export function GatePage() {
           />
           <button type="submit" className="btn btn-primary btn-block" disabled={busy || lockedUntil > Date.now()}>
             <DoorOpen aria-hidden="true" />
-            {busy ? '对暗号中…' : '入嚟坐'}
+            {busy ? '正在进入…' : '去点餐'}
           </button>
           <p id="gate-msg" className={`gate-msg gate-msg-${message?.tone ?? 'none'}`} role="alert">
             {message?.text ?? ''}
