@@ -139,7 +139,7 @@ export function PantryPanel({ catalogNames }: { catalogNames: readonly string[] 
         {updated && <span className="muted small">上次更新 {updated}</span>}
       </div>
       {pantry.names.length === 0 ? (
-        <p className="muted small">还没有记下任何食材。</p>
+        <p className="muted small">仲未记低任何食材。</p>
       ) : (
         <>
           <ul className="pantry-chips" aria-label="已记下的现有食材" ref={listRef}>

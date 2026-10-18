@@ -1,6 +1,6 @@
 import type { Restaurant, VenueLocation, VenuePurpose } from './types.js';
 import { matchesTreatTypes, type TreatTypeFilter } from './treatType.js';
-import { formatLocation, VENUE_ENTRY_LABEL } from './venue.js';
+import { formatLocation, VENUE_ENTRY_STANDARD_LABEL } from './venue.js';
 
 /**
  * Pure venue filtering, shared by the guest picker and the admin list. All criteria combine with
@@ -237,5 +237,5 @@ export function placeKeyLabel(key: string, tree: PlaceNode[]): string {
 }
 
 export function purposeFilterLabel(purpose: VenuePurpose | null): string {
-  return purpose ? VENUE_ENTRY_LABEL[purpose] : '全部入口';
+  return purpose ? VENUE_ENTRY_STANDARD_LABEL[purpose] : '全部入口';
 }

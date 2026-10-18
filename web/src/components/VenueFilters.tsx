@@ -1,7 +1,7 @@
 import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { Restaurant, VenuePurpose } from '../../../shared/types';
-import { VENUE_ENTRY_LABEL } from '../../../shared/venue';
+import { VENUE_ENTRY_STANDARD_LABEL } from '../../../shared/venue';
 import {
   activeFilterCount,
   BLANK_PLACE_LABEL,
@@ -86,7 +86,7 @@ export function VenueFilters({
   const clearAll = () => onChange(clearVenueCriteria(value, purposeChoice));
 
   const chips: { key: string; label: string; remove: () => void }[] = [
-    ...(purposeChoice && value.purpose ? [{ key: 'purpose', label: VENUE_ENTRY_LABEL[value.purpose], remove: () => set({ purpose: null }) }] : []),
+    ...(purposeChoice && value.purpose ? [{ key: 'purpose', label: VENUE_ENTRY_STANDARD_LABEL[value.purpose], remove: () => set({ purpose: null }) }] : []),
     ...(value.untagged ? [{ key: 'untagged', label: '未分类', remove: () => set({ untagged: false }) }] : []),
     ...value.tags.map((t) => ({ key: `t-${t}`, label: `#${t}`, remove: () => set({ tags: value.tags.filter((x) => x !== t) }) })),
     ...value.places.map((p) => ({ key: `p-${p}`, label: placeKeyLabel(p, tree.nodes), remove: () => set({ places: value.places.filter((x) => x !== p) }) })),
@@ -240,7 +240,7 @@ function FilterPanel({ venues, tree, value, onChange, purposeChoice }: PanelProp
           <div className="chip-row">
             {purposes.map((p) => <label key={p ?? 'all'} className="chip chip-radio">
               <input type="radio" name={`${id}-purpose`} checked={value.purpose === p} onChange={() => set({ purpose: p })} />
-              <span>{p ? VENUE_ENTRY_LABEL[p] : '全部'}</span>
+              <span>{p ? VENUE_ENTRY_STANDARD_LABEL[p] : '全部'}</span>
             </label>)}
           </div>
         </fieldset>

@@ -2,7 +2,7 @@ import { CircleCheck, ExternalLink, MapPinned, RotateCw, Trash2, TriangleAlert }
 import { memo } from 'react';
 import { classifyMapsUrl } from '../../../../shared/mapsUrl';
 import type { RestaurantDuplicate, VenuePurpose } from '../../../../shared/types';
-import { VENUE_ENTRY_LABEL, VENUE_PURPOSES } from '../../../../shared/venue';
+import { VENUE_ENTRY_STANDARD_LABEL, VENUE_PURPOSES } from '../../../../shared/venue';
 import { OsmAttribution } from '../../components/RestaurantBits';
 import { canRetryGeo, isRetryable, type QueueRow, type RowEdit, type RowInfo, type RowProblem } from '../../lib/bulkQueue';
 import { LOCATION_FIELD_LABEL, LOCATION_FIELDS, locationPayload, togglePurpose, type LocationField } from '../../lib/venueForm';
@@ -291,7 +291,7 @@ export const BulkRowCard = memo(function BulkRowCard({ row, info, locked, action
               aria-invalid={of('purposes').length ? true : undefined}
               onChange={() => actions.setPurposes(row.id, togglePurpose(row.purposes, p))}
             />
-            <span>{VENUE_ENTRY_LABEL[p]}</span>
+            <span>{VENUE_ENTRY_STANDARD_LABEL[p]}</span>
           </label>
         ))}
         {of('purposes').length > 0 && <span className="field-error">{of('purposes')[0]!.message}</span>}

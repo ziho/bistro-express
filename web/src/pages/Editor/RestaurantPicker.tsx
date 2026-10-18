@@ -61,10 +61,10 @@ export function RestaurantPicker({ restaurants, aliases = NO_ALIASES, purpose, c
     return (
       <div className="empty-state">
         <EmptyPlate className="empty-art" />
-        <p>还没有收藏的{noun}。</p>
+        <p>仲未收藏{noun}。</p>
         <p className="muted small">
           {purpose === 'treat'
-            ? '店铺在后台勾选「饮番杯」后，就能在这里选。'
+            ? '在后台将店铺的前台入口设为「饮品甜品」后，即可在这里选择。'
             : '后台收藏好餐厅，这里就能选。'}
         </p>
       </div>
@@ -86,7 +86,7 @@ export function RestaurantPicker({ restaurants, aliases = NO_ALIASES, purpose, c
       </p>
       {visible.length === 0 ? (
         <div className="empty-filter">
-          <p className="muted">没有符合条件的{noun}，换个关键词或减少筛选条件试试。</p>
+          <p className="muted">搵唔到啱嘅{noun}，换个字眼或者少拣啲条件试下。</p>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => applyFilter({ ...clearVenueCriteria(filter), q: '' })}>
             清除搜索和筛选
           </button>

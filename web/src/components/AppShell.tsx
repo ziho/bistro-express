@@ -28,7 +28,7 @@ export function OfflineBanner() {
   return (
     <div className="offline-banner" role="status">
       <WifiOff aria-hidden="true" />
-      <span>暂时没网，先慢慢拣。草稿留在这台设备，联网后再提交。</span>
+      <span>当前处于离线状态。草稿保存在此设备，恢复网络后可提交。</span>
     </div>
   );
 }

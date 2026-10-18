@@ -141,8 +141,8 @@ export function PlanDetailPage() {
         <div className="saved-celebration" role="status">
           <PartyPopper aria-hidden="true" />
           <span>
-            {justSaved === 'updated' ? '改好了。' : '安排好了。'}
-            {p.notification?.status === 'unconfigured' ? '还没设置通知，这次不会推送。' : '通知发送情况见下方。'}
+            <span className="block">{justSaved === 'updated' ? '改好喇。' : '安排好喇。'}</span>
+            <span className="block small muted">{p.notification?.status === 'unconfigured' ? '还没设置通知，这次不会推送。' : '通知发送情况见下方。'}</span>
           </span>
         </div>
       )}

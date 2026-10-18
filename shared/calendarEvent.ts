@@ -2,7 +2,7 @@ import { CALENDAR_EVENT_MINUTES } from './constants.js';
 import { isSafeExternalUrl } from './restaurant.js';
 import { addDays, isPastDate, isValidDateString } from './time.js';
 import type { Plan } from './types.js';
-import { formatLocation, OUTING_LABEL, outingKind } from './venue.js';
+import { formatLocation, OUTING_STANDARD_LABEL, outingKind } from './venue.js';
 
 /**
  * One saved meal as a calendar event, shared by the Google Calendar link (browser) and the .ics
@@ -95,8 +95,8 @@ function timingOf(plan: CalendarPlan): CalendarTiming {
 
 function titleOf(plan: CalendarPlan): string {
   const kind = outingKind(plan);
-  const where = kind === 'home' ? '在家吃' : oneLine(plan.selectedRestaurant?.name ?? '') || OUTING_LABEL[kind];
-  return `${oneLine(plan.mealLabel) || (kind === 'treat' ? OUTING_LABEL.treat : '用餐')} · ${where}`;
+  const where = kind === 'home' ? '在家吃' : oneLine(plan.selectedRestaurant?.name ?? '') || OUTING_STANDARD_LABEL[kind];
+  return `${oneLine(plan.mealLabel) || (kind === 'treat' ? OUTING_STANDARD_LABEL.treat : '用餐')} · ${where}`;
 }
 
 function locationOf(plan: CalendarPlan): string {

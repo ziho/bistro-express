@@ -40,15 +40,15 @@ import { useEditorDraft } from './useEditorDraft';
 import { useStepTransition, type FocusTarget } from './useStepTransition';
 
 const PICK_TITLE: Record<OutingKind, string> = {
-  home: '今日食乜？',
-  restaurant: '出街搵好嘢',
-  treat: '想饮啲乜？',
+  home: '今日食咩？',
+  restaurant: '出街食咩好？',
+  treat: '想饮啲咩？',
 };
 
 const PICK_LEAD: Record<OutingKind, string> = {
-  home: '想吃的菜直接点，也可以按家里现有的食材来找。',
-  restaurant: '先加候选店，再选一家；拿不定主意就抽签。',
-  treat: '奶茶、咖啡、糖水、甜品，想去的先加进来。',
+  home: '想食咩就直接拣，或者睇下屋企有咩食材再搵。',
+  restaurant: '想去嘅店先加落候选，再拣一间；谂唔定就抽签。',
+  treat: '奶茶、咖啡、糖水、甜品，想去嘅先加落候选。',
 };
 
 const FIELD_ID: Record<MetaField, string> = {
@@ -318,9 +318,9 @@ export function EditorPage() {
         <section className="editor-step editor-narrow" aria-labelledby="editor-step-title">
           <header className="editor-step-head" data-step-motion="lift">
             <h2 id="editor-step-title" ref={heading} tabIndex={-1}>
-              几时开饭，点样食？
+              几时食，点样食？
             </h2>
-            <p className="muted">先选日期和吃法，再挑菜或店铺。</p>
+            <p className="muted">先定日期同点样食，再拣菜或者店。</p>
           </header>
           <div className="card editor-meta" data-step-motion="lift">
             <MealMetaForm draft={draft} today={today} onChange={update} onOutingChange={changeOuting} errors={fieldErrors} disabled={busy} />
@@ -372,7 +372,7 @@ export function EditorPage() {
             <h2 id="editor-step-title" ref={heading} tabIndex={-1}>
               备注与确认
             </h2>
-            <p className="muted">看看有没有漏的，没问题就确认。</p>
+            <p className="muted">睇下有冇漏嘢，冇问题就确认。</p>
           </header>
           {reviewCheck && !reviewCheck.ok && (
             <div className="notice notice-butter small" role="status">
@@ -387,7 +387,7 @@ export function EditorPage() {
           </div>
           <div className="card field note-field" data-step-motion="lift">
             <label className="field-label" htmlFor="meal-note">
-              还有什么想交代的 <span className="muted small">（可选）</span>
+              备注 <span className="muted small">（可选）</span>
             </label>
             <textarea
               id="meal-note"

@@ -8,9 +8,9 @@ import { timeIsAmbiguous, timeProblem, type MetaErrors } from '../../lib/editorF
 const OUTING_KINDS: OutingKind[] = ['home', 'restaurant', 'treat'];
 
 const OUTING_HINT: Record<OutingKind, string> = {
-  home: '下一步点菜。',
-  restaurant: '下一步挑店，可以自己选，也可以抽签。',
-  treat: '奶茶、咖啡、糖水、甜品，下一步再挑店。',
+  home: '下一步拣想食嘅菜。',
+  restaurant: '下一步拣店，谂唔定就抽签。',
+  treat: '奶茶、咖啡、糖水、甜品，下一步再拣店。',
 };
 
 interface Props {
@@ -34,7 +34,7 @@ export function MealMetaForm({ draft, today, onChange, onOutingChange, errors, d
   return (
     <fieldset className="meta-form" disabled={disabled}>
       <fieldset className="field">
-        <legend className="field-label">这次点样食</legend>
+        <legend className="field-label">用餐方式</legend>
         <div className="segmented segmented-3">
           {OUTING_KINDS.map((kind) => {
             const Icon = OUTING_ICON[kind];
@@ -74,7 +74,7 @@ export function MealMetaForm({ draft, today, onChange, onOutingChange, errors, d
 
       <div className="field">
         <label className="field-label" htmlFor="meal-label">
-          给这次安排起个名
+          安排名称
         </label>
         <input
           id="meal-label"

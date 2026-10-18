@@ -83,8 +83,8 @@ export function ShoppingSection({ plan }: { plan: Plan }) {
       fail(`「${item.name}」没有改成「${label}」：${result.message}`, result.kind === 'network' ? () => void changeStatus(item, status, from) : null);
       return;
     }
-    const moved = status === 'pending' ? '，已移回待采购' : item.status === 'pending' ? '，已移到「已准备好」' : '';
-    succeed(`已将「${item.name}」标记为${label}${moved}`);
+    const moved = status === 'pending' ? '，移返「待采购」' : item.status === 'pending' ? '，放咗喺「已准备好」' : '';
+    succeed(`「${item.name}」标记好喇：${label}${moved}`);
     focusFirst([
       `${itemSelector(item.key)} [data-status-btn="${status}"]`,
       ...neighbours.map((n) => `${itemSelector(n.key)} .shop-item-name`),
@@ -95,14 +95,14 @@ export function ShoppingSection({ plan }: { plan: Plan }) {
   const addManual = async (values: ManualValues): Promise<ManualSubmitResult> => {
     const result = await run({ method: 'POST', path: `${basePath}/manual`, payload: values }, 'manual:new');
     if (!result.ok) return { ok: false, message: result.message, field: result.field, current: result.current };
-    succeed(`已把「${values.name}」加入采购清单`);
+    succeed(`「${values.name}」加咗落采购清单喇`);
     return { ok: true };
   };
 
   const editManual = async (id: string, values: ManualValues, base: Pick<ShoppingList, 'planVersion' | 'revision'>): Promise<ManualSubmitResult> => {
     const result = await run({ method: 'PUT', path: `${basePath}/manual/${id}`, payload: values }, `manual:${id}`, base);
     if (!result.ok) return { ok: false, message: result.message, field: result.field, current: result.current };
-    succeed(`已保存「${values.name}」的修改`);
+    succeed(`「${values.name}」改好喇`);
     const key = result.list.items.find((i) => i.sources.some((s) => s.kind === 'manual' && s.manualId === id))?.key;
     focusFirst([`[data-manual-edit="${id}"]`, ...(key ? [`${itemSelector(key)} .shop-item-name`] : [])]);
     return { ok: true };
@@ -110,7 +110,7 @@ export function ShoppingSection({ plan }: { plan: Plan }) {
 
   const markHave = async (keys: string[], base: ShoppingBase): Promise<ShoppingWriteResult> => {
     const result = await run({ method: 'PUT', path: `${basePath}/have`, payload: { keys } }, 'have:batch', base);
-    if (result.ok) succeed(`已将 ${keys.length} 样标记为家里已有，移到了「已准备好」`);
+    if (result.ok) succeed(`${keys.length} 样都标记为「家里已有」喇，一齐放咗喺「已准备好」`);
     return result;
   };
 
@@ -120,7 +120,7 @@ export function ShoppingSection({ plan }: { plan: Plan }) {
       fail(`没能删除「${itemName}」的手动补充：${result.message}`, null);
       return false;
     }
-    succeed(`已删除「${itemName}」的手动补充`);
+    succeed(`「${itemName}」嘅手动补充删咗喇`);
     const remaining = result.list.items.find((i) => i.key === shoppingKey(itemName));
     focusFirst(remaining ? [`${itemSelector(remaining.key)} .shop-item-name`] : []);
     return true;
@@ -310,9 +310,9 @@ function ShoppingBody({ list, online, busy, refreshFailed, problem, onDismissPro
       )}
 
       {list.items.length === 0 ? (
-        <p className="muted shop-empty">清单里还没有东西。{list.writable ? '可以在下面手动补充要买的。' : ''}</p>
+        <p className="muted shop-empty">张清单仲未有嘢。{list.writable ? '仲有嘢要买，可以喺下面自己加。' : ''}</p>
       ) : pending.length === 0 ? (
-        <p className="shop-empty shop-all-done">待采购的都准备好了。</p>
+        <p className="shop-empty shop-all-done">要买嘅都准备好晒。</p>
       ) : (
         <ul className="shop-list" aria-label="待采购">
           {pending.map((item) => (

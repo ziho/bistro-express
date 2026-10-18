@@ -70,7 +70,7 @@ function ItemSummary({ item }: { item: CatalogItem }) {
     <>
       {item.review && <span className="small admin-item-review">{item.review}</span>}
       <span className="admin-item-line">
-        <PurposeBadges purposes={item.purposes} />
+        <PurposeBadges purposes={item.purposes} standard />
       </span>
       <LocationLine location={item.location} className="small muted" />
       {item.tags.length > 0 ? <TagList tags={item.tags} className="tag-list-compact" /> : <span className="muted small">还没有分类标签</span>}

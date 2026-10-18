@@ -26,6 +26,9 @@ export const PURPOSE_LABEL: Record<VenuePurpose, string> = {
 /** A venue's placement in the two front-end entries, independent of its classification tags. */
 export const VENUE_ENTRY_LABEL: Record<VenuePurpose, string> = { meal: '出街食', treat: '饮番杯' };
 
+/** Neutral labels for admin controls, validation, notifications and calendar exports. */
+export const VENUE_ENTRY_STANDARD_LABEL: Record<VenuePurpose, string> = { meal: '正餐', treat: '饮品甜品' };
+
 /** One saved outing as people talk about it: cooked at home, a restaurant meal, or a drinks/dessert stop. */
 export type OutingKind = 'home' | 'restaurant' | 'treat';
 
@@ -33,6 +36,12 @@ export const OUTING_LABEL: Record<OutingKind, string> = {
   home: '屋企煮',
   restaurant: '出街食',
   treat: '饮番杯',
+};
+
+export const OUTING_STANDARD_LABEL: Record<OutingKind, string> = {
+  home: '在家做饭',
+  restaurant: '外出用餐',
+  treat: '饮品甜品',
 };
 
 /** The three choices of the editor. */

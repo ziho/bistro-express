@@ -2,7 +2,7 @@ import { ArrowUpRight, ExternalLink, MapPin } from 'lucide-react';
 import { CARD_QUICK_LINKS } from '../../../shared/constants';
 import { restaurantLinks, type LinkAction } from '../../../shared/restaurant';
 import type { RestaurantLink, VenueLocation, VenuePurpose } from '../../../shared/types';
-import { formatLocation, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL, VENUE_ENTRY_LABEL } from '../../../shared/venue';
+import { formatLocation, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL, VENUE_ENTRY_LABEL, VENUE_ENTRY_STANDARD_LABEL } from '../../../shared/venue';
 
 /** Read-only tag chips (分类标签). Renders nothing when there are no tags. */
 export function TagList({ tags, className }: { tags: string[]; className?: string }) {
@@ -126,13 +126,13 @@ export function OsmAttribution() {
 }
 
 /** 吃饭 / 饮品甜品 labels of a venue. */
-export function PurposeBadges({ purposes }: { purposes: VenuePurpose[] }) {
+export function PurposeBadges({ purposes, standard = false }: { purposes: VenuePurpose[]; standard?: boolean }) {
   return (
     <span className="purpose-badges">
       <span className="sr-only">前台入口：</span>
       {purposes.map((p) => (
         <span key={p} className={`badge badge-purpose-${p}`}>
-          {VENUE_ENTRY_LABEL[p]}
+          {(standard ? VENUE_ENTRY_STANDARD_LABEL : VENUE_ENTRY_LABEL)[p]}
         </span>
       ))}
     </span>

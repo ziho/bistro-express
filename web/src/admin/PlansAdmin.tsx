@@ -53,7 +53,7 @@ export function PlansAdmin() {
         <ul className="plan-list">
           {filtered.map((p) => (
             <li key={p.id}>
-              <PlanCard plan={p} showDate />
+              <PlanCard plan={p} showDate standard />
             </li>
           ))}
         </ul>

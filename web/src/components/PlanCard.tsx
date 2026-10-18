@@ -1,14 +1,15 @@
 import { ChevronRight, Clock } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Plan } from '../../../shared/types';
-import { OUTING_LABEL, outingKind } from '../../../shared/venue';
+import { OUTING_LABEL, OUTING_STANDARD_LABEL, outingKind } from '../../../shared/venue';
 import { planDisplay, planItemsText } from '../lib/planView';
 import { NotificationBadge, SavedBadge } from './NotificationBadge';
 import { OutingIcon, outingClass } from './OutingIcon';
 
-export function PlanCard({ plan, showDate = false }: { plan: Plan; showDate?: boolean }) {
+export function PlanCard({ plan, showDate = false, standard = false }: { plan: Plan; showDate?: boolean; standard?: boolean }) {
   const view = planDisplay(plan);
   const cancelled = plan.status === 'cancelled';
+  const labels = standard ? OUTING_STANDARD_LABEL : OUTING_LABEL;
   return (
     <Link to={`/plans/${plan.id}`} className={`plan-card ${cancelled ? 'is-cancelled' : ''}`}>
       <div className={`plan-card-icon ${outingClass(plan)}`} aria-hidden="true">
@@ -25,9 +26,9 @@ export function PlanCard({ plan, showDate = false }: { plan: Plan; showDate?: bo
             </span>
           )}
           {outingKind(plan) === 'treat' ? (
-            <span className="badge badge-treat">{OUTING_LABEL.treat}</span>
+            <span className="badge badge-treat">{labels.treat}</span>
           ) : (
-            <span className="sr-only">{OUTING_LABEL[outingKind(plan)]}</span>
+            <span className="sr-only">{labels[outingKind(plan)]}</span>
           )}
         </div>
         <p className="plan-card-items">{planItemsText(plan)}</p>

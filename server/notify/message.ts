@@ -1,7 +1,7 @@
 import { APP_NAME } from '../../shared/constants.js';
 import { formatDateLabel } from '../../shared/time.js';
 import type { PlanEvent } from '../../shared/types.js';
-import { formatLocation, OUTING_LABEL, outingKind } from '../../shared/venue.js';
+import { formatLocation, OUTING_STANDARD_LABEL, outingKind } from '../../shared/venue.js';
 import type { StoredPlan } from '../repos/plans.js';
 
 const EVENT_TITLE: Record<PlanEvent, string> = {
@@ -39,7 +39,7 @@ export function buildPlanMessage(plan: StoredPlan, event: PlanEvent, publicBaseU
     lines.push(`在家吃：${plan.dishes.map((d) => d.name).join('、') || '（未选菜）'}`);
   } else {
     const chosen = plan.selectedRestaurant?.name ?? '（未定）';
-    lines.push(`${OUTING_LABEL[kind]}：${chosen}`);
+    lines.push(`${OUTING_STANDARD_LABEL[kind]}：${chosen}`);
     const where = formatLocation(plan.selectedRestaurant?.location);
     if (where) lines.push(`地区：${where}`);
     if (plan.candidates.length > 1) {

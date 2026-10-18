@@ -36,7 +36,7 @@ export function HistoryPage() {
   return (
     <div className="history">
       <h1>之前的安排</h1>
-      <p className="muted">翻翻之前的安排，喜欢的可以「再来一顿」。</p>
+      <p className="muted">睇返之前嘅安排，想再食就撳「再来一顿」。</p>
       {plans.isPending ? (
         <Loading />
       ) : plans.isError ? (
@@ -44,7 +44,7 @@ export function HistoryPage() {
       ) : past.length === 0 ? (
         <div className="empty-state">
           <EmptyPlate className="empty-art" />
-          <p>还没有过去的安排。</p>
+          <p>仲未有之前嘅安排。</p>
         </div>
       ) : (
         groupByMonth(past).map(([month, list]) => (

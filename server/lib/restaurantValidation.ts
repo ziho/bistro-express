@@ -76,7 +76,7 @@ export function parseLocation(raw: unknown, stored: VenueLocation | null): Venue
 export function parsePurposes(raw: unknown, stored: readonly VenuePurpose[] | null): VenuePurpose[] {
   if (raw === undefined) return stored ? [...stored] : ['meal'];
   if (!Array.isArray(raw) || raw.length > 8 || raw.some((p) => !VENUE_PURPOSES.includes(p as VenuePurpose))) {
-    throw badRequest('前台入口只能选择「出街食」或「饮番杯」', { field: 'purposes' });
+    throw badRequest('前台入口只能选择「正餐」或「饮品甜品」', { field: 'purposes' });
   }
   const purposes = normalizePurposes(raw);
   if (purposes.length === 0) throw badRequest('请至少选择一个前台入口', { field: 'purposes' });

@@ -45,7 +45,7 @@ export function DishPicker({ dishes, selectedIds, onToggle }: Props) {
     return (
       <div className="empty-state">
         <EmptyPlate className="empty-art" />
-        <p>菜单里还没有可选的菜。</p>
+        <p>菜单仲未有菜拣。</p>
         <p className="muted small">后台添加菜品后，这里就能选。</p>
       </div>
     );
@@ -119,7 +119,7 @@ export function DishPicker({ dishes, selectedIds, onToggle }: Props) {
             </button>
           </div>
         ) : (
-          <p className="muted empty-filter">没有符合条件的菜，换个关键词试试。</p>
+          <p className="muted empty-filter">搵唔到啱嘅菜，换个字眼试下。</p>
         )
       ) : (
         <ul className="dish-grid">

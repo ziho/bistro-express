@@ -251,8 +251,8 @@ export function BatchTags({
 }
 
 const PURPOSE_SETS: { label: string; value: VenuePurpose[] }[] = [
-  { label: '出街食', value: ['meal'] },
-  { label: '饮番杯', value: ['treat'] },
+  { label: '正餐', value: ['meal'] },
+  { label: '饮品甜品', value: ['treat'] },
   { label: '两个入口都显示', value: ['meal', 'treat'] },
 ];
 
