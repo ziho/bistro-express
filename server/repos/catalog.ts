@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { readMinutes, readStoredIngredients, readStoredSections } from '../../shared/dish.js';
 import { readStoredLinks } from '../../shared/restaurant.js';
 import { venueTagTypes } from '../../shared/venueTags.js';
+import { canonicalVenueTags } from '../../shared/tagManagement.js';
+import { readVenueTagAliases } from './venueTags.js';
 import type { Dish, Restaurant } from '../../shared/types.js';
 import { readStoredLocation, readStoredPurposes } from '../../shared/venue.js';
 import type { DB } from '../db/connection.js';
@@ -199,6 +201,7 @@ const toRestaurant = (r: RestaurantRow): Restaurant => ({
 
 export function createCatalogRepo(db: DB) {
   const isReferenced = db.prepare('SELECT 1 FROM plan_refs WHERE kind = ? AND item_id = ? LIMIT 1');
+  const venueValues = (input: RestaurantWrite) => restaurantValues({ ...input, tags: canonicalVenueTags(input.tags, readVenueTagAliases(db)) });
 
   return {
     listDishes(onlyActive: boolean): Dish[] {
@@ -281,7 +284,7 @@ export function createCatalogRepo(db: DB) {
       const columns = ['id', ...RESTAURANT_COLUMNS, 'created_at', 'updated_at'];
       db.prepare(`INSERT INTO restaurants (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`).run(
         id,
-        ...restaurantValues(input),
+        ...venueValues(input),
         ts,
         ts,
       );
@@ -293,7 +296,7 @@ export function createCatalogRepo(db: DB) {
       const assignments = [...RESTAURANT_COLUMNS, 'updated_at'].map((c) => `${c} = ?`).join(', ');
       const result = db
         .prepare(`UPDATE restaurants SET ${assignments}, link_url = NULL, link_label = '' WHERE id = ?`)
-        .run(...restaurantValues(input), now.toISOString(), id);
+        .run(...venueValues(input), now.toISOString(), id);
       return result.changes ? this.getRestaurant(id) : null;
     },
 

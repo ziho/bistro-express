@@ -17,7 +17,7 @@ describe('catalog access', () => {
   it('starts empty', async () => {
     const guest = await env.guest();
     const res = await guest.get('/bistro/api/catalog');
-    expect(res.body.data).toEqual({ dishes: [], restaurants: [] });
+    expect(res.body.data).toEqual({ dishes: [], restaurants: [], restaurantTagAliases: {} });
   });
 });
 

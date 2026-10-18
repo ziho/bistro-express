@@ -215,6 +215,8 @@ export interface PlanInput {
 export interface Catalog {
   dishes: Dish[];
   restaurants: Restaurant[];
+  /** Global tag renames, used to update this device's remembered filter selections. */
+  restaurantTagAliases?: Record<string, string>;
 }
 
 export interface SessionInfo {

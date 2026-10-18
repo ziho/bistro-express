@@ -2,6 +2,7 @@ import { isTreatTypeFilter, type TreatTypeFilter } from '../../../shared/treatTy
 import { TREAT_TYPE_LABEL, UNCLASSIFIED_TREAT, inferTreatTypes } from '../../../shared/treatType';
 import type { VenuePurpose } from '../../../shared/types';
 import { emptyVenueFilter, UNKNOWN_PLACE, parsePlaceScopeKey, type VenueFilter } from '../../../shared/venueFilter';
+import { canonicalVenueTags, type VenueTagAliases } from '../../../shared/tagManagement';
 
 /**
  * The last applied picker filters (tags, tag mode, places, treat types) per purpose, on this
@@ -60,7 +61,7 @@ function storage(): Storage | null {
  */
 export function loadVenueFilter(
   purpose: VenuePurpose,
-  available: { tags: Set<string>; places: Set<string>; treatTypes?: Set<TreatTypeFilter> },
+  available: { tags: Set<string>; places: Set<string>; treatTypes?: Set<TreatTypeFilter>; aliases?: VenueTagAliases },
 ): VenueFilter {
   let remembered: Remembered | null = null;
   try {
@@ -75,7 +76,7 @@ export function loadVenueFilter(
   const previousTypes = purpose === 'treat' ? remembered.treatTypes : [];
   const translated = [...available.tags].filter((tag) => previousTypes.some((type) => type !== UNCLASSIFIED_TREAT &&
     (tag === TREAT_TYPE_LABEL[type] || inferTreatTypes([tag]).includes(type))));
-  const chosenTags = [...new Set([...remembered.tags.filter((t) => available.tags.has(t)), ...translated])];
+  const chosenTags = canonicalVenueTags([...remembered.tags, ...translated], available.aliases ?? {}).filter((t) => available.tags.has(t));
   return {
     ...base,
     tags: chosenTags,

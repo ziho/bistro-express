@@ -12,6 +12,7 @@ import { barkSettingsRoutes } from './barkSettings.js';
 import { mapLinkRoutes } from './mapLink.js';
 import { notificationRoutes } from './notifications.js';
 import { restaurantImportRoutes } from './restaurantImport.js';
+import { venueTagRoutes } from './venueTags.js';
 
 function itemId(c: Ctx): string {
   const id = c.req.param('id') ?? '';
@@ -156,5 +157,6 @@ export function adminRoutes() {
   r.route('/', barkSettingsRoutes());
   r.route('/', mapLinkRoutes());
   r.route('/', restaurantImportRoutes());
+  r.route('/', venueTagRoutes());
   return r;
 }

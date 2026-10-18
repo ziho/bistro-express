@@ -9,6 +9,7 @@ import { idempotencyKey, ok, readJson, requireGuestAccess } from '../helpers.js'
 import type { Ctx, HonoEnv } from '../types.js';
 import { registerCalendarRoute } from './calendar.js';
 import { registerShoppingRoutes } from './shopping.js';
+import { readVenueTagAliases } from '../../repos/venueTags.js';
 
 function optionalDate(c: Ctx, name: string): string | undefined {
   const value = c.req.query(name);
@@ -34,7 +35,7 @@ export function guestRoutes() {
 
   r.get('/catalog', (c) => {
     const { catalog } = c.get('app').repos;
-    const data: Catalog = { dishes: catalog.listDishes(true), restaurants: catalog.listRestaurants(true) };
+    const data: Catalog = { dishes: catalog.listDishes(true), restaurants: catalog.listRestaurants(true), restaurantTagAliases: readVenueTagAliases(c.get('app').db) };
     return ok(c, data);
   });
 

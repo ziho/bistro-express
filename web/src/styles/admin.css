@@ -627,3 +627,18 @@
 .venue-tags .chip-removable { max-width: 100%; overflow-wrap: anywhere; }
 .venue-tags .chip-removable svg { width: 14px; height: 14px; flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { .form-section-toggle > svg { transition: none; } }
+
+/* Compact tag management, readable on touch screens as well as desktops. */
+.tag-admin h1 { display: flex; align-items: center; gap: 10px; }
+.tag-admin h1 svg { width: 26px; height: 26px; }
+.tag-admin-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
+.tag-admin-toolbar > span { margin-right: auto; }
+.tag-admin-list { border-top: 1px solid var(--line); }
+.tag-admin-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.tag-admin-choice { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 44px; cursor: pointer; }
+.tag-admin-choice > span { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.tag-admin-choice input { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--tomato); }
+.tag-admin-row > button { flex-shrink: 0; }
+.tag-change-preview { background: var(--cream); border-radius: var(--radius-sm); padding: 16px; overflow-wrap: anywhere; }
+.tag-change-preview ul { padding-left: 20px; }
+.tag-change-preview p:last-child { margin-bottom: 0; }

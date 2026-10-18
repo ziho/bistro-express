@@ -2,10 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { SHOPPING_REFRESH_MS } from '../../../shared/constants';
 import type { Catalog, Plan, SessionInfo, ShoppingList } from '../../../shared/types';
 import { api } from './client';
+import type { VenueTagIndex } from '../../../shared/tagManagement';
 
 export const keys = {
   session: ['session'] as const,
   catalog: ['catalog'] as const,
+  venueTags: ['admin', 'venue-tags'] as const,
   plans: (scope: string) => ['plans', scope] as const,
   plan: (id: string) => ['plan', id] as const,
   shopping: (planId: string) => ['shopping', planId] as const,
@@ -15,7 +17,10 @@ export const useSession = () =>
   useQuery({ queryKey: keys.session, queryFn: () => api<SessionInfo>('GET', '/auth/session'), staleTime: 30_000 });
 
 export const useCatalog = (enabled = true) =>
-  useQuery({ queryKey: keys.catalog, queryFn: () => api<Catalog>('GET', '/catalog'), enabled });
+  useQuery({ queryKey: keys.catalog, queryFn: () => api<Catalog>('GET', '/catalog'), enabled, refetchInterval: 30_000, refetchIntervalInBackground: false });
+
+export const useVenueTags = (enabled = true) =>
+  useQuery({ queryKey: keys.venueTags, queryFn: () => api<VenueTagIndex>('GET', '/admin/restaurant-tags'), enabled, refetchInterval: 30_000, refetchIntervalInBackground: false });
 
 export const usePlans = (range: { from?: string; to?: string }) => {
   const params = new URLSearchParams();

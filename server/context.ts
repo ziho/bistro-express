@@ -20,6 +20,7 @@ import { createPlanService } from './services/planService.js';
 import { createRestaurantImporter } from './services/restaurantImport.js';
 import { createShoppingService } from './services/shoppingService.js';
 import { syncShoppingAfterPlanWrite } from './services/shoppingState.js';
+import { createVenueTagService } from './services/venueTags.js';
 
 export interface ContextOptions {
   clock?: () => Date;
@@ -76,6 +77,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     clock,
   });
   const restaurantImporter = createRestaurantImporter({ db, catalog: repos.catalog, idempotency: repos.idempotency, clock });
+  const venueTags = createVenueTagService({ db, catalog: repos.catalog, idempotency: repos.idempotency, clock });
   const geocoder = createGeocoder({
     settings: repos.settings,
     cache: repos.geoCache,
@@ -112,6 +114,7 @@ export function createAppContext(config: AppConfig, opts: ContextOptions = {}) {
     planService,
     shoppingService,
     restaurantImporter,
+    venueTags,
     geocoder,
     limiters,
     outboundFetch,

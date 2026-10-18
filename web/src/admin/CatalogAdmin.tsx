@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ListPlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ListPlus, Pencil, Plus, Search, Tags, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
-import { keys } from '../api/queries';
+import { keys, useVenueTags } from '../api/queries';
+import { reconcileVenueTagFilter } from '../../../shared/tagManagement';
 import { dishSearchFields } from '../../../shared/dish';
 import { dishSummaryLines, SectionLabels } from '../components/DishBits';
 import { Cloche } from '../components/Illustrations';
@@ -81,7 +82,8 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const t = TEXT[kind];
   const queryClient = useQueryClient();
   const toast = useToast();
-  const list = useQuery({ queryKey: ['admin', kind], queryFn: () => api<CatalogItem[]>('GET', t.path) });
+  const list = useQuery({ queryKey: ['admin', kind], queryFn: () => api<CatalogItem[]>('GET', t.path), refetchInterval: kind === 'restaurant' ? 30_000 : false, refetchIntervalInBackground: false });
+  const tagIndex = useVenueTags(kind === 'restaurant');
   const [q, setQ] = useState('');
   const [tag, setTag] = useState('');
   const [section, setSection] = useState('');
@@ -89,6 +91,10 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const [venueList, setVenueList] = useState<PagedFilter<VenueFilter>>(() => ({ filter: emptyVenueFilter(null), page: 1 }));
   const venueFilter = venueList.filter;
   const setVenueFilter = (next: VenueFilter) => setVenueList((s) => changeFilter(s, next, sameVenueFilter));
+  useEffect(() => {
+    if (!tagIndex.data) return;
+    setVenueList((s) => changeFilter(s, reconcileVenueTagFilter(s.filter, tagIndex.data.aliases), sameVenueFilter));
+  }, [tagIndex.data]);
   const [editing, setEditing] = useState<CatalogItem | 'new' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<CatalogItem | null>(null);
@@ -96,6 +102,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['admin', kind] });
     await queryClient.invalidateQueries({ queryKey: keys.catalog });
+    if (kind === 'restaurant') await queryClient.invalidateQueries({ queryKey: keys.venueTags });
   };
 
   const save = useMutation({
@@ -179,7 +186,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
           </p>
         </div>
         <div className="head-actions">
-          {kind === 'restaurant' && <BulkImportLink />}
+          {kind === 'restaurant' && <><Link to="/admin/restaurants/tags" className="btn btn-ghost"><Tags aria-hidden="true" />标签管理</Link><BulkImportLink /></>}
           <button type="button" className="btn btn-primary" onClick={() => openEditor('new')}>
             <Plus aria-hidden="true" />
             {t.add}

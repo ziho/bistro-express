@@ -9,6 +9,7 @@ import { BulkImportPage } from './bulk/BulkImportPage';
 import { CatalogAdmin } from './CatalogAdmin';
 import { NotificationsAdmin } from './NotificationsAdmin';
 import { PlansAdmin } from './PlansAdmin';
+import { VenueTagsAdmin } from './VenueTagsAdmin';
 
 const TABS = [
   { to: 'overview', label: '概览', Icon: LayoutGrid },
@@ -63,6 +64,7 @@ export default function AdminApp() {
         <Route path="dishes" element={<CatalogAdmin key="dish" kind="dish" />} />
         <Route path="restaurants" element={<CatalogAdmin key="restaurant" kind="restaurant" />} />
         <Route path="restaurants/import" element={<BulkImportPage />} />
+        <Route path="restaurants/tags" element={<VenueTagsAdmin />} />
         <Route path="plans" element={<PlansAdmin />} />
         <Route path="notifications" element={<NotificationsAdmin />} />
         <Route path="settings" element={<BarkSettingsPage />} />

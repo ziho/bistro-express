@@ -1,6 +1,7 @@
 import { Check, Info, Plus } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { Restaurant, VenuePurpose } from '../../../../shared/types';
+import { reconcileVenueTagFilter, type VenueTagAliases } from '../../../../shared/tagManagement';
 import { clearVenueCriteria, filterVenues, placeTree, tagChoices, type VenueFilter } from '../../../../shared/venueFilter';
 import { EmptyPlate } from '../../components/Illustrations';
 import { ItemImage } from '../../components/ItemImage';
@@ -18,6 +19,7 @@ import { loadVenueFilter, saveVenueFilter } from '../../lib/venueFilterStore';
 
 interface Props {
   restaurants: Restaurant[];
+  aliases?: VenueTagAliases;
   /** Only venues serving this purpose are offered (a mixed venue appears for both). */
   purpose: VenuePurpose;
   candidateIds: string[];
@@ -25,24 +27,27 @@ interface Props {
 }
 
 /** The remembered filters of this purpose, limited to tags, places and types that still exist. */
-function initialFilter(purpose: VenuePurpose, venues: Restaurant[]): VenueFilter {
+function initialFilter(purpose: VenuePurpose, venues: Restaurant[], aliases: VenueTagAliases): VenueFilter {
   return loadVenueFilter(purpose, {
     tags: new Set(tagChoices(venues).map((t) => t.tag)),
     places: collectPlaceKeys(placeTree(venues).nodes, new Set(['unknown'])),
+    aliases,
   });
 }
 
-export function RestaurantPicker({ restaurants, purpose, candidateIds, onToggle }: Props) {
+const NO_ALIASES: VenueTagAliases = {};
+export function RestaurantPicker({ restaurants, aliases = NO_ALIASES, purpose, candidateIds, onToggle }: Props) {
   const idPrefix = useId();
   const offered = useMemo(() => restaurants.filter((r) => r.purposes.includes(purpose)), [restaurants, purpose]);
-  const [filter, setFilter] = useState<VenueFilter>(() => initialFilter(purpose, offered));
+  const [filter, setFilter] = useState<VenueFilter>(() => initialFilter(purpose, offered, aliases));
   const [detail, setDetail] = useState<Restaurant | null>(null);
   const selected = useMemo(() => new Set(candidateIds), [candidateIds]);
 
   // Switching between 去吃饭 and 饮品甜品 brings back that purpose's own remembered filters.
   useEffect(() => {
-    setFilter((f) => (f.purpose === purpose ? f : initialFilter(purpose, offered)));
-  }, [purpose, offered]);
+    const next = reconcileVenueTagFilter(filter.purpose === purpose ? filter : initialFilter(purpose, offered, aliases), aliases);
+    if (next !== filter) { setFilter(next); saveVenueFilter(purpose, next); }
+  }, [purpose, offered, aliases, filter]);
 
   const applyFilter = (next: VenueFilter) => {
     setFilter(next);

@@ -397,6 +397,16 @@ const MIGRATIONS: Migration[] = [
     sql: '',
     up: migrateUnifiedVenueTags,
   },
+  {
+    version: 10,
+    name: 'managed venue tag aliases',
+    sql: `CREATE TABLE venue_tag_aliases (
+      old_tag TEXT PRIMARY KEY,
+      target_tag TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      CHECK(old_tag <> target_tag)
+    );`,
+  },
 ];
 
 /** `upTo` exists for migration tests (to build an older schema); production always runs all. */

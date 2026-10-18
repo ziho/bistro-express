@@ -354,7 +354,7 @@ export function EditorPage() {
               {draft.mode === 'home' ? (
                 <DishPicker dishes={cat.dishes} selectedIds={draft.dishIds} onToggle={toggleDish} />
               ) : (
-                <RestaurantPicker restaurants={cat.restaurants} purpose={draft.purpose} candidateIds={draft.candidateIds} onToggle={toggleCandidate} />
+                <RestaurantPicker restaurants={cat.restaurants} aliases={cat.restaurantTagAliases} purpose={draft.purpose} candidateIds={draft.candidateIds} onToggle={toggleCandidate} />
               )}
             </div>
             {wide && (

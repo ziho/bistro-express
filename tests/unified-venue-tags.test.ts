@@ -23,7 +23,7 @@ describe('one venue classification list', () => {
       db.prepare(`INSERT INTO restaurants(id,name,tags,purposes_json,treat_types_json,created_at,updated_at) VALUES('s','店',?,'["meal","treat"]','["coffee","cake"]','before','before')`).run(JSON.stringify(tags));
       db.prepare(`INSERT INTO plans(id,short_id,status,version,date,meal_label,time_zone,mode,candidates_json,selected_json,created_at,updated_at) VALUES('p','old','active',1,'2030-01-01','晚餐','Asia/Shanghai','restaurant','[{"tags":["旧分类"]}]','{"tags":["旧分类"]}','before','before')`).run();
       db.prepare(`INSERT INTO restaurants(id,name,tags,treat_types_json,created_at,updated_at) VALUES('bad','坏','invalid','["coffee"]','before','before')`).run();
-      expect(runMigrations(db)).toEqual([9]);
+      expect(runMigrations(db)).toEqual([9, 10]);
       const read = () => db.prepare('SELECT * FROM restaurants WHERE id=?').get('s') as Record<string, string>;
       const first = read();
       expect(JSON.parse(first.tags!)).toEqual([...tags, '咖啡', '蛋糕']);
