@@ -1,14 +1,12 @@
 import type { TreatType, VenuePurpose } from './types.js';
 
 /**
- * Structured kinds of a drinks / dessert venue (饮品甜品店的类型), shared by the server
- * (validation, migration 8, snapshots) and the browser (forms, filters, labels).
+ * Legacy drinks / dessert vocabulary, retained for migration, older API clients, remembered
+ * filters and historical snapshots. Current forms and filtering only expose unified venue tags.
  *
- * - Types are optional and multi-select; an empty list means 未分类. Free tags stay free tags.
- * - Types only take part in filtering for venues that serve 'treat'. A venue switched to meal-only
- *   keeps its stored types (so switching back restores them), they just do not apply.
- * - Initial types are inferred only from exact, explicitly known tags — never from substrings,
- *   names or addresses — and tags themselves are never changed.
+ * - Migration 8 inferred initial types only from exact tags; migration 9 merges the saved type
+ *   choices into tags. Live compatibility types are now derived from those tags (venueTags.ts).
+ * - Stored plan snapshots keep their original values. No inference from names or addresses.
  */
 
 export const TREAT_TYPES = ['milk_tea', 'coffee', 'tong_sui', 'ice_cream', 'cake', 'bakery', 'other'] as const satisfies readonly TreatType[];
@@ -55,10 +53,10 @@ export const treatTypesText = (types: readonly TreatType[]) => types.map((t) => 
 const KNOWN_TAGS: Record<Exclude<TreatType, 'other'>, readonly string[]> = {
   milk_tea: ['奶茶', '奶茶店', '珍珠奶茶', '珍奶', '波霸奶茶', 'milk tea', 'bubble tea', 'boba'],
   coffee: ['咖啡', '咖啡店', '咖啡馆', '咖啡館', '咖啡厅', '咖啡廳', 'coffee', 'cafe', 'café'],
-  tong_sui: ['糖水', '糖水铺', '糖水舖', '甜品', '甜品店', '甜点', '甜點', 'dessert', 'desserts'],
+  tong_sui: ['糖水／甜品', '糖水', '糖水铺', '糖水舖', '甜品', '甜品店', '甜点', '甜點', 'dessert', 'desserts'],
   ice_cream: ['雪糕', '冰淇淋', '冰激凌', '霜淇淋', 'ice cream', 'gelato'],
   cake: ['蛋糕', '蛋糕店', 'cake', 'cakes'],
-  bakery: ['面包', '麵包', '面包店', '麵包店', '面包房', '麵包房', '烘焙', '烘焙店', '西饼', '西餅', 'bakery'],
+  bakery: ['面包／烘焙', '面包', '麵包', '面包店', '麵包店', '面包房', '麵包房', '烘焙', '烘焙店', '西饼', '西餅', 'bakery'],
 };
 
 const TAG_TO_TYPE = new Map<string, TreatType>(

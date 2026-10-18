@@ -1,4 +1,6 @@
 import { inferTreatTypes, isTreatType, normalizeTreatTypes, TREAT_TYPES } from '../../shared/treatType.js';
+import { LIMITS } from '../../shared/constants.js';
+import { mergeLegacyVenueTags, venueTagTypes } from '../../shared/venueTags.js';
 import type { Restaurant, TreatType, VenueLocation, VenuePurpose } from '../../shared/types.js';
 import {
   countryNameZh,
@@ -74,10 +76,10 @@ export function parseLocation(raw: unknown, stored: VenueLocation | null): Venue
 export function parsePurposes(raw: unknown, stored: readonly VenuePurpose[] | null): VenuePurpose[] {
   if (raw === undefined) return stored ? [...stored] : ['meal'];
   if (!Array.isArray(raw) || raw.length > 8 || raw.some((p) => !VENUE_PURPOSES.includes(p as VenuePurpose))) {
-    throw badRequest('用途只能是「吃饭」或「饮品甜品」', { field: 'purposes' });
+    throw badRequest('前台入口只能选择「出街食」或「饮番杯」', { field: 'purposes' });
   }
   const purposes = normalizePurposes(raw);
-  if (purposes.length === 0) throw badRequest('请至少选择一种用途（吃饭或饮品甜品）', { field: 'purposes' });
+  if (purposes.length === 0) throw badRequest('请至少选择一个前台入口', { field: 'purposes' });
   return purposes;
 }
 
@@ -103,30 +105,42 @@ export function parseTreatTypes(
 
 const field = (raw: unknown, key: string): unknown => (isObject(raw) ? raw[key] : undefined);
 
+/** Older pages may still submit types. Treat them as additive tags, never a second authority. */
+function unifiedTags(raw: unknown, tags: string[]): string[] {
+  const legacy = field(raw, 'treatTypes');
+  const merged = legacy === undefined ? tags : mergeLegacyVenueTags(tags, parseTreatTypes(legacy, null, { purposes: [], tags: [] }));
+  if (merged.length > LIMITS.restaurantTags) throw badRequest(`最多 ${LIMITS.restaurantTags} 个标签`, { field: 'tags' });
+  return merged;
+}
+
 /** New venue: only the name is required; location defaults to unknown and purposes to ['meal']. */
 export function parseRestaurantCreate(raw: unknown): RestaurantWrite {
   const base = parseWith(restaurantInputSchema, raw);
   const purposes = parsePurposes(field(raw, 'purposes'), null);
+  const tags = unifiedTags(raw, base.tags);
   return {
     ...base,
+    tags,
     location: parseLocation(field(raw, 'location'), null),
     purposes,
-    treatTypes: parseTreatTypes(field(raw, 'treatTypes'), null, { purposes, tags: base.tags }),
+    treatTypes: venueTagTypes(tags),
   };
 }
 
 /**
- * Edit: the original fields are replaced as before. Location, purposes and treat types are only
- * changed when present in the body, so an older page that does not know them keeps the stored
- * values (a treat venue never silently turns back into a meal venue or loses its types).
+ * Edit: tags, entry and location keep their saved values when omitted. Explicit tags replace the
+ * classification list; legacy types can only add their equivalent labels. The compatibility
+ * field is derived afresh, so removed tags cannot reappear from stale stored types.
  */
 export function parseRestaurantUpdate(raw: unknown, stored: Restaurant): RestaurantWrite {
   const base = parseWith(restaurantInputSchema, raw);
   const purposes = parsePurposes(field(raw, 'purposes'), stored.purposes);
+  const tags = unifiedTags(raw, field(raw, 'tags') === undefined ? stored.tags : base.tags);
   return {
     ...base,
+    tags,
     location: parseLocation(field(raw, 'location'), stored.location),
     purposes,
-    treatTypes: parseTreatTypes(field(raw, 'treatTypes'), stored.treatTypes, { purposes, tags: base.tags }),
+    treatTypes: venueTagTypes(tags),
   };
 }

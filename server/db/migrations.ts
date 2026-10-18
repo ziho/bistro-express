@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { legacySections } from '../../shared/dish.js';
 import { legacyLink, splitTags } from '../../shared/restaurant.js';
-import { inferTreatTypes } from '../../shared/treatType.js';
+import { inferTreatTypes, readStoredTreatTypes } from '../../shared/treatType.js';
+import { mergeLegacyVenueTags, venueTagTypes } from '../../shared/venueTags.js';
 import { readStoredPurposes } from '../../shared/venue.js';
 
 interface Migration {
@@ -174,6 +175,19 @@ export function migrateTreatTypes(db: Database.Database): void {
     const tags = (parseTagArray(row.tags) ?? []).filter((t): t is string => typeof t === 'string');
     const types = inferTreatTypes(tags);
     if (types.length) update.run(JSON.stringify(types), row.id);
+  }
+}
+
+/** Merge old type choices into tags without changing timestamps, purposes or plan snapshots. */
+export function migrateUnifiedVenueTags(db: Database.Database): void {
+  const rows = db.prepare('SELECT id, tags, treat_types_json FROM restaurants').all() as { id: string; tags: string; treat_types_json: string }[];
+  const update = db.prepare('UPDATE restaurants SET tags = ?, treat_types_json = ? WHERE id = ?');
+  for (const row of rows) {
+    const tags = parseTagArray(row.tags);
+    // Preserve unreadable source data verbatim rather than replacing it with an empty list.
+    if (!tags || !tags.every((t): t is string => typeof t === 'string')) continue;
+    const merged = mergeLegacyVenueTags(tags, readStoredTreatTypes(parseTagArray(row.treat_types_json)));
+    update.run(JSON.stringify(merged), JSON.stringify(venueTagTypes(merged)), row.id);
   }
 }
 
@@ -376,6 +390,12 @@ const MIGRATIONS: Migration[] = [
     name: 'drinks / dessert venue types',
     sql: '',
     up: migrateTreatTypes,
+  },
+  {
+    version: 9,
+    name: 'unified venue classification tags',
+    sql: '',
+    up: migrateUnifiedVenueTags,
   },
 ];
 

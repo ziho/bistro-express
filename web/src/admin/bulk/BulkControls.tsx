@@ -251,9 +251,9 @@ export function BatchTags({
 }
 
 const PURPOSE_SETS: { label: string; value: VenuePurpose[] }[] = [
-  { label: '设为吃饭', value: ['meal'] },
-  { label: '设为饮品甜品', value: ['treat'] },
-  { label: '两样都是', value: ['meal', 'treat'] },
+  { label: '出街食', value: ['meal'] },
+  { label: '饮番杯', value: ['treat'] },
+  { label: '两个入口都显示', value: ['meal', 'treat'] },
 ];
 
 /** Batch region / purpose for the selected rows: fill empty fields by default, overwrite only on request. */
@@ -283,13 +283,13 @@ export function BatchLocation({
   };
   const purposes = (value: VenuePurpose[]) => {
     const result = onPurposes(value);
-    setMessage(result.ok ? { ok: true, text: `已设置 ${result.applied} 行的用途` } : { ok: false, text: result.error });
+    setMessage(result.ok ? { ok: true, text: `已设置 ${result.applied} 行的前台入口` } : { ok: false, text: result.error });
   };
 
   return (
     <section className="card bulk-tags" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`} className="bulk-section-title">
-        批量填写地区和用途
+        批量填写地区和前台入口
       </h2>
       <p className="field-hint">作用于已选的 {selected} 行。「填入空白」只填还空着的项；要改掉已经填好的值，请用「覆盖已选行」。</p>
       <div className="location-grid">
@@ -319,7 +319,7 @@ export function BatchLocation({
           覆盖已选行
         </button>
       </div>
-      <div className="bulk-toolbar-actions" role="group" aria-label="批量设置用途">
+      <div className="bulk-toolbar-actions" role="group" aria-label="批量设置前台入口">
         {PURPOSE_SETS.map((p) => (
           <button key={p.label} type="button" className="btn btn-ghost btn-sm" disabled={selected === 0} onClick={() => purposes(p.value)}>
             {p.label}

@@ -1,6 +1,6 @@
 import type { Restaurant, VenueLocation, VenuePurpose } from './types.js';
 import { matchesTreatTypes, type TreatTypeFilter } from './treatType.js';
-import { formatLocation, PURPOSE_LABEL } from './venue.js';
+import { formatLocation, VENUE_ENTRY_LABEL } from './venue.js';
 
 /**
  * Pure venue filtering, shared by the guest picker and the admin list. All criteria combine with
@@ -16,6 +16,8 @@ export interface VenueFilter {
   q: string;
   tags: string[];
   tagMode: TagMode;
+  /** Only venues with no classification tags. Mutually exclusive with chosen tags in the UI. */
+  untagged?: boolean;
   /** Place scope keys (see placeScopeKey) or UNKNOWN_PLACE. */
   places: string[];
   /** null = every purpose (admin list); the guest picker always passes the plan's purpose. */
@@ -31,6 +33,7 @@ export const emptyVenueFilter = (purpose: VenuePurpose | null = null): VenueFilt
   q: '',
   tags: [],
   tagMode: 'any',
+  untagged: false,
   places: [],
   purpose,
   treatTypes: [],
@@ -43,6 +46,7 @@ export const clearVenueCriteria = (f: VenueFilter, purposeToo = false): VenueFil
   ...f,
   tags: [],
   places: [],
+  untagged: false,
   treatTypes: [],
   onlySelected: false,
   ...(purposeToo ? { purpose: null } : {}),
@@ -55,6 +59,7 @@ export function sameVenueFilter(a: VenueFilter, b: VenueFilter): boolean {
   return (
     a.q === b.q &&
     a.tagMode === b.tagMode &&
+    Boolean(a.untagged) === Boolean(b.untagged) &&
     a.purpose === b.purpose &&
     a.treatTypeMode === b.treatTypeMode &&
     a.onlySelected === b.onlySelected &&
@@ -140,6 +145,7 @@ export function venueMatches(r: Restaurant, f: VenueFilter, selected: ReadonlySe
     (!f.onlySelected || selected.has(r.id)) &&
     (f.places.length === 0 || f.places.some((key) => matchesPlace(r.location, key))) &&
     matchesTags(r.tags, f.tags, f.tagMode) &&
+    (!f.untagged || r.tags.length === 0) &&
     matchesTreatTypes(r, f.treatTypes, f.treatTypeMode) &&
     matchesQuery(f.q, venueSearchFields(r))
   );
@@ -150,7 +156,7 @@ export function filterVenues<T extends Restaurant>(venues: readonly T[], f: Venu
 }
 
 /** How many criteria (besides the search text and the fixed purpose) are active. */
-export const activeFilterCount = (f: VenueFilter) => f.tags.length + f.places.length + f.treatTypes.length + (f.onlySelected ? 1 : 0);
+export const activeFilterCount = (f: VenueFilter) => f.tags.length + f.places.length + f.treatTypes.length + (f.onlySelected ? 1 : 0) + (f.untagged ? 1 : 0);
 
 // ---------- Choices derived from the catalog ----------
 
@@ -231,5 +237,5 @@ export function placeKeyLabel(key: string, tree: PlaceNode[]): string {
 }
 
 export function purposeFilterLabel(purpose: VenuePurpose | null): string {
-  return purpose ? PURPOSE_LABEL[purpose] : '全部用途';
+  return purpose ? VENUE_ENTRY_LABEL[purpose] : '全部入口';
 }

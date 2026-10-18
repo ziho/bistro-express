@@ -4,7 +4,6 @@ import { Link } from 'react-router';
 import { Loading } from '../../components/Loading';
 import { Sheet } from '../../components/Sheet';
 import { rowGroup } from '../../lib/bulkQueue';
-import { BatchTreatTypes } from './BatchTreatTypes';
 import { BulkRowCard } from './BulkRowCard';
 import { BatchLocation, BatchTags, PasteBox, QueueToolbar, type RowFilter } from './BulkControls';
 import { venueLocationOptions } from '../../lib/venueForm';
@@ -79,10 +78,9 @@ export function BulkImportPage() {
       remove: bulk.remove,
       editLocation: bulk.editLocation,
       setPurposes: bulk.setPurposes,
-      setTreatTypes: bulk.setTreatTypes,
       retryGeo: bulk.retryGeo,
     }),
-    [bulk.edit, bulk.retry, bulk.setManual, bulk.toggle, bulk.remove, bulk.editLocation, bulk.setPurposes, bulk.setTreatTypes, bulk.retryGeo],
+    [bulk.edit, bulk.retry, bulk.setManual, bulk.toggle, bulk.remove, bulk.editLocation, bulk.setPurposes, bulk.retryGeo],
   );
 
   return (
@@ -94,7 +92,7 @@ export function BulkImportPage() {
         <div>
           <h1>批量导入店铺</h1>
           <p className="muted small">
-            粘贴 Google 地图链接，自动识别店名（和尽量识别地区），核对、补标签、地区和用途后一次导入。只需要店名和地图链接，其他信息之后在店铺编辑里补充。
+            粘贴 Google 地图链接，自动识别店名（和尽量识别地区），核对、补分类、地区和前台入口后一次导入。只需要店名和地图链接，其他信息之后在店铺编辑里补充。
           </p>
         </div>
       </div>
@@ -136,7 +134,6 @@ export function BulkImportPage() {
           />
           <BatchTags selected={bulk.counts.selected} suggestions={suggestions} onApply={bulk.addBatchTags} />
           <BatchLocation selected={bulk.counts.selected} options={locationOptions} onFill={bulk.fillLocation} onPurposes={bulk.fillPurposes} />
-          <BatchTreatTypes selected={bulk.counts.selected} onApply={bulk.fillTreatTypes} />
           {bulk.outcome && <Outcome outcome={bulk.outcome} />}
           <ul className="bulk-rows" aria-label="导入队列">
             {visible.map((row) => (

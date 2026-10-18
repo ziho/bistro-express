@@ -168,7 +168,7 @@ describe('POST /admin/restaurants/import', () => {
       ['duplicate ids', [row('same'), row('same')]],
       ['bad id', [row('has space')]],
       ['missing id', [{ name: 'x', mapUrl: KATSU_CLEAN, tags: [] }]],
-      ['too many tags', [row('t', { tags: Array.from({ length: LIMITS.tags + 1 }, (_, i) => `t${i}`) })]],
+      ['too many tags', [row('t', { tags: Array.from({ length: LIMITS.restaurantTags + 1 }, (_, i) => `t${i}`) })]],
       ['long tag', [row('t', { tags: ['长'.repeat(LIMITS.tag + 1)] })]],
       ['empty tag', [row('t', { tags: ['  '] })]],
       ['tag not string', [{ ...row('t'), tags: [1] }]],
@@ -194,7 +194,7 @@ describe('POST /admin/restaurants/import', () => {
         name: '名'.repeat(LIMITS.name),
         mapUrl: pad(`https://maps.google.com/?cid=${9_000_000 + i}`, LIMITS.url),
         sourceUrl: pad(`https://www.google.com/maps/search/?api=1&query=shop${i}`, MAP_LINK_INPUT_MAX),
-        tags: Array.from({ length: LIMITS.tags }, (_, t) => `${t}${'标'.repeat(LIMITS.tag - String(t).length)}`),
+        tags: Array.from({ length: LIMITS.restaurantTags }, (_, t) => `${t}${'标'.repeat(LIMITS.tag - String(t).length)}`),
       }),
     );
     const body = JSON.stringify({ rows });

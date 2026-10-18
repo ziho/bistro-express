@@ -18,6 +18,8 @@ export const LIMITS = {
   description: 600,
   tag: 16,
   tags: 12,
+  /** Unified venue tags, including all former drinks/dessert types. Dish tags stay at 12. */
+  restaurantTags: 24,
   url: 500,
   address: 200,
   /** Restaurant one-sentence review (一句话点评). */

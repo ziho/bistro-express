@@ -29,24 +29,24 @@ const treatOuting = (candidateIds: string[]) => ({
 });
 
 describe('treat types through the admin API', () => {
-  it('creates, keeps on older-page updates, clears with [], rejects unknown values and survives meal-only', async () => {
+  it('derives types from the single tag list, rejects unknown legacy choices and preserves entry', async () => {
     env = await createTestEnv();
     const admin = await env.admin();
     const inferred = await venue(admin, { name: '老客户端奶茶', tags: ['奶茶', '芋泥'], purposes: ['treat'] });
     expect(inferred.treatTypes).toEqual(['milk_tea']);
     const v = await venue(admin, { name: '甜品屋', tags: ['奶茶'], purposes: ['treat'], treatTypes: ['cake', 'milk_tea'] });
     expect(v.treatTypes).toEqual(['milk_tea', 'cake']);
-    expect((await venue(admin, { name: '未分类', tags: ['奶茶'], purposes: ['treat'], treatTypes: [] })).treatTypes).toEqual([]);
+    expect((await venue(admin, { name: '未分类', tags: ['奶茶'], purposes: ['treat'], treatTypes: [] })).treatTypes).toEqual(['milk_tea']);
 
     // An older page that does not know types keeps them.
     const older = await admin.put(`${R}/${v.id}`, { name: '甜品屋', tags: ['甜品'] });
-    expect(older.body.data.treatTypes).toEqual(['milk_tea', 'cake']);
+    expect(older.body.data.treatTypes).toEqual(['tong_sui']);
     // Meal-only keeps them stored for later.
     const meal = await admin.put(`${R}/${v.id}`, { name: '甜品屋', purposes: ['meal'] });
-    expect(meal.body.data).toMatchObject({ purposes: ['meal'], treatTypes: ['milk_tea', 'cake'] });
+    expect(meal.body.data).toMatchObject({ purposes: ['meal'], tags: ['甜品'], treatTypes: ['tong_sui'] });
     expect((await admin.put(`${R}/${v.id}`, { name: '甜品屋', treatTypes: ['tea'] })).status).toBe(400);
     expect((await admin.post(R, { name: 'x', purposes: ['treat'], treatTypes: 'coffee' })).status).toBe(400);
-    const cleared = await admin.put(`${R}/${v.id}`, { name: '甜品屋', purposes: ['treat'], treatTypes: [] });
+    const cleared = await admin.put(`${R}/${v.id}`, { name: '甜品屋', purposes: ['treat'], tags: [] });
     expect(cleared.body.data.treatTypes).toEqual([]);
 
     // Guests read the same field (no private data involved).
@@ -69,7 +69,7 @@ describe('treat types through the admin API', () => {
     expect(again.candidates[0].treatTypes).toEqual(['coffee']);
   });
 
-  it('bulk import infers only when omitted on treat rows; [] stays unclassified; bad types fail just that row', async () => {
+  it('bulk import merges legacy choices into tags; bad choices fail just that row', async () => {
     env = await createTestEnv();
     const admin = await env.admin();
     const link = (n: number) => `https://www.google.com/maps/place/Shop/data=!4m2!3m1!1s0x5486000000000001:0x00000000000000${n}0`;
@@ -92,14 +92,14 @@ describe('treat types through the admin API', () => {
     const list = (await admin.get(R)).body.data as { name: string; treatTypes: string[] }[];
     const types = (name: string) => list.find((r) => r.name === name)?.treatTypes;
     expect(types('自动')).toEqual(['milk_tea', 'coffee']);
-    expect(types('空')).toEqual([]);
-    expect(types('吃饭')).toEqual([]);
-    expect(types('明确')).toEqual(['bakery']);
+    expect(types('空')).toEqual(['milk_tea']);
+    expect(types('吃饭')).toEqual(['milk_tea']);
+    expect(types('明确')).toEqual(['milk_tea', 'bakery']);
     expect(types('坏')).toBeUndefined();
   });
 });
 
-describe('migration 8', () => {
+describe('migration 8 followed by unified tags', () => {
   const TS = '2030-01-01T00:00:00Z';
   const PID = '88888888-8888-4888-8888-888888888888';
   const SHOPS = [
@@ -138,10 +138,10 @@ describe('migration 8', () => {
     db.close();
   }
 
-  it('adds types to existing treat shops from exact tags only, touching nothing else', async () => {
+  it('keeps classifications while deriving the compatibility cache for every live shop', async () => {
     env = await createTestEnv(undefined, { beforeOpen: seedV7 });
     const rows = env.ctx.db.prepare('SELECT id, tags, purposes_json, treat_types_json, updated_at FROM restaurants ORDER BY id').all() as Record<string, string>[];
-    expect(rows.map((r) => r.treat_types_json)).toEqual(['["milk_tea"]', '["coffee","bakery"]', '[]', '[]', '[]']);
+    expect(rows.map((r) => r.treat_types_json)).toEqual(['["milk_tea"]', '["coffee","bakery"]', '[]', '["milk_tea","coffee"]', '[]']);
     // Tags, purposes and timestamps are exactly as before; the meal shop did not become a treat shop.
     expect(rows.map((r) => [r.tags, r.purposes_json, r.updated_at])).toEqual(SHOPS.map((s) => [s.tags, s.purposes, TS]));
 
@@ -159,7 +159,7 @@ describe('migration 8', () => {
     env.ctx.db.prepare(`UPDATE restaurants SET treat_types_json = '{oops' WHERE id = ?`).run(SHOPS[0]!.id);
     const admin = await env.admin();
     const list = (await admin.get(R)).body.data as { id: string; treatTypes: string[] }[];
-    expect(list.find((r) => r.id === SHOPS[0]!.id)?.treatTypes).toEqual([]);
+    expect(list.find((r) => r.id === SHOPS[0]!.id)?.treatTypes).toEqual(['milk_tea']);
     expect(runMigrations(env.ctx.db)).toEqual([]);
   });
 });

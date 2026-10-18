@@ -33,6 +33,12 @@ export const tags = z
   .default([])
   .transform((list) => [...new Set(list)]);
 
+export const venueTags = z
+  .array(z.string().trim().min(1).max(LIMITS.tag, `标签不能超过 ${LIMITS.tag} 个字`))
+  .max(LIMITS.restaurantTags, `最多 ${LIMITS.restaurantTags} 个标签`)
+  .default([])
+  .transform((list) => [...new Set(list)]);
+
 export const assetId = z
   .union([z.string().regex(ASSET_ID_RE, '图片编号无效'), z.null()])
   .optional()
@@ -79,7 +85,7 @@ export const restaurantInputSchema = z.preprocess(
     name: text(LIMITS.name).min(1, '请填写餐厅名'),
     imageAssetId: assetId,
     review: singleLine(LIMITS.review).default(''),
-    tags,
+    tags: venueTags,
     budgetText: text(LIMITS.shortText).default(''),
     address: text(LIMITS.address).default(''),
     mapUrl: optionalUrl,
@@ -170,7 +176,7 @@ const importRow = z.object({
     .union([z.string().max(MAP_LINK_INPUT_MAX, '原始链接太长了'), z.null()])
     .optional()
     .transform((v) => (v?.trim() ? v.trim() : null)),
-  tags,
+  tags: venueTags,
   /**
    * Checked per row (parseLocation / parsePurposes / parseTreatTypes); omitted = unknown location,
    * ['meal'], and treat types inferred from exact known tags (treat rows only).

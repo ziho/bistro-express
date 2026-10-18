@@ -23,6 +23,9 @@ export const PURPOSE_LABEL: Record<VenuePurpose, string> = {
   treat: '饮品甜品',
 };
 
+/** A venue's placement in the two front-end entries, independent of its classification tags. */
+export const VENUE_ENTRY_LABEL: Record<VenuePurpose, string> = { meal: '出街食', treat: '饮番杯' };
+
 /** One saved outing as people talk about it: cooked at home, a restaurant meal, or a drinks/dessert stop. */
 export type OutingKind = 'home' | 'restaurant' | 'treat';
 

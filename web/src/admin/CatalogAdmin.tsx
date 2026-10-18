@@ -9,13 +9,12 @@ import { dishSummaryLines, SectionLabels } from '../components/DishBits';
 import { Cloche } from '../components/Illustrations';
 import { ItemImage } from '../components/ItemImage';
 import { Loading } from '../components/Loading';
-import { LocationLine, PurposeBadges, TagList, TreatTypeBadges } from '../components/RestaurantBits';
+import { LocationLine, PurposeBadges, TagList } from '../components/RestaurantBits';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { dishSectionOptions } from '../lib/dishes';
 import { restaurantSearchFields } from '../lib/restaurants';
 import type { Restaurant } from '../../../shared/types';
-import { UNCLASSIFIED_TREAT_LABEL } from '../../../shared/treatType';
 import { activeFilterCount, emptyVenueFilter, filterVenues, sameVenueFilter, type VenueFilter } from '../../../shared/venueFilter';
 import { VenueFilters } from '../components/VenueFilters';
 import { ItemForm, type CatalogItem, type ItemKind } from './ItemForm';
@@ -71,8 +70,6 @@ function ItemSummary({ item }: { item: CatalogItem }) {
       {item.review && <span className="small admin-item-review">{item.review}</span>}
       <span className="admin-item-line">
         <PurposeBadges purposes={item.purposes} />
-        <TreatTypeBadges purposes={item.purposes} treatTypes={item.treatTypes} />
-        {item.purposes.includes('treat') && item.treatTypes.length === 0 && <span className="muted small">类型：{UNCLASSIFIED_TREAT_LABEL}</span>}
       </span>
       <LocationLine location={item.location} className="small muted" />
       {item.tags.length > 0 ? <TagList tags={item.tags} className="tag-list-compact" /> : <span className="muted small">还没有分类标签</span>}
@@ -199,7 +196,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
             <li>
               {kind === 'dish'
                 ? '可以选几个菜单分区（如「配饭菜」「汤羹」）、加些标签（如「快手」「下饭」）；主料、耗时和采购提醒都能以后再补。'
-                : '选好用途（吃饭 / 饮品甜品，可以都选）。饮品甜品店可多选奶茶、糖水等类型；标签用来记菜系或特色，例如「川菜」「约会」「外带」。国家、省/州和城市也能筛选。'}
+                : '前台入口决定店铺出现在哪儿；分类标签只填一遍，例如「日料」「咖啡」「约会」。地区、菜单和照片可以之后再补。'}
             </li>
             <li>暂时不想被选到的，可以随时「下架」，历史记录不受影响。</li>
             {kind === 'restaurant' && <li>收藏了很多 Google 地图链接？用「批量导入」一次粘贴最多 100 个。</li>}
@@ -215,7 +212,7 @@ export function CatalogAdmin({ kind }: { kind: ItemKind }) {
       ) : (
         <>
           {kind === 'restaurant' ? (
-            <VenueFilters venues={restaurants} value={venueFilter} onChange={setVenueFilter} placeholder={t.searchHint} purposeChoice typeChoice />
+            <VenueFilters venues={restaurants} value={venueFilter} onChange={setVenueFilter} placeholder={t.searchHint} purposeChoice />
           ) : (
             <div className="filters">
               <div className="search-box">

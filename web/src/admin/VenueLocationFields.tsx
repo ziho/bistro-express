@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { MapPinned, TriangleAlert } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import type { GeoOutcome, LocationSuggestion, MapLinkPreview, VenuePurpose } from '../../../shared/types';
-import { formatLocation, LOCATION_LIMITS, PURPOSE_LABEL, VENUE_PURPOSES } from '../../../shared/venue';
+import { useEffect, useId, useRef, useState } from 'react';
+import type { GeoOutcome, LocationSuggestion, MapLinkPreview } from '../../../shared/types';
+import { formatLocation, LOCATION_LIMITS } from '../../../shared/venue';
 import { api, ApiError } from '../api/client';
 import { OsmAttribution } from '../components/RestaurantBits';
 import {
@@ -11,7 +11,6 @@ import {
   LOCATION_FIELD_LABEL,
   LOCATION_FIELDS,
   replaceWithSuggestion,
-  togglePurpose,
   type LocationField,
   type LocationFormState,
   type LocationProblems,
@@ -22,23 +21,18 @@ export type LocationOptions = Record<LocationField, string[]>;
 interface Props {
   state: LocationFormState;
   onChange: (next: LocationFormState) => void;
-  purposes: VenuePurpose[];
-  onPurposes: (next: VenuePurpose[]) => void;
   /** The form's current map link: 「识别地区」 looks up its own place point. */
   mapUrl: string;
   /** Region result that arrived with 「识别链接」 (add form). */
   incoming: { outcome: GeoOutcome; at: number } | null;
   options: LocationOptions;
   problems: LocationProblems;
-  purposeError?: string;
-  /** Rendered right after 用途 (the drinks / dessert type field of a treat venue). */
-  afterPurposes?: ReactNode;
 }
 
 const PLACEHOLDER: Record<LocationField, string> = { country: '比如：加拿大', region: '比如：British Columbia（城市国家可不填）', city: '比如：Burnaby' };
 
-/** Optional 国家/地区 · 省/州 · 城市 plus 用途 for the venue form. Suggestions never overwrite typing silently. */
-export function VenueLocationFields({ state, onChange, purposes, onPurposes, mapUrl, incoming, options, problems, purposeError, afterPurposes }: Props) {
+/** Optional 国家/地区 · 省/州 · 城市 for the venue form. Suggestions never overwrite typing silently. */
+export function VenueLocationFields({ state, onChange, mapUrl, incoming, options, problems }: Props) {
   const id = useId();
   const latestMapUrl = useRef(mapUrl);
   latestMapUrl.current = mapUrl;
@@ -84,35 +78,6 @@ export function VenueLocationFields({ state, onChange, purposes, onPurposes, map
 
   return (
     <>
-      <fieldset className="field venue-purpose">
-        <legend className="field-label">
-          用途 <span className="muted small">（至少选一个，可以都选）</span>
-        </legend>
-        <div className="chip-row">
-          {VENUE_PURPOSES.map((p) => (
-            <label key={p} className="chip chip-radio">
-              <input
-                type="checkbox"
-                checked={purposes.includes(p)}
-                aria-invalid={purposeError ? true : undefined}
-                aria-describedby={purposeError ? `${id}-purpose-err` : `${id}-purpose-hint`}
-                onChange={() => onPurposes(togglePurpose(purposes, p))}
-              />
-              <span>{PURPOSE_LABEL[p]}</span>
-            </label>
-          ))}
-        </div>
-        <p id={`${id}-purpose-hint`} className="field-hint">
-          「吃饭」出现在「去吃饭」，「饮品甜品」出现在「喝点 / 吃点甜的」。同一家店两样都卖时都勾上，不用建两条。
-        </p>
-        {purposeError && (
-          <p id={`${id}-purpose-err`} className="field-error">
-            {purposeError}
-          </p>
-        )}
-      </fieldset>
-      {afterPurposes}
-
       <fieldset className="field venue-location">
         <legend className="field-label">
           地区 <span className="muted small">（可选，城市按实际所在填写，如 Burnaby 不写成 Vancouver）</span>

@@ -1,9 +1,8 @@
 import { ArrowUpRight, ExternalLink, MapPin } from 'lucide-react';
 import { CARD_QUICK_LINKS } from '../../../shared/constants';
 import { restaurantLinks, type LinkAction } from '../../../shared/restaurant';
-import { TREAT_TYPE_LABEL } from '../../../shared/treatType';
-import type { RestaurantLink, TreatType, VenueLocation, VenuePurpose } from '../../../shared/types';
-import { formatLocation, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL, PURPOSE_LABEL } from '../../../shared/venue';
+import type { RestaurantLink, VenueLocation, VenuePurpose } from '../../../shared/types';
+import { formatLocation, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL, VENUE_ENTRY_LABEL } from '../../../shared/venue';
 
 /** Read-only tag chips (分类标签). Renders nothing when there are no tags. */
 export function TagList({ tags, className }: { tags: string[]; className?: string }) {
@@ -130,25 +129,10 @@ export function OsmAttribution() {
 export function PurposeBadges({ purposes }: { purposes: VenuePurpose[] }) {
   return (
     <span className="purpose-badges">
-      <span className="sr-only">用途：</span>
+      <span className="sr-only">前台入口：</span>
       {purposes.map((p) => (
         <span key={p} className={`badge badge-purpose-${p}`}>
-          {PURPOSE_LABEL[p]}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** 饮品甜品类型 of a venue; nothing for a meal-only venue (its kept types do not apply) or no types. */
-export function TreatTypeBadges({ purposes, treatTypes, className }: { purposes: VenuePurpose[]; treatTypes: TreatType[]; className?: string }) {
-  if (!purposes.includes('treat') || treatTypes.length === 0) return null;
-  return (
-    <span className={`purpose-badges ${className ?? ''}`}>
-      <span className="sr-only">类型：</span>
-      {treatTypes.map((t) => (
-        <span key={t} className="badge badge-treat-type">
-          {TREAT_TYPE_LABEL[t]}
+          {VENUE_ENTRY_LABEL[p]}
         </span>
       ))}
     </span>

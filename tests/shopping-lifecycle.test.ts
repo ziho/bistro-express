@@ -171,7 +171,7 @@ describe('migration 6: shopping side table', () => {
   it('only adds the side table, is repeatable and never rewrites old plans', async () => {
     env = await createTestEnv(undefined, { beforeOpen: seedV5 });
     const versions = env.ctx.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    expect(versions.at(-1)).toEqual({ version: 8 });
+    expect(versions.at(-1)).toEqual({ version: 9 });
     const before = rawPlans();
     expect(runMigrations(env.ctx.db)).toEqual([]);
     env.ctx.db.exec("DELETE FROM schema_migrations WHERE version = 6");

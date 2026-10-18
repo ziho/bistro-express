@@ -2,6 +2,7 @@ import { BULK_IMPORT, LIMITS, MAP_LINK_INPUT_MAX } from '../../../shared/constan
 import { findLinkDuplicates, linkKeys } from '../../../shared/mapsKeys';
 import { classifyMapsUrl, extractLink, parseMapsUrl } from '../../../shared/mapsUrl';
 import { splitTags } from '../../../shared/restaurant';
+import { mergeLegacyVenueTags } from '../../../shared/venueTags';
 import type {
   GeoOutcome,
   MapLinkPreview,
@@ -394,13 +395,13 @@ export function rowProblems(row: QueueRow): RowProblem[] {
   for (const [field, message] of Object.entries(locationProblems(row.location))) {
     problems.push({ field: field as LocationField, message });
   }
-  if (row.purposes.length === 0) problems.push({ field: 'purposes', message: '请至少选择一种用途' });
+  if (row.purposes.length === 0) problems.push({ field: 'purposes', message: '请至少选择一个前台入口' });
   return problems;
 }
 
 export function tagProblems(tags: string[]): string[] {
   const problems: string[] = [];
-  if (tags.length > LIMITS.tags) problems.push(`最多 ${LIMITS.tags} 个标签`);
+  if (tags.length > LIMITS.restaurantTags) problems.push(`最多 ${LIMITS.restaurantTags} 个标签`);
   const long = tags.find((t) => t.length > LIMITS.tag);
   if (long) problems.push(`标签「${long}」超过 ${LIMITS.tag} 个字`);
   return problems;
@@ -530,7 +531,7 @@ export function addTagsToSelected(rows: QueueRow[], info: Map<string, RowInfo>, 
   const next = rows.map((r) => {
     if (!info.get(r.id)?.selected) return r;
     const merged = [...new Set([...splitTags(r.tags), ...incoming])];
-    if (merged.length > LIMITS.tags) {
+    if (merged.length > LIMITS.restaurantTags) {
       skipped += 1;
       return r;
     }
@@ -584,7 +585,7 @@ export function fillLocationSelected(
 /** Sets the purposes of the selected importable rows (always an explicit replacement). */
 export function setPurposesSelected(rows: QueueRow[], info: Map<string, RowInfo>, purposes: VenuePurpose[]): BatchFillResult {
   const list = normalizePurposes(purposes);
-  if (list.length === 0) return { ok: false, error: '请至少选择一种用途' };
+  if (list.length === 0) return { ok: false, error: '请至少选择一个前台入口' };
   let applied = 0;
   const next = rows.map((r) => {
     if (!info.get(r.id)?.selected) return r;
@@ -635,10 +636,9 @@ export function commitRows(state: QueueState, info: Map<string, RowInfo>): Resta
       name: r.name.trim(),
       mapUrl: r.mapUrl.trim(),
       sourceUrl: r.sourceUrl || null,
-      tags: splitTags(r.tags),
+      tags: mergeLegacyVenueTags(splitTags(r.tags), r.treatTypes),
       location: locationPayload(r.location),
       purposes: r.purposes,
-      treatTypes: r.treatTypes,
     }));
 }
 

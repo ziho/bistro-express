@@ -1,4 +1,5 @@
 import { isTreatTypeFilter, type TreatTypeFilter } from '../../../shared/treatType';
+import { TREAT_TYPE_LABEL, UNCLASSIFIED_TREAT, inferTreatTypes } from '../../../shared/treatType';
 import type { VenuePurpose } from '../../../shared/types';
 import { emptyVenueFilter, UNKNOWN_PLACE, parsePlaceScopeKey, type VenueFilter } from '../../../shared/venueFilter';
 
@@ -15,7 +16,7 @@ const MAX_ITEMS = 50;
 // Place keys URI-encode up to 160 characters of location text; non-Latin paths can exceed 200.
 const MAX_TEXT = 1600;
 
-type Remembered = Pick<VenueFilter, 'tags' | 'tagMode' | 'places' | 'treatTypes'>;
+type Remembered = Pick<VenueFilter, 'tags' | 'tagMode' | 'places' | 'treatTypes' | 'untagged'>;
 
 /** Unknown values are dropped (not the whole entry); anything but a short list means none. */
 function readTreatTypes(v: unknown): TreatTypeFilter[] {
@@ -42,7 +43,7 @@ export function parseRemembered(raw: string | null, purpose: VenuePurpose): Reme
   const e = entry as Record<string, unknown>;
   if (!isStrList(e.tags) || !isStrList(e.places) || (e.tagMode !== 'any' && e.tagMode !== 'all')) return null;
   const places = e.places.filter((k) => k === UNKNOWN_PLACE || parsePlaceScopeKey(k) !== null);
-  return { tags: [...new Set(e.tags)], tagMode: e.tagMode, places: [...new Set(places)], treatTypes: readTreatTypes(e.treatTypes) };
+  return { tags: [...new Set(e.tags)], tagMode: e.tagMode, places: [...new Set(places)], treatTypes: readTreatTypes(e.treatTypes), ...(e.untagged === true ? { untagged: true } : {}) };
 }
 
 function storage(): Storage | null {
@@ -69,12 +70,19 @@ export function loadVenueFilter(
   }
   const base = emptyVenueFilter(purpose);
   if (!remembered) return base;
+  // Upgrade old type-only preferences to the same tags offered by the new UI. No invisible
+  // legacy criterion may remain active after its controls have disappeared.
+  const previousTypes = purpose === 'treat' ? remembered.treatTypes : [];
+  const translated = [...available.tags].filter((tag) => previousTypes.some((type) => type !== UNCLASSIFIED_TREAT &&
+    (tag === TREAT_TYPE_LABEL[type] || inferTreatTypes([tag]).includes(type))));
+  const chosenTags = [...new Set([...remembered.tags.filter((t) => available.tags.has(t)), ...translated])];
   return {
     ...base,
-    tags: remembered.tags.filter((t) => available.tags.has(t)),
+    tags: chosenTags,
     tagMode: remembered.tagMode,
     places: remembered.places.filter((p) => available.places.has(p)),
-    treatTypes: purpose === 'treat' ? remembered.treatTypes.filter((t) => available.treatTypes?.has(t) ?? false) : [],
+    treatTypes: [],
+    ...(remembered.untagged && chosenTags.length === 0 ? { untagged: true } : {}),
   };
 }
 
@@ -95,7 +103,8 @@ export function saveVenueFilter(purpose: VenuePurpose, filter: VenueFilter): voi
       tags: filter.tags.slice(0, MAX_ITEMS),
       tagMode: filter.tagMode,
       places: filter.places.slice(0, MAX_ITEMS),
-      treatTypes: purpose === 'treat' ? filter.treatTypes.slice(0, MAX_ITEMS) : [],
+      treatTypes: [],
+      ...(filter.untagged ? { untagged: true } : {}),
     };
     s.setItem(FILTER_STORE_KEY, JSON.stringify({ ...current, version: FILTER_STORE_VERSION, [purpose]: entry }));
   } catch {

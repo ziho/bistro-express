@@ -1,17 +1,15 @@
 import { CircleCheck, ExternalLink, MapPinned, RotateCw, Trash2, TriangleAlert } from 'lucide-react';
 import { memo } from 'react';
 import { classifyMapsUrl } from '../../../../shared/mapsUrl';
-import { TREAT_TYPE_LABEL, TREAT_TYPES } from '../../../../shared/treatType';
-import type { RestaurantDuplicate, TreatType, VenuePurpose } from '../../../../shared/types';
-import { PURPOSE_LABEL, VENUE_PURPOSES } from '../../../../shared/venue';
+import type { RestaurantDuplicate, VenuePurpose } from '../../../../shared/types';
+import { VENUE_ENTRY_LABEL, VENUE_PURPOSES } from '../../../../shared/venue';
 import { OsmAttribution } from '../../components/RestaurantBits';
 import { canRetryGeo, isRetryable, type QueueRow, type RowEdit, type RowInfo, type RowProblem } from '../../lib/bulkQueue';
-import { LOCATION_FIELD_LABEL, LOCATION_FIELDS, locationPayload, togglePurpose, toggleTreatType, type LocationField } from '../../lib/venueForm';
+import { LOCATION_FIELD_LABEL, LOCATION_FIELDS, locationPayload, togglePurpose, type LocationField } from '../../lib/venueForm';
 
 export interface RowActions {
   editLocation: (id: string, field: LocationField, value: string) => void;
   setPurposes: (id: string, purposes: VenuePurpose[]) => void;
-  setTreatTypes: (id: string, types: TreatType[]) => void;
   retryGeo: (id: string) => void;
   edit: (id: string, edit: RowEdit) => void;
   retry: (id: string) => void;
@@ -242,7 +240,7 @@ export const BulkRowCard = memo(function BulkRowCard({ row, info, locked, action
         />
         <Field
           id={`${base}-tags`}
-          label="标签（空格分隔，可选）"
+          label="分类标签（空格分隔，可选）"
           value={row.tags}
           placeholder="川菜 约会"
           problems={of('tags')}
@@ -284,7 +282,7 @@ export const BulkRowCard = memo(function BulkRowCard({ row, info, locked, action
         ))}
       </div>
       <fieldset className="bulk-purposes" disabled={locked}>
-        <legend className="bulk-field-label">用途</legend>
+        <legend className="bulk-field-label">前台入口</legend>
         {VENUE_PURPOSES.map((p) => (
           <label key={p} className="check-row small">
             <input
@@ -293,22 +291,11 @@ export const BulkRowCard = memo(function BulkRowCard({ row, info, locked, action
               aria-invalid={of('purposes').length ? true : undefined}
               onChange={() => actions.setPurposes(row.id, togglePurpose(row.purposes, p))}
             />
-            <span>{PURPOSE_LABEL[p]}</span>
+            <span>{VENUE_ENTRY_LABEL[p]}</span>
           </label>
         ))}
         {of('purposes').length > 0 && <span className="field-error">{of('purposes')[0]!.message}</span>}
       </fieldset>
-      {row.purposes.includes('treat') && (
-        <fieldset className="bulk-purposes" disabled={locked}>
-          <legend className="bulk-field-label">饮品甜品类型（可选，不选为未分类）</legend>
-          {TREAT_TYPES.map((t) => (
-            <label key={t} className="check-row small">
-              <input type="checkbox" checked={row.treatTypes.includes(t)} onChange={() => actions.setTreatTypes(row.id, toggleTreatType(row.treatTypes, t))} />
-              <span>{TREAT_TYPE_LABEL[t]}</span>
-            </label>
-          ))}
-        </fieldset>
-      )}
       <GeoNote row={row} locked={locked} onRetry={() => actions.retryGeo(row.id)} />
       <MapLink url={row.mapUrl || row.sourceUrl} />
     </li>

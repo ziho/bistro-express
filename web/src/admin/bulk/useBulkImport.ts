@@ -303,7 +303,7 @@ export function useBulkImport() {
     const result = setPurposesSelected(stateRef.current.rows, infoRef.current, purposes);
     if (result.ok) {
       setState((s) => ({ ...s, rows: result.rows }));
-      setAnnouncement(`已设置 ${result.applied} 行的用途`);
+      setAnnouncement(`已设置 ${result.applied} 行的前台入口`);
     }
     return result;
   }, []);

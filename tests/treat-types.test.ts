@@ -68,11 +68,11 @@ describe('treat type inference', () => {
 describe('treat type validation', () => {
   const stored = { ...venue('s', ['treat'], ['coffee', 'cake'], ['咖啡']) };
 
-  it('infers on create only for treat venues when omitted; explicit [] stays unclassified', () => {
+  it('derives compatibility types from tags and merges explicit legacy choices', () => {
     expect(parseRestaurantCreate({ name: 'a', tags: ['奶茶', '约会'], purposes: ['treat'] }).treatTypes).toEqual(['milk_tea']);
-    expect(parseRestaurantCreate({ name: 'a', tags: ['奶茶'], purposes: ['meal'] }).treatTypes).toEqual([]);
-    expect(parseRestaurantCreate({ name: 'a', tags: ['奶茶'] }).treatTypes).toEqual([]);
-    expect(parseRestaurantCreate({ name: 'a', tags: ['奶茶'], purposes: ['treat'], treatTypes: [] }).treatTypes).toEqual([]);
+    expect(parseRestaurantCreate({ name: 'a', tags: ['奶茶'], purposes: ['meal'] }).treatTypes).toEqual(['milk_tea']);
+    expect(parseRestaurantCreate({ name: 'a', tags: ['奶茶'] }).treatTypes).toEqual(['milk_tea']);
+    expect(parseRestaurantCreate({ name: 'a', tags: ['奶茶'], purposes: ['treat'], treatTypes: [] }).treatTypes).toEqual(['milk_tea']);
     expect(parseRestaurantCreate({ name: 'a', purposes: ['meal', 'treat'], treatTypes: ['other', 'coffee', 'coffee'] }).treatTypes).toEqual([
       'coffee',
       'other',
@@ -86,13 +86,12 @@ describe('treat type validation', () => {
     expect(() => parseRestaurantUpdate({ name: 's', treatTypes: ['tea'] }, stored)).toThrow();
   });
 
-  it('an update without types keeps them (older pages), [] clears, and meal-only keeps them for later', () => {
-    expect(parseRestaurantUpdate({ name: 's', tags: ['奶茶'] }, stored).treatTypes).toEqual(['coffee', 'cake']);
-    expect(parseRestaurantUpdate({ name: 's', treatTypes: [] }, stored).treatTypes).toEqual([]);
-    expect(parseRestaurantUpdate({ name: 's', purposes: ['meal'] }, stored)).toMatchObject({ purposes: ['meal'], treatTypes: ['coffee', 'cake'] });
-    // Never re-inferred on update, even when tags now name a type.
+  it('only tags determine classification; omitted tags keep saved values and explicit tags can clear', () => {
+    expect(parseRestaurantUpdate({ name: 's', tags: ['奶茶'] }, stored).treatTypes).toEqual(['milk_tea']);
+    expect(parseRestaurantUpdate({ name: 's', tags: [] }, stored).treatTypes).toEqual([]);
+    expect(parseRestaurantUpdate({ name: 's', purposes: ['meal'] }, stored)).toMatchObject({ purposes: ['meal'], tags: ['咖啡'], treatTypes: ['coffee'] });
     const untyped = { ...stored, treatTypes: [] };
-    expect(parseRestaurantUpdate({ name: 's', tags: ['奶茶'] }, untyped).treatTypes).toEqual([]);
+    expect(parseRestaurantUpdate({ name: 's', tags: ['奶茶'] }, untyped).treatTypes).toEqual(['milk_tea']);
   });
 });
 
@@ -226,10 +225,11 @@ describe('bulk importer treat types', () => {
     expect(setRowTreatTypes(imported, ['coffee'])).toBe(imported);
   });
 
-  it('sends each row its types explicitly ([] = 未分类)', () => {
+  it('sends legacy types as tags with no separate type field', () => {
     const [a, b] = resolvedRows([KATSU, DEER]);
     const s: QueueState = { rows: [setRowTreatTypes(a!, ['other', 'milk_tea']), b!], pendingCommit: null };
     const sent = commitRows(s, analyzeQueue(s, []));
-    expect(sent.map((r) => r.treatTypes)).toEqual([['milk_tea', 'other'], []]);
+    expect(sent.map((r) => r.tags)).toEqual([['奶茶', '其他'], []]);
+    expect(sent.every((r) => !('treatTypes' in r))).toBe(true);
   });
 });

@@ -1,7 +1,6 @@
 import { Check, Info, Plus } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { Restaurant, VenuePurpose } from '../../../../shared/types';
-import { treatTypeChoices } from '../../../../shared/treatType';
 import { clearVenueCriteria, filterVenues, placeTree, tagChoices, type VenueFilter } from '../../../../shared/venueFilter';
 import { EmptyPlate } from '../../components/Illustrations';
 import { ItemImage } from '../../components/ItemImage';
@@ -12,7 +11,6 @@ import {
   RestaurantLinkRows,
   RestaurantQuickLinks,
   TagList,
-  TreatTypeBadges,
 } from '../../components/RestaurantBits';
 import { Sheet } from '../../components/Sheet';
 import { collectPlaceKeys, VenueFilters } from '../../components/VenueFilters';
@@ -31,7 +29,6 @@ function initialFilter(purpose: VenuePurpose, venues: Restaurant[]): VenueFilter
   return loadVenueFilter(purpose, {
     tags: new Set(tagChoices(venues).map((t) => t.tag)),
     places: collectPlaceKeys(placeTree(venues).nodes, new Set(['unknown'])),
-    treatTypes: new Set(treatTypeChoices(venues).map((c) => c.value)),
   });
 }
 
@@ -62,7 +59,7 @@ export function RestaurantPicker({ restaurants, purpose, candidateIds, onToggle 
         <p>还没有收藏的{noun}。</p>
         <p className="muted small">
           {purpose === 'treat'
-            ? '店铺在后台勾选「饮品甜品」后，就能在这里选。'
+            ? '店铺在后台勾选「饮番杯」后，就能在这里选。'
             : '后台收藏好餐厅，这里就能选。'}
         </p>
       </div>
@@ -76,8 +73,7 @@ export function RestaurantPicker({ restaurants, purpose, candidateIds, onToggle 
         value={filter}
         onChange={applyFilter}
         selected={selected}
-        typeChoice={purpose === 'treat'}
-        quickTypes={purpose === 'treat'}
+        quickTags
         placeholder="搜店名、点评、标签、地区、地址或预算"
       />
       <p className="sr-only" aria-live="polite">
@@ -98,7 +94,6 @@ export function RestaurantPicker({ restaurants, purpose, candidateIds, onToggle 
               restaurant={r}
               nameId={`${idPrefix}-${r.id}`}
               selected={selected.has(r.id)}
-              showTypes={purpose === 'treat'}
               onToggle={() => onToggle(r.id)}
               onDetail={() => setDetail(r)}
             />
@@ -128,14 +123,12 @@ interface CardProps {
   restaurant: Restaurant;
   nameId: string;
   selected: boolean;
-  /** Treat picker: show the drinks / dessert types. */
-  showTypes: boolean;
   onToggle: () => void;
   onDetail: () => void;
 }
 
 /** Text-first card: the name may wrap over several lines; a photo is shown only when one exists. */
-function RestaurantCard({ restaurant: r, nameId, selected, showTypes, onToggle, onDetail }: CardProps) {
+function RestaurantCard({ restaurant: r, nameId, selected, onToggle, onDetail }: CardProps) {
   const meta = metaText(r);
   return (
     <li className={`rest-card ${selected ? 'is-selected' : ''}`}>
@@ -146,7 +139,6 @@ function RestaurantCard({ restaurant: r, nameId, selected, showTypes, onToggle, 
             {r.name}
           </h3>
           {r.review && <p className="rest-card-review">{r.review}</p>}
-          {showTypes && <TreatTypeBadges purposes={r.purposes} treatTypes={r.treatTypes} className="rest-card-types" />}
           <TagList tags={r.tags} />
           <LocationLine location={r.location} className="rest-card-meta" />
           {meta && <p className="rest-card-meta">{meta}</p>}
@@ -179,7 +171,6 @@ function RestaurantDetail({ restaurant: r, selected, onToggle }: { restaurant: R
       {r.imageAssetId && <ItemImage assetId={r.imageAssetId} name={r.name} kind="restaurant" variant="full" className="detail-image detail-photo" />}
       {r.review && <p className="detail-review">{r.review}</p>}
       <PurposeBadges purposes={r.purposes} />
-      <TreatTypeBadges purposes={r.purposes} treatTypes={r.treatTypes} />
       <LocationLine location={r.location} />
       <TagList tags={r.tags} />
       {(r.budgetText || r.address) && (

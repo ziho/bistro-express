@@ -607,3 +607,23 @@
   flex-basis: 100%;
   margin: 0;
 }
+
+/* Shop forms: common fields first, optional details revealed as needed. */
+.form-intro { margin-top: 0; }
+.form-section { border-top: 1px solid var(--line); }
+.form-section-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; text-align: left; padding: 16px 0; color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.form-section-toggle > span { min-width: 0; display: grid; gap: 4px; }
+.form-section-toggle strong { font-size: 0.95rem; }
+.form-section-summary { font-size: 0.82rem; line-height: 1.5; color: var(--ink-2); overflow-wrap: anywhere; }
+.form-section-toggle > svg { width: 18px; height: 18px; flex-shrink: 0; transition: transform var(--dur-fast) var(--ease-out); }
+.form-section-toggle > svg.is-flipped { transform: rotate(180deg); }
+.form-section-body { padding: 4px 0 16px; }
+.form-section-body[hidden] { display: none; }
+.form-section-body > .field:last-child { margin-bottom: 0; }
+.venue-tags .selected-tags { margin-bottom: 10px; }
+.venue-tag-input { display: flex; gap: 8px; }
+.venue-tag-input .input { min-width: 0; flex: 1; }
+.venue-tag-input .btn { flex-shrink: 0; padding-inline: 12px; }
+.venue-tags .chip-removable { max-width: 100%; overflow-wrap: anywhere; }
+.venue-tags .chip-removable svg { width: 14px; height: 14px; flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) { .form-section-toggle > svg { transition: none; } }

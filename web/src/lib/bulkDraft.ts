@@ -1,4 +1,6 @@
 import { BULK_IMPORT, LIMITS, MAP_LINK_INPUT_MAX } from '../../../shared/constants';
+import { splitTags } from '../../../shared/restaurant';
+import { mergeLegacyVenueTags } from '../../../shared/venueTags';
 import { isTreatType, normalizeTreatTypes, TREAT_TYPES } from '../../../shared/treatType';
 import type { RestaurantDuplicate, TreatType, VenuePurpose } from '../../../shared/types';
 import { isCountryCode, normalizePurposes, VENUE_PURPOSES } from '../../../shared/venue';
@@ -12,12 +14,13 @@ import { LOCATION_FIELDS, toLocationForm, type LocationFormState } from './venue
  */
 export const BULK_DRAFT_KEY = 'bx:bulk-import';
 /**
- * 2 = rows carry location, purposes and region-lookup state; 3 = rows carry drinks / dessert types.
+ * 2 = location / entry; 3 = legacy dessert types; 4 = one classification tag list.
  * Older drafts are still read: their rows get an unknown location, ['meal'] and no types (未分类),
- * and an unanswered batch keeps its exact body and key (it is resent byte-for-byte).
+ * Legacy type choices are folded into editable tags. An unanswered batch keeps its exact body
+ * and key (it is resent byte-for-byte), including any legacy type field.
  */
-export const BULK_DRAFT_VERSION = 3;
-const READABLE_VERSIONS = new Set([1, 2, 3]);
+export const BULK_DRAFT_VERSION = 4;
+const READABLE_VERSIONS = new Set([1, 2, 3, 4]);
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const KEY_RE = /^[A-Za-z0-9_-]{8,100}$/;
@@ -78,10 +81,10 @@ function readRow(v: unknown): QueueRow | null {
     sourceUrl: v.sourceUrl as string,
     name: v.name as string,
     mapUrl: v.mapUrl as string,
-    tags: v.tags as string,
+    tags: treatTypes.length ? mergeLegacyVenueTags(splitTags(v.tags as string), treatTypes).join(' ') : v.tags as string,
     location,
     purposes,
-    treatTypes,
+    treatTypes: [],
     geo,
     autofilled: { ...(auto.name !== undefined && { name: auto.name as string }), ...(auto.mapUrl !== undefined && { mapUrl: auto.mapUrl as string }) },
     // A preview cut off by the reload is simply waiting again.

@@ -95,8 +95,8 @@ export interface Restaurant {
   /** At least one; venues saved before migration 7 are ['meal']. */
   purposes: VenuePurpose[];
   /**
-   * Drinks / dessert types, multi-select; [] = 未分类. Kept when the venue becomes meal-only, but
-   * only applied (filters, labels) while it serves 'treat'.
+   * Deprecated compatibility field, derived from tags for live venues. Classification is only
+   * edited through tags; historical plan snapshots keep their original values.
    */
   treatTypes: TreatType[];
   active: boolean;
