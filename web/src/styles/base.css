@@ -7,6 +7,13 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--safe-top) + 88px);
+  scrollbar-color: var(--line-strong) var(--cream);
+}
+
+::selection {
+  color: var(--ink);
+  background: var(--coral-soft);
 }
 
 body {
@@ -27,8 +34,8 @@ h3 {
   font-family: var(--font-display);
   line-height: 1.25;
   margin: 0 0 var(--space-3);
-  letter-spacing: 0.01em;
-  font-weight: 750;
+  letter-spacing: 0;
+  font-weight: 700;
   text-wrap: balance;
 }
 h1 {
@@ -57,6 +64,7 @@ select,
 textarea {
   font: inherit;
   color: inherit;
+  caret-color: var(--tomato-dark);
 }
 button {
   cursor: pointer;

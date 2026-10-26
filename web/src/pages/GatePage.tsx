@@ -5,7 +5,6 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { keys, useSession } from '../api/queries';
 import { Logo, OfflineBanner } from '../components/AppShell';
-import { TableForTwo } from '../components/Illustrations';
 import { Loading } from '../components/Loading';
 
 function safeNext(next: string | null): string {
@@ -74,7 +73,6 @@ export function GatePage() {
       <OfflineBanner />
       <div className="gate-card" key={shakeKey} data-shake={shakeKey > 0 ? 'true' : undefined}>
         <Logo />
-        <TableForTwo className="gate-art" />
         <h1 className="gate-title">入嚟坐</h1>
         <p className="gate-sub">仲记唔记得？</p>
         <form onSubmit={submit} className="gate-form" noValidate>

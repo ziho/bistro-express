@@ -177,8 +177,9 @@
   accent-color: var(--tomato);
 }
 .chip-radio:has(input:checked) {
-  background: var(--butter);
-  border-color: var(--butter-strong);
+  background: var(--coral-soft);
+  border-color: var(--tomato);
+  color: var(--tomato-dark);
 }
 .chip-radio:has(input:focus-visible) {
   outline: 3px solid var(--sky);

@@ -13,7 +13,7 @@
   gap: var(--space-2);
   overflow-x: auto;
   padding: var(--space-3) calc(var(--safe-right) + var(--space-4)) var(--space-2) calc(var(--safe-left) + var(--space-4));
-  max-width: 1280px;
+  max-width: var(--content-width);
   width: 100%;
   margin: 0 auto;
   scrollbar-width: thin;
@@ -25,8 +25,9 @@
   flex: none;
   min-height: var(--tap);
   padding: 0 var(--space-4);
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
   text-decoration: none;
   color: var(--ink-2);
@@ -38,11 +39,9 @@
   height: 18px;
 }
 .admin-tab.active {
-  background: var(--paper);
-  border-color: var(--line-strong);
+  border-bottom-color: var(--tomato);
   color: var(--ink);
   font-weight: 700;
-  box-shadow: var(--shadow-sm);
 }
 .admin-tab.active svg {
   color: var(--tomato);
@@ -63,7 +62,7 @@
   place-items: center;
   padding: calc(var(--safe-top) + var(--space-5)) calc(var(--safe-right) + var(--space-4))
     calc(var(--safe-bottom) + var(--space-5)) calc(var(--safe-left) + var(--space-4));
-  background: radial-gradient(120% 80% at 50% 0%, var(--paper) 0%, var(--cream) 55%, var(--cream-2) 100%);
+  background: var(--cream);
 }
 .admin-welcome-card {
   width: min(460px, 100%);
@@ -125,7 +124,6 @@
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
   color: var(--ink);
   text-decoration: none;
   transition: border-color var(--dur-fast), transform var(--dur-fast) var(--ease);
@@ -144,8 +142,6 @@
   width: 44px;
   height: 44px;
   flex: none;
-  border-radius: 14px;
-  background: var(--coral-soft);
   color: var(--tomato-dark);
 }
 .overview-tile-icon svg {
@@ -212,12 +208,10 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-3);
-}
-@media (min-width: 900px) {
-  .admin-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
 }
 .admin-item {
   display: grid;
@@ -227,8 +221,13 @@
     'thumb toggle actions';
   align-items: center;
   column-gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
 }
+.admin-item:first-child { border-start-start-radius: var(--radius); border-start-end-radius: var(--radius); }
+.admin-item:last-child { border-bottom: 0; border-end-start-radius: var(--radius); border-end-end-radius: var(--radius); }
 /* Restaurants without a photo: no placeholder column. */
 .admin-item.no-thumb {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -273,6 +272,31 @@
   grid-area: actions;
   display: flex;
   flex-direction: column;
+}
+@media (min-width: 760px) {
+  .admin-item {
+    grid-template-columns: 64px minmax(0, 1fr) auto auto;
+    grid-template-areas: 'thumb text toggle actions';
+    column-gap: var(--space-5);
+  }
+  .admin-item.no-thumb {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'text toggle actions';
+  }
+  .admin-thumb { width: 64px; }
+  .admin-item-actions { flex-direction: row; }
+}
+@media (min-width: 1000px) {
+  .admin-item-text:has(.purpose-badges) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px var(--space-4);
+  }
+  .admin-item-text:has(.purpose-badges) > strong,
+  .admin-item-text > .admin-item-review { flex-basis: 100%; }
+  .admin-item-text:has(.purpose-badges) > .location-line,
+  .admin-item-text:has(.purpose-badges) > .tag-list-compact { margin: 0; }
 }
 .switch-row.compact {
   gap: var(--space-2);

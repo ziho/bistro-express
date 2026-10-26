@@ -1,4 +1,4 @@
-import { CalendarPlus, CupSoda, Sparkles } from 'lucide-react';
+import { CalendarPlus, CupSoda } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { addDays, formatDateLabel, isValidDateString } from '../../../shared/time';
@@ -6,7 +6,7 @@ import { OUTING_LABEL } from '../../../shared/venue';
 import { useCatalog, usePlans } from '../api/queries';
 import { DateStrip } from '../components/DateStrip';
 import { DraftList } from '../components/DraftList';
-import { Cloche, TableForTwo } from '../components/Illustrations';
+import { Cloche } from '../components/Illustrations';
 import { Loading } from '../components/Loading';
 import { PlanCard } from '../components/PlanCard';
 import { groupByViewerDate, upcomingActiveDays } from '../lib/agenda';
@@ -46,13 +46,9 @@ export function HomePage() {
     <div className="home">
       <section className="hero">
         <div className="hero-text">
-          <p className="hero-kicker">
-            <Sparkles aria-hidden="true" /> {formatDateLabel(today)}
-          </p>
           <h1>{greeting()}</h1>
           <p className="muted">屋企煮、出街食，定系饮番杯？</p>
         </div>
-        <TableForTwo className="hero-art" />
       </section>
 
       {catalogEmpty && (
