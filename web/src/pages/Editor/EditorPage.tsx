@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, ListChecks, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ClipboardList, ListChecks, Pencil, RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { LIMITS } from '../../../../shared/constants';
+import { formatDateLabel } from '../../../../shared/time';
 import type { Plan } from '../../../../shared/types';
-import { outingFromKind, type OutingKind } from '../../../../shared/venue';
+import { OUTING_LABEL, outingFromKind, type OutingKind } from '../../../../shared/venue';
 import { api, ApiError, newIdempotencyKey } from '../../api/client';
 import { keys, useCatalog, usePlan } from '../../api/queries';
 import { Loading } from '../../components/Loading';
@@ -282,7 +283,7 @@ export function EditorPage() {
         <h1>{isEdit ? `修改安排 #${plan.data?.shortId}` : '安排一顿'}</h1>
       </div>
 
-      <div className="editor-narrow">
+      <div className={`editor-progress${step === 2 ? '' : ' editor-narrow'}`}>
         <EditorStepper step={step} onSelect={goTo} disabled={busy} />
         {restored && (
           <div className="notice notice-butter small" role="status">
@@ -337,12 +338,22 @@ export function EditorPage() {
               </h2>
               <p className="muted">{PICK_LEAD[outing]}</p>
             </div>
-            {draft.mode === 'home' && draft.dishIds.length > 0 && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={openShoppingPreview} aria-haspopup="dialog">
-                <ClipboardList aria-hidden="true" />
-                采购清单
+            <div className="editor-step-head-actions">
+              <button type="button" className="editor-context" onClick={() => goTo(1)} disabled={busy} aria-label="修改日期和吃法" aria-describedby="editor-context-details">
+                <CalendarDays aria-hidden="true" />
+                <span id="editor-context-details">
+                  <strong>{formatDateLabel(draft.date)}{draft.localTime ? ` · ${draft.localTime}` : ''}</strong>
+                  <span>{draft.mealLabel.trim()} · {OUTING_LABEL[outing]}</span>
+                </span>
+                <Pencil aria-hidden="true" />
               </button>
-            )}
+              {draft.mode === 'home' && draft.dishIds.length > 0 && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={openShoppingPreview} aria-haspopup="dialog">
+                  <ClipboardList aria-hidden="true" />
+                  采购清单
+                </button>
+              )}
+            </div>
           </header>
           {stepIssue && (
             <p ref={issue} tabIndex={-1} className="error-text editor-issue" role="alert">

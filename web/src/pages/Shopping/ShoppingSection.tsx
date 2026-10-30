@@ -254,11 +254,23 @@ function ShoppingBody({ list, online, busy, refreshFailed, problem, onDismissPro
 
   return (
     <>
-      <p className="shop-counts">
-        <span>待采购 {list.counts.pending}</span>
-        <span>家里已有 {list.counts.have}</span>
-        <span>已买好 {list.counts.bought}</span>
-      </p>
+      <div className="shop-overview">
+        <p className="shop-counts">
+          <span><span>待采购</span> <strong>{list.counts.pending}</strong></span>
+          <span><span>家里已有</span> <strong>{list.counts.have}</strong></span>
+          <span><span>已买好</span> <strong>{list.counts.bought}</strong></span>
+        </p>
+        {list.items.length > 0 && (
+          <div className="shop-progress">
+            <span className="small">已准备好 {list.counts.have + list.counts.bought} / {list.items.length} 样</span>
+            <progress
+              aria-label="采购准备进度"
+              value={list.counts.have + list.counts.bought}
+              max={list.items.length}
+            />
+          </div>
+        )}
+      </div>
       <p className="muted small">
         按食材种类计数。「家里已有」表示够这一餐用。状态和补充项会和另一台设备共享，打开或切回这个页面时自动刷新。
       </p>

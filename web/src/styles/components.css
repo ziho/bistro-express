@@ -14,6 +14,7 @@
   font-size: 1rem;
   text-decoration: none;
   white-space: nowrap;
+  max-width: 100%;
   transition: transform var(--dur-fast) var(--ease), background var(--dur-fast), border-color var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -37,8 +38,8 @@
   color: #fff;
 }
 .btn-butter {
-  background: var(--surface-muted);
-  border-color: var(--line-strong);
+  background: var(--surface-peach);
+  border-color: var(--line);
 }
 .btn-ghost {
   background: var(--paper);
@@ -486,6 +487,7 @@
   gap: 4px;
   font-weight: 700;
   color: var(--tomato-dark);
+  font-variant-numeric: tabular-nums;
 }
 .plan-time svg {
   width: 16px;
@@ -814,6 +816,7 @@
   font-weight: 800;
   font-family: var(--font-display);
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 .date-chip-dot {
   width: 6px;

@@ -46,9 +46,9 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 .dish-card {
   display: flex;
@@ -57,7 +57,7 @@
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+  transition: border-color var(--dur-fast), background var(--dur-fast);
 }
 .dish-card.is-selected {
   border-color: var(--tomato);
@@ -71,11 +71,11 @@
 .dish-card-main {
   flex: 1;
   min-width: 0;
-  min-height: 56px;
+  min-height: 88px;
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-1) var(--space-4) var(--space-4);
+  padding: 18px var(--space-1) 18px var(--space-4);
   border: 0;
   border-radius: var(--radius);
   background: transparent;
@@ -90,12 +90,13 @@
 }
 .dish-card-check {
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
+  border: 1px solid var(--line-strong);
   background: var(--paper);
 }
 .dish-card-check svg {
@@ -123,9 +124,9 @@
   gap: 4px;
 }
 .dish-card-name {
-  font-size: 1.02rem;
-  font-weight: 700;
-  line-height: 1.35;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 .dish-card-line {
@@ -145,7 +146,7 @@
   flex: none;
   width: var(--tap);
   height: var(--tap);
-  margin: 6px 6px 0 0;
+  margin: 10px 6px 0 0;
   display: grid;
   place-items: center;
   border: 0;
@@ -165,6 +166,15 @@
 .dish-card-info svg {
   width: 20px;
   height: 20px;
+}
+@media (max-width: 420px) {
+  .dish-card-main {
+    gap: var(--space-2);
+    padding-left: var(--space-3);
+  }
+  .dish-card-photo {
+    width: 44px;
+  }
 }
 
 /* ---------- Dish details (sheet and saved plan) ---------- */

@@ -2,7 +2,8 @@
 
 .pantry-finder {
   margin-bottom: var(--space-3);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
   background: var(--cream);
 }
 .pantry-toggle {
@@ -11,13 +12,13 @@
   gap: var(--space-2);
   width: 100%;
   min-height: var(--tap);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 0;
   border-radius: var(--radius);
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   text-align: left;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -54,7 +55,7 @@
   display: grid;
   gap: var(--space-3);
   min-width: 0;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: 0 var(--space-4) var(--space-4);
 }
 .pantry-finder-body .notice {
   margin-bottom: 0;
@@ -62,7 +63,7 @@
 
 .pantry-panel {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
 }
 .pantry-intro,
@@ -121,11 +122,11 @@
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  min-height: 36px;
+  min-height: var(--tap);
   padding-left: var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  background: var(--coral-soft);
+  box-shadow: none;
 }
 .pantry-chip-name {
   min-width: 0;
@@ -137,8 +138,8 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: var(--tap);
+  height: var(--tap);
   border: 0;
   border-radius: 50%;
   background: transparent;
@@ -172,7 +173,8 @@
   background: var(--paper);
 }
 .pantry-filters .chip[aria-pressed='true'] {
-  background: var(--butter);
+  background: var(--coral-soft);
+  color: var(--tomato-dark);
 }
 .pantry-count {
   min-width: 1.5em;
@@ -219,8 +221,8 @@
   line-height: 1.6;
 }
 .pantry-state-ready {
-  background: var(--leaf-soft);
-  color: #255f33;
+  background: var(--coral-soft);
+  color: var(--tomato-dark);
 }
 .pantry-state-missing {
   background: var(--butter-soft);
@@ -282,7 +284,7 @@
   height: 18px;
 }
 .pantry-kinds .is-have .pantry-kind-mark {
-  color: var(--ok);
+  color: var(--tomato-dark);
 }
 .pantry-kinds .is-missing .pantry-kind-mark {
   color: var(--tomato-dark);
@@ -304,19 +306,22 @@
 /* Draft shopping preview split. */
 .shop-preview-part {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--coral);
 }
 .shop-preview-part .shop-subtitle {
   margin: 0;
 }
 .shop-preview-have {
-  padding: var(--space-3);
+  padding: var(--space-4);
+  border-top: 0;
   border-radius: var(--radius-sm);
-  background: var(--sky-soft);
+  background: var(--cream);
 }
 .shop-preview-have .shop-source {
-  background: var(--paper);
+  background: transparent;
 }
 
 /* Saved list: entry to the 家里已有 review. */
@@ -326,9 +331,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
-  background: var(--sky-soft);
+  background: var(--cream-2);
 }
 .shop-pantry p {
   margin: 0;
@@ -366,7 +371,7 @@
   background: var(--cream);
 }
 .have-row .shop-source {
-  background: var(--paper);
+  background: transparent;
 }
 .have-row.is-gone {
   gap: 2px;
@@ -383,7 +388,7 @@
   width: 22px;
   height: 22px;
   margin: 0;
-  accent-color: var(--sky);
+  accent-color: var(--tomato);
 }
 .have-name {
   flex: 1;
@@ -392,7 +397,7 @@
   display: flex;
   align-items: center;
   font-size: 1.05rem;
-  font-weight: 750;
+  font-weight: 650;
   overflow-wrap: anywhere;
   cursor: pointer;
 }
@@ -433,6 +438,28 @@
 }
 .cal-export-status:empty {
   display: none;
+}
+
+@media (max-width: 420px) {
+  .pantry-toggle {
+    flex-wrap: wrap;
+    padding-inline: var(--space-3);
+  }
+  .pantry-finder-body {
+    padding-inline: var(--space-3);
+  }
+  .pantry-input-row {
+    flex-wrap: wrap;
+  }
+  .pantry-input {
+    flex-basis: 100%;
+  }
+  .pantry-input-row > .btn {
+    margin-left: auto;
+  }
+  .shop-pantry {
+    padding-inline: var(--space-3);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

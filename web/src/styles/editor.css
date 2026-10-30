@@ -7,11 +7,17 @@
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 .editor-head h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-family: var(--font);
+  font-size: 1.2rem;
+  font-weight: 650;
+}
+.editor-progress {
+  min-width: 0;
+  margin-bottom: var(--space-5);
 }
 
 /* ---------- Three steps: 定个日子 → 挑菜挑店 → 备注与确认 (same flow on every width) ---------- */
@@ -25,14 +31,15 @@
 }
 .editor-step {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
   min-width: 0;
 }
 .editor-step-head h2 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.45rem;
-  line-height: 1.25;
+  font-family: var(--font-editorial);
+  font-size: clamp(1.65rem, 1.3rem + 1vw, 2rem);
+  line-height: 1.35;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 .editor-step-head h2:focus {
@@ -44,18 +51,87 @@
   border-radius: 4px;
 }
 .editor-step-head p {
-  margin: var(--space-1) 0 0;
+  margin: var(--space-2) 0 0;
+  font-size: 0.95rem;
 }
 .editor-step-head-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
 }
-.editor-step-head-row > div {
+.editor-step-head-row > div:first-child {
   min-width: 0;
   flex: 1 1 240px;
+}
+.editor-step-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-width: 0;
+}
+.editor-context {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 320px;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  text-align: left;
+}
+.editor-context > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.editor-context strong {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.editor-context > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--tomato-dark);
+}
+.editor-context > svg:last-child {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  color: var(--muted);
+}
+@media (hover: hover) {
+  .editor-context:hover { background: var(--surface-peach); }
+}
+.editor-meta {
+  padding: var(--space-5);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.editor-meta .meta-form > .field:has(#meal-time) {
+  margin-bottom: 0;
+}
+.editor-meta .meta-form > fieldset:first-child {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.editor-meta .segmented {
+  background: var(--surface-peach);
+}
+.editor-meta .segmented-option > span {
+  min-height: 52px;
 }
 .editor-issue {
   margin: 0;
@@ -88,7 +164,14 @@
 
 /* Stepper: numbers + short labels, compact enough for 375px, clickable as a whole. */
 .editor-stepper {
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
+  max-width: 760px;
+  padding: 4px;
+  background: var(--surface-peach);
+  border-radius: var(--radius);
+}
+.editor-progress > .notice {
+  margin-top: var(--space-3);
 }
 .editor-stepper ol {
   list-style: none;
@@ -99,23 +182,13 @@
   gap: 0;
 }
 .editor-stepper li { position: relative; min-width: 0; }
-.editor-stepper li:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 22px;
-  right: 0;
-  width: 16px;
-  height: 1px;
-  background: var(--line-strong);
-  pointer-events: none;
-}
 .editor-stepper-btn {
   width: 100%;
   min-height: var(--tap);
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px var(--space-2);
+  padding: 8px var(--space-3);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -135,8 +208,8 @@
   width: 26px;
   height: 26px;
   border-radius: var(--radius-pill);
-  background: var(--cream-2);
-  font-weight: 750;
+  background: var(--paper);
+  font-weight: 650;
   font-size: 0.85rem;
 }
 .editor-stepper-num svg {
@@ -150,17 +223,18 @@
 }
 .editor-stepper li.is-current .editor-stepper-btn {
   color: var(--tomato-dark);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
 }
 .editor-stepper li.is-current .editor-stepper-num {
   background: var(--tomato);
   color: #fff;
 }
 .editor-stepper li.is-done .editor-stepper-num {
-  background: var(--leaf-soft);
-  color: var(--ok);
+  background: var(--coral-soft);
+  color: var(--tomato-dark);
 }
 @media (max-width: 420px) {
-  .editor-stepper li:not(:last-child)::after { top: 18px; right: -8px; }
   .editor-stepper-btn {
     flex-direction: column;
     justify-content: center;
@@ -175,24 +249,53 @@
 .editor-pick {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4);
+  gap: var(--space-5);
   align-items: start;
 }
 @media (min-width: 760px) {
   .editor-pick {
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, 1fr) 264px;
   }
   .editor-summary {
     position: sticky;
     top: 80px;
     max-height: calc(100dvh - 96px - 80px);
     overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 }
 @media (min-width: 1100px) {
   .editor-pick {
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: minmax(0, 1fr) 304px;
   }
+}
+.editor-summary.card {
+  padding: var(--space-5);
+  background: var(--surface-blush);
+  border-color: transparent;
+  border-radius: 28px 28px var(--radius-lg) var(--radius-lg);
+  box-shadow: none;
+}
+.editor-summary .summary-head {
+  align-items: flex-start;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line-strong);
+}
+.editor-summary .summary-head-text .small {
+  margin-top: 4px;
+  line-height: 1.6;
+}
+.editor-summary .summary-mode {
+  width: 38px;
+  height: 38px;
+  background: var(--paper);
+}
+.editor-summary .summary-list li {
+  padding-left: 0;
+}
+.editor-summary .summary-subtitle {
+  margin-top: 0;
 }
 
 /* Actions: fixed to the bottom on phones (content keeps clear of it), sticky in-flow on wider screens. */
@@ -206,7 +309,7 @@
     calc(var(--safe-left) + var(--space-4));
   background: var(--paper);
   border-top: 1px solid var(--line-strong);
-  box-shadow: 0 -8px 24px -16px rgba(43, 36, 32, 0.25);
+  box-shadow: 0 -6px 18px -14px rgba(43, 36, 32, 0.2);
 }
 .editor-actions-inner {
   display: flex;
@@ -228,6 +331,17 @@
   .editor {
     padding-bottom: calc(96px + var(--safe-bottom));
   }
+  .editor-step-head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .editor-context {
+    flex: 1 1 200px;
+    max-width: none;
+  }
+  .editor-meta {
+    padding: var(--space-4);
+  }
 }
 @media (min-width: 760px) {
   .editor-actions {
@@ -235,9 +349,10 @@
     left: auto;
     right: auto;
     margin-top: var(--space-5);
-    padding: var(--space-3) 0 calc(var(--safe-bottom) + var(--space-3));
+    padding: var(--space-3) var(--space-4) calc(var(--safe-bottom) + var(--space-3));
     border-top: 1px solid var(--line);
-    background: var(--cream);
+    background: var(--paper);
+    border-radius: var(--radius) var(--radius) 0 0;
     box-shadow: none;
   }
   .editor-actions.is-narrow {
@@ -288,7 +403,8 @@
   align-items: center;
 }
 .summary-title {
-  font-weight: 750;
+  font-family: var(--font);
+  font-weight: 650;
   font-size: 1.1rem;
   margin: 0;
   overflow-wrap: anywhere;
@@ -296,6 +412,8 @@
 .summary-subtitle {
   font-size: 0.95rem;
   margin: var(--space-2) 0 0;
+  font-family: var(--font);
+  font-weight: 600;
 }
 .summary-empty {
   padding: 0;
@@ -313,7 +431,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding-left: var(--space-3);
+  padding: 6px 0 6px var(--space-3);
   border-bottom: 1px solid var(--line);
   animation: pop var(--dur) var(--ease);
 }
@@ -356,7 +474,9 @@
   height: 16px;
 }
 .summary-list li.is-chosen {
-  background: var(--coral-soft);
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+  padding-left: var(--space-2);
 }
 
 .draw-box {
@@ -388,7 +508,7 @@
 }
 .draw-picked strong {
   font-size: 1.2rem;
-  font-family: var(--font-display);
+  font-family: var(--font);
   color: var(--tomato-dark);
   overflow-wrap: anywhere;
 }
@@ -409,6 +529,18 @@
 .review-group-head h3 {
   margin: 0;
   font-size: 1.05rem;
+  font-family: var(--font);
+}
+.review-group.card {
+  box-shadow: none;
+  padding: var(--space-5);
+}
+.review-group:first-child {
+  background: var(--surface-peach);
+  border-color: transparent;
+}
+.note-field.card {
+  box-shadow: none;
 }
 .review-edit svg {
   width: 16px;

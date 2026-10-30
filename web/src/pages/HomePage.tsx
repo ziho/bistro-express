@@ -62,8 +62,11 @@ export function HomePage() {
       )}
 
       <div className="home-grid">
-        <section className="day-panel" aria-labelledby="day-title">
+        <section className="home-calendar" aria-labelledby="home-calendar-title">
+          <h2 id="home-calendar-title" className="section-title">用餐日期</h2>
           <DateStrip today={today} value={selected} onChange={select} markedDates={marked} />
+        </section>
+        <section className="day-panel" aria-labelledby="day-title">
           <div className="day-head">
             <h2 id="day-title">{selected === today ? `今天 · ${formatDateLabel(selected)}` : shortDateLabel(selected, today)}</h2>
             <div className="day-actions">

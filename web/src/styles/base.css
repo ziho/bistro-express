@@ -28,6 +28,13 @@ body {
   overflow-x: hidden;
 }
 
+/* Keep long dish names, notes and translated labels readable in narrow columns. */
+h1,
+h2,
+h3 {
+  overflow-wrap: anywhere;
+}
+
 h1,
 h2,
 h3 {
@@ -68,6 +75,7 @@ textarea {
 }
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

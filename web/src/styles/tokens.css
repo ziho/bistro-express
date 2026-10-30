@@ -27,12 +27,16 @@
   --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei',
     'Segoe UI', system-ui, sans-serif;
   --font-display: var(--font);
+  /* Editorial accents stay local to greetings; controls keep the readable system sans. */
+  --font-editorial: 'Iowan Old Style', 'Palatino Linotype', 'Songti SC', 'STSong', serif;
 
   --radius-sm: 10px;
   --radius: 14px;
-  --radius-lg: 16px;
+  --radius-lg: 20px;
   --content-width: 1248px;
   --surface-muted: #f7f0e6;
+  --surface-peach: #fff0df;
+  --surface-blush: #fbebe5;
   --radius-pill: 999px;
   --shadow-sm: 0 1px 2px rgba(43, 36, 32, 0.05);
   --shadow: 0 1px 2px rgba(43, 36, 32, 0.05), 0 8px 20px -14px rgba(120, 60, 30, 0.2);

@@ -1,5 +1,40 @@
 /* ---------- Venues: outings, purposes, locations, filters ---------- */
 
+/* Keep each venue together as a readable row beside the selection summary. */
+.editor-picker .rest-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.editor-picker .rest-card {
+  padding: 20px;
+  gap: var(--space-3);
+  box-shadow: none;
+}
+.editor-picker .rest-card-name {
+  font-family: var(--font);
+  font-size: 1.1rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+.editor-picker .rest-card-review {
+  font-size: 0.9rem;
+}
+.editor-picker .rest-card-actions {
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+}
+.editor-picker .rest-card-select {
+  flex: 0 1 auto;
+  min-width: 140px;
+}
+.editor-picker .rest-card.is-selected .rest-card-actions {
+  border-color: var(--line-strong);
+}
+@media (max-width: 420px) {
+  .editor-picker .rest-card { padding: var(--space-4); }
+  .editor-picker .rest-card-select { flex: 1 1 auto; min-width: 0; }
+}
+
 .segmented-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }

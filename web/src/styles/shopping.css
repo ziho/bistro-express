@@ -13,7 +13,10 @@
 
 .shop-section {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  border-top: 4px solid var(--coral);
+  background: var(--paper);
+  box-shadow: none;
 }
 .shop-section > * {
   min-width: 0;
@@ -31,15 +34,66 @@
 .shop-head .section-title {
   margin-bottom: 0;
 }
-.shop-counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px var(--space-4);
-  margin: 0;
-  font-weight: 700;
-}
-.shop-counts > span:first-child {
+.shop-head .section-title > svg {
   color: var(--tomato-dark);
+}
+.shop-overview {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--coral-soft);
+}
+.shop-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  font-weight: 500;
+}
+.shop-counts > span {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+.shop-counts strong {
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.shop-counts > span:first-child,
+.shop-counts > span:first-child strong {
+  color: var(--tomato-dark);
+}
+.shop-progress {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--ink-2);
+}
+.shop-progress progress {
+  display: block;
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  appearance: none;
+  background: var(--paper);
+  color: var(--tomato);
+}
+.shop-progress progress::-webkit-progress-bar {
+  background: var(--paper);
+}
+.shop-progress progress::-webkit-progress-value {
+  border-radius: var(--radius-pill);
+  background: var(--tomato);
+}
+.shop-progress progress::-moz-progress-bar {
+  border-radius: var(--radius-pill);
+  background: var(--tomato);
 }
 .shop-subtitle {
   font-size: 0.95rem;
@@ -52,7 +106,7 @@
   background: var(--cream);
 }
 .shop-all-done {
-  color: var(--ok);
+  color: var(--tomato-dark);
   font-weight: 650;
 }
 .shop-missing-title {
@@ -80,9 +134,9 @@
 }
 .shop-item {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-3) 0;
+  padding: var(--space-4) 0;
   border-top: 1px solid var(--line);
 }
 .shop-item:first-child {
@@ -100,7 +154,7 @@
   margin: 0;
   min-width: 0;
   font-size: 1.05rem;
-  font-weight: 750;
+  font-weight: 650;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -112,12 +166,12 @@
   outline-offset: 2px;
 }
 .shop-badge-have {
-  background: var(--sky-soft);
-  color: #2c5585;
+  background: var(--cream-2);
+  color: var(--ink-2);
 }
 .shop-badge-bought {
-  background: var(--leaf-soft);
-  color: #255f33;
+  background: var(--coral-soft);
+  color: var(--tomato-dark);
 }
 .shop-review {
   margin: 0;
@@ -144,12 +198,13 @@
   justify-content: space-between;
   gap: 4px var(--space-2);
   min-width: 0;
-  padding: 6px var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--cream);
+  padding: 2px 0 2px var(--space-3);
+  border-left: 2px solid var(--line);
+  border-radius: 0;
+  background: transparent;
 }
 .shop-source-manual {
-  background: var(--butter-soft);
+  border-left-color: var(--coral);
 }
 .shop-source-main {
   flex: 1 1 12rem;
@@ -177,7 +232,7 @@
   overflow-wrap: anywhere;
 }
 .shop-origin-manual {
-  color: #7a5200;
+  color: var(--tomato-dark);
   font-weight: 650;
 }
 .shop-spelling {
@@ -203,7 +258,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
 }
 .shop-status-btn {
   display: inline-flex;
@@ -212,13 +267,13 @@
   gap: 4px;
   min-height: var(--tap);
   min-width: var(--tap);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 0.95rem;
-  font-weight: 650;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 550;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: background var(--dur-fast), border-color var(--dur-fast);
@@ -234,19 +289,13 @@
 }
 .shop-status-btn[aria-pressed='true'] {
   cursor: default;
-  color: #fff;
+  color: var(--tomato-dark);
 }
-.shop-status-pending[aria-pressed='true'] {
-  background: var(--tomato);
-  border-color: var(--tomato);
-}
-.shop-status-have[aria-pressed='true'] {
-  background: var(--sky);
-  border-color: var(--sky);
-}
+.shop-status-pending[aria-pressed='true'],
+.shop-status-have[aria-pressed='true'],
 .shop-status-bought[aria-pressed='true'] {
-  background: var(--ok);
-  border-color: var(--ok);
+  background: var(--coral-soft);
+  border-color: var(--coral-soft);
 }
 @media (hover: hover) {
   .shop-status-btn:hover:not([aria-disabled='true']):not([aria-pressed='true']) {
@@ -261,8 +310,10 @@
 }
 
 .shop-done {
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-2);
+  border-top: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
 }
 .shop-done > summary {
   display: flex;
@@ -293,7 +344,7 @@
   transform: rotate(45deg);
 }
 .shop-done[open] > summary {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 .shop-done .shop-item-name {
   color: var(--ink-2);
@@ -310,14 +361,15 @@
   display: grid;
   gap: 2px;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--coral);
+  border-radius: 0;
   background: var(--cream);
   overflow-wrap: anywhere;
 }
 
 .shop-add {
   border-top: 1px solid var(--line);
-  padding-top: var(--space-3);
+  padding-top: var(--space-4);
 }
 .shop-add > p {
   margin: 0 0 var(--space-2);
@@ -354,7 +406,7 @@
 
 .shop-preview {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
 }
 .shop-preview .notice,
@@ -363,6 +415,27 @@
 }
 .shop-preview-hint {
   align-items: center;
+  background: var(--coral-soft);
+}
+
+@media (max-width: 420px) {
+  .shop-overview {
+    padding: var(--space-3);
+  }
+  .shop-counts {
+    gap: var(--space-2);
+  }
+  .shop-status-btn {
+    padding-inline: 8px;
+    font-size: 0.8125rem;
+  }
+  .shop-status-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+  .shop-source {
+    padding-left: var(--space-2);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
